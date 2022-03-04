@@ -2,6 +2,7 @@
 
 namespace Anonymizer\Anonymize;
 
+use Faker\Factory;
 use Faker\Generator;
 use function Anonymizer\Utilities\get_customer_user_ids;
 use function Anonymizer\Utilities\get_customers;
@@ -33,9 +34,7 @@ function maybe_anonymize_data() {
  * @return void
  */
 function anonymize_data() {
-	global $wpdb;
-
-	$faker  = \Faker\Factory::create();
+	$faker  = Factory::create();
 
 	anonymize_users( $faker );
 

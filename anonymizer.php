@@ -20,4 +20,15 @@ require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/includes/anonymize.php';
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/common.php';
+require_once __DIR__ . '/includes/delete.php';
 require_once __DIR__ . '/includes/utilities.php';
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once __DIR__ . '/includes/cli/anonymize.php';
+}
+
+add_action( 'admin_init', function(){
+	if ( isset( $_GET['delete_all_users' ] ) ) {
+		\Anonymizer\Delete\delete_users();
+	}
+});
