@@ -9,25 +9,6 @@ use function Anonymizer\Utilities\get_customers;
 use function Anonymizer\Utilities\get_orders;
 use function Anonymizer\Utilities\get_users;
 
-add_action( 'plugins_loaded', __NAMESPACE__ . '\maybe_anonymize_data' );
-
-/**
- * If this site isn't currently on production, and the data hasn't been anonymized yet, it will do that now.
- */
-function maybe_anonymize_data() {
-	// Check if this is production.
-	if ( 'production' === wp_get_environment_type() ) {
-		return;
-	}
-
-	// Check if data has already been anonymized.
-	if ( get_option( 'anonymized_status' ) ) {
-		return;
-	}
-
-	anonymize_data();
-}
-
 /**
  * Anonymizes user info by replacing it with fake data.
  *
