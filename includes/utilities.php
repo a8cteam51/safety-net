@@ -39,7 +39,7 @@ function get_orders( int $offset = 0 ): array {
 	global $wpdb;
 
 	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' LIMIT 1000 OFFSET %d", $offset ), ARRAY_A
+		$wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' LIMIT 1000 OFFSET %d", $offset ), ARRAY_A
 	);
 }
 
