@@ -15,7 +15,7 @@ use function Anonymizer\Utilities\get_users;
  * @return void
  */
 function anonymize_data() {
-	$faker  = Factory::create();
+	$faker = Factory::create();
 
 	anonymize_users( $faker );
 
@@ -33,13 +33,13 @@ function anonymize_data() {
  */
 function anonymize_users( Generator $faker ) {
 	$customer_ids = get_customer_user_ids();
-	$offset = 0;
+	$offset       = 0;
 
 	while ( true ) {
 		$users = get_users( $offset );
 
 		// The while loop ends when there are no more users.
-		if ( empty ( $users ) ) {
+		if ( empty( $users ) ) {
 			break;
 		}
 
@@ -50,18 +50,18 @@ function anonymize_users( Generator $faker ) {
 			}
 
 			// Default user meta to update.
-			$meta_input = [
+			$meta_input = array(
 				'first_name'  => $faker->firstName(),
 				'last_name'   => $faker->lastName(),
 				'nickname'    => $faker->firstName(),
 				'description' => $faker->sentence(),
-			];
+			);
 
 			// If this user is a WooCommerce customer, update those fields too.
 			if ( in_array( $user['ID'], $customer_ids ) ) {
 				$meta_input = array_merge(
 					$meta_input,
-					[
+					array(
 						'billing_first_name'  => $faker->firstName(),
 						'shipping_first_name' => $faker->firstName(),
 						'billing_last_name'   => $faker->lastName(),
@@ -80,12 +80,12 @@ function anonymize_users( Generator $faker ) {
 						'shipping_country'    => 'US',
 						'billing_email'       => $faker->unique()->safeEmail(),
 						'billing_phone'       => $faker->phoneNumber(),
-					]
+					)
 				);
 			}
 
 			wp_insert_user(
-				[
+				array(
 					'ID'                  => $user['ID'],
 					'user_email'          => $faker->unique()->safeEmail(),
 					'user_url'            => $faker->url(),
@@ -94,8 +94,8 @@ function anonymize_users( Generator $faker ) {
 					'user_login'          => $faker->unique()->userName(),
 					'nice_name'           => mb_substr( $faker->unique()->userName(), 0, 50 ),
 					'user_pass'           => wp_generate_password( 32, true, true ),
-					'meta_input'          => $meta_input
-				]
+					'meta_input'          => $meta_input,
+				)
 			);
 		}
 
@@ -115,7 +115,7 @@ function anonymize_orders( Generator $faker ) {
 		$orders = get_orders( $offset );
 
 		// The while loop ends when there are no more users.
-		if ( empty ( $orders ) ) {
+		if ( empty( $orders ) ) {
 			break;
 		}
 
@@ -124,19 +124,20 @@ function anonymize_orders( Generator $faker ) {
 
 			if ( 'shop_subscription' === get_post_type( $order ) ) {
 				wp_update_post(
-					[	'ID' 			 => $order['ID'],
-							'meta_input' => [
-								'_payment_method' 			=> 't51_fake_payment_gateway',
-								'_payment_method_title' 	=> 'Team 51 Fake Payment Gateway',
-							]
-					]
+					array(
+						'ID'         => $order['ID'],
+						'meta_input' => array(
+							'_payment_method'       => 't51_fake_payment_gateway',
+							'_payment_method_title' => 'Team 51 Fake Payment Gateway',
+						),
+					)
 				);
 			}
 
 			wp_update_post(
-				[
-					'ID'          => $order['ID'],
-					'meta_input' => [
+				array(
+					'ID'         => $order['ID'],
+					'meta_input' => array(
 						'_customer_ip_address'    => $faker->ipv4(),
 						'_customer_user_agent'    => $faker->userAgent(),
 						'_billing_first_name'     => $faker->firstName(),
@@ -159,8 +160,8 @@ function anonymize_orders( Generator $faker ) {
 						'_billing_phone'          => $faker->phoneNumber(),
 						'_billing_address_index'  => $faker->address(),
 						'_shipping_address_index' => $faker->address(),
-					],
-				]
+					),
+				)
 			);
 		}
 
@@ -182,7 +183,7 @@ function anonymize_customers( Generator $faker ) {
 		$customers = get_customers( $offset );
 
 		// The while loop ends when there are no more users.
-		if ( empty ( $customers ) ) {
+		if ( empty( $customers ) ) {
 			break;
 		}
 
@@ -201,7 +202,7 @@ function anonymize_customers( Generator $faker ) {
 						state = %s
 					WHERE
 						customer_id = %d",
-					[
+					array(
 						$faker->userName(),
 						$faker->firstName(),
 						$faker->lastName(),
@@ -211,7 +212,7 @@ function anonymize_customers( Generator $faker ) {
 						$faker->city(),
 						$faker->stateAbbr(),
 						$customer['customer_id'],
-					]
+					)
 				)
 			);
 		}
