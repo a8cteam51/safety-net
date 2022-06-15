@@ -119,7 +119,20 @@ function anonymize_orders( Generator $faker ) {
 			break;
 		}
 
+		// For subscriptions, change the payment method & title to a fake gateway
 		foreach ( $orders as $order ) {
+
+			if ( 'shop_subscription' === get_post_type( $order ) ) {
+				wp_update_post(
+					[	'ID' 			 => $order['ID'],
+							'meta_input' => [
+								'_payment_method' 			=> 't51_fake_payment_gateway',
+								'_payment_method_title' 	=> 'Team 51 Fake Payment Gateway',
+							]
+					]
+				);
+			}
+
 			wp_update_post(
 				[
 					'ID'          => $order['ID'],
