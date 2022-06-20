@@ -41,7 +41,7 @@ function enqueue_scripts( string $hook_suffix ) {
  */
 function create_options_menu() {
 	add_options_page(
-		esc_html__( 'Safety Net - Settings', 'safety-net' ),
+		esc_html__( 'Safety Net - for Team 51 Development Sites', 'safety-net' ),
 		esc_html__( 'Safety Net', 'safety-net' ),
 		'manage_options',
 		'safety_net_options',
@@ -70,15 +70,15 @@ function settings_init() {
 
 	add_settings_field(
 		'safety_net_anonymize_users',
-		esc_html__( 'Anonymize All Users', 'safety-net' ),
+		esc_html__( 'Anonymize', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
 		[
 			'type' => 'button',
 			'id' => 'safety-net-anonymize-users',
-			'button_text' => esc_html__( 'Anonymize Users', 'safety-net' ),
-			'description' => esc_html__( 'Replaces all non-admin user data with random fake data.', 'safety-net' ),
+			'button_text' => esc_html__( 'Anonymize', 'safety-net' ),
+			'description' => esc_html__( 'Replaces all non-admin user data with random fake data. This anonymizes user accounts, Woo orders and Woo Subscriptions.', 'safety-net' ),
 		]
 	);
 
@@ -92,7 +92,7 @@ function settings_init() {
 			'type' => 'button',
 			'id' => 'safety-net-delete-users',
 			'button_text' => esc_html__( 'Delete Users', 'safety-net' ),
-			'description' => esc_html__( 'Deletes all non-admin users.', 'safety-net' ),
+			'description' => esc_html__( 'Deletes all non-admin users. Caution: Woo orders and subscriptions retain user data, so if this is a Woo store, you\'re probably better off anonymizing everything.', 'safety-net' ),
 		]
 	);
 }
