@@ -1,13 +1,13 @@
 <?php
 
-namespace Anonymizer\Anonymize;
+namespace SafetyNet\Anonymize;
 
 use Faker\Factory;
 use Faker\Generator;
-use function Anonymizer\Utilities\get_customer_user_ids;
-use function Anonymizer\Utilities\get_customers;
-use function Anonymizer\Utilities\get_orders;
-use function Anonymizer\Utilities\get_users;
+use function SafetyNet\Utilities\get_customer_user_ids;
+use function SafetyNet\Utilities\get_customers;
+use function SafetyNet\Utilities\get_orders;
+use function SafetyNet\Utilities\get_users;
 
 /**
  * Anonymizes user info by replacing it with fake data.

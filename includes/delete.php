@@ -1,6 +1,6 @@
 <?php
 
-namespace Anonymizer\Delete;
+namespace SafetyNet\Delete;
 
 /**
  * Deletes all users and their data, except administrators.

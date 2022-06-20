@@ -1,6 +1,6 @@
 <?php
 
-namespace Anonymizer\Utilities;
+namespace SafetyNet\Utilities;
 
 /**
  * Returns an array of up to 1,000 real users from the database.

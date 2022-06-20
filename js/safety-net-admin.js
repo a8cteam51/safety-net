@@ -1,9 +1,9 @@
 'use strict';
 
 (function (window, document, $) {
-	const anonymizeUsersButton = document.getElementById( 'anonymizer-anonymize-users' );
-	const deleteUsersButton = document.getElementById( 'anonymizer-delete-users' );
-	const settingsTitle = document.getElementById( 'anonymizer-settings-title' );
+	const anonymizeUsersButton = document.getElementById( 'safety-net-anonymize-users' );
+	const deleteUsersButton = document.getElementById( 'safety-net-delete-users' );
+	const settingsTitle = document.getElementById( 'safety-net-settings-title' );
 
 	function anonymizeUsers() {
 		if ( ! confirm( 'Are you user you want to anonymize all users? This cannot be undone!') ) {
@@ -11,7 +11,7 @@
 		}
 
 		ajax({
-			action: 'anonymizer_anonymize_users',
+			action: 'safety_net_anonymize_users',
 			nonce: anonymizeUsersButton.dataset.nonce,
 		});
 	}
@@ -22,7 +22,7 @@
 		}
 
 		ajax({
-			action: 'anonymizer_delete_users',
+			action: 'safety_net_delete_users',
 			nonce: deleteUsersButton.dataset.nonce,
 		});
 	}
@@ -31,7 +31,7 @@
 		$.ajax(
 			{
 				type : 'POST',
-				url : window.anonymizer_params.ajax_url,
+				url : window.safety_net_params.ajax_url,
 				data : data,
 				dataType: 'json',
 				beforeSend: function() {
@@ -72,9 +72,9 @@
 			classes += ' notice-' + options.type;
 		}
 
-		$(settingsTitle).after('<div class="' + classes + '"><p>' + options.message + '</p><button id="anonymizer-dismiss-notice" type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss this notice.</span></button></div>');
+		$(settingsTitle).after('<div class="' + classes + '"><p>' + options.message + '</p><button id="safety-net-dismiss-notice" type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss this notice.</span></button></div>');
 
-		$('#anonymizer-dismiss-notice').on('click', hideAdminNotice);
+		$('#safety-net-dismiss-notice').on('click', hideAdminNotice);
 	}
 
 	function hideAdminNotice() {

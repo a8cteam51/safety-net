@@ -1,22 +1,22 @@
 <?php
 
 	use Faker\Factory;
-	use function Anonymizer\Anonymize\anonymize_orders;
-	use function Anonymizer\Anonymize\anonymize_users;
-	use function Anonymizer\Anonymize\anonymize_customers;
-	use function Anonymizer\Delete\delete_users;
+	use function SafetyNet\Anonymize\anonymize_orders;
+	use function SafetyNet\Anonymize\anonymize_users;
+	use function SafetyNet\Anonymize\anonymize_customers;
+	use function SafetyNet\Delete\delete_users;
 
 	/**
 	 * Anonymizer command line utilities.
 	 */
-	class Anonymizer_CLI extends WP_CLI_Command {
+	class SafteyNet_CLI extends WP_CLI_Command {
 
 		/**
 		 * Anonymize a user and their data
 		 *
 		 * ## EXAMPLES
 		 *
-		 * wp anonymizer anonymize
+		 * wp safety-net anonymize
 		 *
 		 */
 		public function anonymize( $args ) {
@@ -38,7 +38,7 @@
 		 *
 		 * ## EXAMPLES
 		 *
-		 * wp anonymizer delete
+		 * wp safety-net delete
 		 *
 		 */
 		public function delete() {
@@ -48,4 +48,4 @@
 		}
 }
 
-WP_CLI::add_command( 'anonymizer', 'Anonymizer_CLI' );
+WP_CLI::add_command( 'safety-net', 'SafetyNet_CLI' );
