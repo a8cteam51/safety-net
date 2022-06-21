@@ -146,6 +146,8 @@ function anonymize_orders( Generator $faker ) {
 						'_billing_phone'          => $faker->phoneNumber(),
 						'_billing_address_index'  => $faker->address(),
 						'_shipping_address_index' => $faker->address(),
+						'_payment_method'					=> 'FakePaymentMethod',
+						'_payment_method_title' 	=> 'FakePaymentMethod',
 					],
 				]
 			);
