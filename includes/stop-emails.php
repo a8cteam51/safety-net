@@ -1,4 +1,13 @@
 <?php
+// If this file is called directly, abort.
+if ( ! defined( 'WPINC' ) ) {
+	die;
+}
+
+// Load PHPMailer class, so we can subclass it.
+require_once ABSPATH . WPINC . '/PHPMailer/PHPMailer.php';
+require_once ABSPATH . WPINC . '/PHPMailer/Exception.php';
+class Stop_Emails_PHPMailer extends PHPMailer\PHPMailer\PHPMailer {}
 
 /**
  * Subclass of PHPMailer to prevent Sending.
