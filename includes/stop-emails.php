@@ -86,8 +86,7 @@ class Stop_Emails {
 	 */
 	public function add_hooks() {
 		add_action( 'plugins_loaded', array( $this, 'replace_phpmailer' ) );
-		add_action( 'admin_notices', array( $this, 'warning' ) );
-		add_action( 'init', array( $this, 'load_textdomain' ) );
+		add_action( 'admin_notices', array( $this, 'show_warning' ) );
 
 		/**
 		 * Force BuddyPress to use wp_mail() rather than its own BP_PHPMailer class
@@ -126,7 +125,7 @@ class Stop_Emails {
 	 * Display Warning that emails are being stopped.
 	 *
 	 */
-	public function warning() {
+	public function show_warning() {
 		echo "\n<div class='error'><p>";
 		echo '<strong>';
 			esc_html_e( 'Emails Disabled', 'safety-net' );
@@ -136,18 +135,6 @@ class Stop_Emails {
 		esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent.  ', 'safety-net' );
 		esc_html_e( 'To send emails, disable the plugin.', 'safety-net' );
 		echo '</p></div>';
-	}
-
-	/**
-	 * Load textdomain for translations.
-	 *
-	 * @since 0.8.0
-	 */
-	public function load_textdomain() {
-		$domain = 'safety-net';
-		$plugin_rel_path = dirname( plugin_basename( __FILE__ ) ) . '/languages';
-
-		load_plugin_textdomain( $domain, false, $plugin_rel_path );
 	}
 
 }
