@@ -137,6 +137,19 @@ class Stop_Emails {
 		esc_html_e( 'To send emails, disable the plugin.', 'safety-net' );
 		echo '</p></div>';
 	}
+
+	/**
+	 * Load textdomain for translations.
+	 *
+	 * @since 0.8.0
+	 */
+	public function load_textdomain() {
+		$domain = 'safety-net';
+		$plugin_rel_path = dirname( plugin_basename( __FILE__ ) ) . '/languages';
+
+		load_plugin_textdomain( $domain, false, $plugin_rel_path );
+	}
+
 }
 
 new Stop_Emails;
