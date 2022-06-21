@@ -1,5 +1,5 @@
 # Safety Net
-<img align="right" width="200" height="200" src="safety-net.png">
+
 **for Team51 Development Sites**
 
 ## What's this?
