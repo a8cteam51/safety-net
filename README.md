@@ -5,13 +5,13 @@
 This is a plugin by Team 51 that secures sensitive data on development, staging, and local sites. It anonymizes personally identifiable information as well as prevents sites from acting on user data (e.g. sending emails, processing renewals, etc.)
 
 ## Existing Features
-- Anonymize Users: manual button that replaces user table fields such as name and email address with randomly generated fakes
-- Anonymize Orders (and subscriptions): replaces user information in WooCommerce orders (and subscriptions) with randomly generated fakes. Also detaches individual subscriptions from their payment gateways.
+- Anonymize: Manual button which replaces all non-admin user data with fake data. Works on the user table, WooCommerce orders and subscriptions. Also detaches individual subscriptions from their payment methods.
+- Delete Users: Manual button which deletes users from the site. Should be used with caution, and only if Woo payment gateways are deactivated.
 - Adds WP CLI commands to anonymize or delete all non-admin users: `wp safety-net anonymize` and `wp safety-net delete`
+- Stop Emails: When Saftey Net is activated, WordPress will be blocked from sending emails. (Note: may not block SMTP or other plugins from doing so)
 
 ## Planned Features
-- Deactivate plugins: on activation, this plugins will deactivate all blacklisted plugins, WooCommerce payment gateways, and SMTP plugins
-- Stop emails: will stop WP_Mail from sending emails
+- Deactivate plugins: on activation, the Safety Net plugin will deactivate all blacklisted plugins, all WooCommerce payment gateways, and deactivate any SMTP plugins
 - Cheese grater: will integrate with the grater-3000 API to randomly grate some parmesan cheese for you
 
 ## How to use?
