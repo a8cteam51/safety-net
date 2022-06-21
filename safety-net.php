@@ -22,6 +22,7 @@ require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/common.php';
 require_once __DIR__ . '/includes/delete.php';
 require_once __DIR__ . '/includes/utilities.php';
+require_once __DIR__ . '/includes/stop-emails.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/cli/anonymize.php';
