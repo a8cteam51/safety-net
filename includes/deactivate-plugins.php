@@ -56,16 +56,10 @@ function deactivate_plugins() {
 * Clear options such as API keys so that plugins won't talk to 3rd parties
 */
 function scrub_options() {
+  $options_to_clear = array( 'klaviyo_settings', 'klaviyo_api_key', 'woocommerce_stripe_account_settings', 'woocommerce_stripe_api_settings', 'woocommerce_stripe_settings', 'woocommerce_ppcp-gateway_settings', 'woocommerce-ppcp-settings', 'woocommerce_paypal_settings', 'woocommerce_shipstation_auth_key', 'woocommerce_woocommerce_payments_settings', );
 
-  if ( get_option('klaviyo_settings') ) update_option( 'klaviyo_settings', '' );
-  if ( get_option('klaviyo_api_key') ) update_option( 'klaviyo_api_key', '' );
-  if ( get_option('woocommerce_stripe_account_settings') ) update_option( 'woocommerce_stripe_account_settings', '' );
-  if ( get_option('woocommerce_stripe_api_settings') ) update_option( 'woocommerce_stripe_api_settings', '' );
-  if ( get_option('woocommerce_stripe_settings') ) update_option( 'woocommerce_stripe_settings', '' );
-  if ( get_option('woocommerce_ppcp-gateway_settings') ) update_option( 'woocommerce_ppcp-gateway_settings', '' );
-  if ( get_option('woocommerce-ppcp-settings') ) update_option( 'woocommerce-ppcp-settings', '' );
-  if ( get_option('woocommerce_paypal_settings') ) update_option( 'woocommerce_paypal_settings', '' );
-  if ( get_option('woocommerce_shipstation_auth_key') ) update_option( 'woocommerce_shipstation_auth_key', '' );
-  if ( get_option('woocommerce_woocommerce_payments_settings') ) update_option( 'woocommerce_woocommerce_payments_settings', '' );
+  foreach ( $options_to_clear as $option ) {
+    if ( get_option( $option ) ) update_option( $option, '' );
+  }
 
 }
