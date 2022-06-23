@@ -36,3 +36,9 @@ add_action( 'admin_init', function(){
 		\SafetyNet\Delete\delete_users();
 	}
 });
+
+add_action('plugins_loaded', function() {
+	new \SafetyNet\Background_Anonymize_User();
+	new \SafetyNet\Background_Anonymize_Order();
+	new \SafetyNet\Background_Anonymize_Customer();
+});
