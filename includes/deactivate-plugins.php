@@ -2,19 +2,9 @@
 
 namespace SafetyNet\DeactivatePlugins;
 
-function run_at_activation() {
-  deactivate_payment_gateways();
-  deactivate_plugins();
-}
-register_activation_hook( __FILE__, 'run_at_activation' );
-
 /*
-* Deactivate Woo payment gateways
+* Deactivate plugins from a blacklist
 */
-function deactivate_payment_gateways() {
-
-}
-
 function deactivate_plugins() {
 
   if ( ! function_exists( 'get_plugins' ) ) {
@@ -22,30 +12,60 @@ function deactivate_plugins() {
   }
 
   $all_installed_plugins = array_keys( get_plugins() );
-  $blacklisted_plugins = array( 'smtp', 'wp-algolia', 'easy-wp-smtp', 'fluent-smtp', 'gmail-smtp', 'in-stock-mailer-for-wc', 'klaviyo', 'tribe-klaviyo', 'wp-mail-bank', 'mailchimp-woocommerce', 'mailgun', 'mailchimp-for-wp', 'metorik-helper', 'sendinblue', 'postman-smtp', 'wp-sendgrid-mailer', 'smtp-mailer', 'socketlabs', 'woocommerce-shipstation', 'wp-console', 'wp-mail-smtp', 'wp-ses', 'algolia', 'wp-smtp', 'zapier',  );
 
-  foreach ( $blacklisted_plugins as $blacklisted_plugin ) {
+  // blacklist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
+  $blacklisted_plugins = array( 'smtp', 'in-stock-mailer-for-wc', 'klaviyo', 'wp-mail-bank', 'mailchimp', 'mailgun', 'mailchimp', 'metorik', 'sendinblue', 'wp-sendgrid-mailer', 'socketlabs', 'shipstation', 'wp-console', 'wp-ses', 'algolia', 'zapier',  );
 
-    foreach ( $all_installed_plugins as $installed_plugin ) {
+  // let's tack on all the Woo payment methods, in case we can deactivate any of those too
+  if ( class_exists( 'woocommerce' ) ) {
+    $installed_payment_methods = array_keys( WC()->payment_gateways->payment_gateways() );
+    foreach ( $installed_payment_methods as $key => $installed_payment_method ) {
+      $installed_payment_method = str_replace( '_', '-', $installed_payment_method );
+      $blacklisted_plugins[] = $installed_payment_method;
+    }
+  }
 
-      if ( strstr( $blacklisted_plugin, $installed_plugin ) ) {
+  foreach ( $all_installed_plugins as $key => $installed_plugin ) {
 
-        if ( 'klaviyo' == $blacklisted_plugin ) {
-          // delete klaviyo_settings option before deactivation
-          delete_option( 'klaviyo_settings' );
+    if ( stristr( $installed_plugin, 'safety-net' ) ) {
+      continue;
+    }
+
+    foreach ( $blacklisted_plugins as $blacklisted_plugin ) {
+
+      if ( stristr( $installed_plugin, $blacklisted_plugin ) ) {
+
+        // remove plugin silently from active plugins list without triggering hooks
+        $current = get_option( 'active_plugins', array() );
+        $key = array_search( $installed_plugin, $current );
+        if ( false !== $key ) {
+          array_splice( $current, $key, 1 );
         }
-        if ( 'tribe-klaviyo' == $blacklisted_plugin ) {
-          // delete klaviyo_api_key option before deactivation
-          delete_option( 'klaviyo_api_key' );
-        }
-
-        deactivate_plugins( $installed_plugin, true ); // deactivate it silently and don't trigger any deactivation hooks
-        break; // break out of nested loop once a match has been made
+        update_option('active_plugins', $current);
+        break; // break out of nested loop once plugin has been deactivated
 
       }
 
     }
 
   }
+
+}
+
+/*
+* Clear options such as API keys so that plugins won't talk to 3rd parties
+*/
+function scrub_options() {
+
+  if ( get_option('klaviyo_settings') ) update_option( 'klaviyo_settings', '' );
+  if ( get_option('klaviyo_api_key') ) update_option( 'klaviyo_api_key', '' );
+  if ( get_option('woocommerce_stripe_account_settings') ) update_option( 'woocommerce_stripe_account_settings', '' );
+  if ( get_option('woocommerce_stripe_api_settings') ) update_option( 'woocommerce_stripe_api_settings', '' );
+  if ( get_option('woocommerce_stripe_settings') ) update_option( 'woocommerce_stripe_settings', '' );
+  if ( get_option('woocommerce_ppcp-gateway_settings') ) update_option( 'woocommerce_ppcp-gateway_settings', '' );
+  if ( get_option('woocommerce-ppcp-settings') ) update_option( 'woocommerce-ppcp-settings', '' );
+  if ( get_option('woocommerce_paypal_settings') ) update_option( 'woocommerce_paypal_settings', '' );
+  if ( get_option('woocommerce_shipstation_auth_key') ) update_option( 'woocommerce_shipstation_auth_key', '' );
+  if ( get_option('woocommerce_woocommerce_payments_settings') ) update_option( 'woocommerce_woocommerce_payments_settings', '' );
 
 }

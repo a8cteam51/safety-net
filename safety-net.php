@@ -34,3 +34,13 @@ add_action( 'admin_init', function(){
 		\SafetyNet\Delete\delete_users();
 	}
 });
+
+/*
+*	Deactivagte plugins and clear options as soon as Safety Net plugin is activated.
+* You can find these in includes/deactivate-plugins.php
+*/
+function run_at_activation() {
+  \SafetyNet\DeactivatePlugins\scrub_options();
+  \SafetyNet\DeactivatePlugins\deactivate_plugins();
+}
+register_activation_hook( __FILE__, 'run_at_activation' );
