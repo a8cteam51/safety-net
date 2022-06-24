@@ -1,10 +1,18 @@
 <?php
+/**
+ * Background Anonymize User Class
+ *
+ * @package SafetyNet
+ */
 
 namespace SafetyNet;
 
 use Faker\Factory;
 use function SafetyNet\Utilities\get_customer_user_ids;
 
+/**
+ * Background Anonymize User class
+ */
 class Background_Anonymize_User extends \WP_Background_Process {
 
 	/**
@@ -24,18 +32,18 @@ class Background_Anonymize_User extends \WP_Background_Process {
 		$faker        = Factory::create();
 
 		// Default user meta to update.
-		$meta_input = [
+		$meta_input = array(
 			'first_name'  => $faker->firstName(),
 			'last_name'   => $faker->lastName(),
 			'nickname'    => $faker->firstName(),
 			'description' => $faker->sentence(),
-		];
+		);
 
 		// If this user is a WooCommerce customer, update those fields too.
-		if ( in_array( $item['ID'], $customer_ids ) ) {
+		if ( in_array( $item['ID'], $customer_ids, true ) ) {
 			$meta_input = array_merge(
 				$meta_input,
-				[
+				array(
 					'billing_first_name'  => $faker->firstName(),
 					'shipping_first_name' => $faker->firstName(),
 					'billing_last_name'   => $faker->lastName(),
@@ -54,12 +62,12 @@ class Background_Anonymize_User extends \WP_Background_Process {
 					'shipping_country'    => 'US',
 					'billing_email'       => $faker->unique()->safeEmail(),
 					'billing_phone'       => $faker->phoneNumber(),
-				]
+				)
 			);
 		}
 
 		wp_insert_user(
-			[
+			array(
 				'ID'                  => $item['ID'],
 				'user_email'          => $faker->unique()->safeEmail(),
 				'user_url'            => $faker->url(),
@@ -68,8 +76,8 @@ class Background_Anonymize_User extends \WP_Background_Process {
 				'user_login'          => $faker->unique()->userName(),
 				'nice_name'           => mb_substr( $faker->unique()->userName(), 0, 50 ),
 				'user_pass'           => wp_generate_password( 32, true, true ),
-				'meta_input'          => $meta_input
-			]
+				'meta_input'          => $meta_input,
+			)
 		);
 
 		// Returning false removes the item from the queue

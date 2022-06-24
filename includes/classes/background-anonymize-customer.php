@@ -1,9 +1,17 @@
 <?php
+/**
+ * Background Anonymize Customer Class
+ *
+ * @package SafetyNet
+ */
 
 namespace SafetyNet;
 
 use Faker\Factory;
 
+/**
+ * Background Anonymize Customer class
+ */
 class Background_Anonymize_Customer extends \WP_Background_Process {
 
 	/**
@@ -37,7 +45,7 @@ class Background_Anonymize_Customer extends \WP_Background_Process {
 						state = %s
 					WHERE
 						customer_id = %d",
-				[
+				array(
 					$faker->userName(),
 					$faker->firstName(),
 					$faker->lastName(),
@@ -47,7 +55,7 @@ class Background_Anonymize_Customer extends \WP_Background_Process {
 					$faker->city(),
 					$faker->stateAbbr(),
 					$item['customer_id'],
-				]
+				)
 			)
 		);
 

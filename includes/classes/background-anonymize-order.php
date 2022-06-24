@@ -1,9 +1,17 @@
 <?php
+/**
+ * Background Anonymize Order Class
+ *
+ * @package SafetyNet
+ */
 
 namespace SafetyNet;
 
 use Faker\Factory;
 
+/**
+ * Background Anonymize Order class.
+ */
 class Background_Anonymize_Order extends \WP_Background_Process {
 
 	/**
@@ -22,9 +30,9 @@ class Background_Anonymize_Order extends \WP_Background_Process {
 		$faker = Factory::create();
 
 		wp_update_post(
-			[
+			array(
 				'ID'         => $item['ID'],
-				'meta_input' => [
+				'meta_input' => array(
 					'_customer_ip_address'    => $faker->ipv4(),
 					'_customer_user_agent'    => $faker->userAgent(),
 					'_billing_first_name'     => $faker->firstName(),
@@ -49,8 +57,8 @@ class Background_Anonymize_Order extends \WP_Background_Process {
 					'_shipping_address_index' => $faker->address(),
 					'_payment_method'         => 'FakePaymentMethod',
 					'_payment_method_title'   => 'FakePaymentMethod',
-				],
-			]
+				),
+			)
 		);
 
 		// Returning false removes the item from the queue
