@@ -18,14 +18,12 @@ class Stop_Emails_PHPMailer extends PHPMailer\PHPMailer\PHPMailer {}
  * found in phpunit/includes/mock-mailer.php
  *
  */
+ // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
 class Stop_Emails_Fake_PHPMailer extends Stop_Emails_PHPMailer {
 	/**
 	 * Mock sent email.
-	 *
-	 * @since 0.8.0
-	 * @var array of email components (e.g. to, cc, etc.)
 	 */
-	var $mock_sent = array();
+	public array $mock_sent = array();
 
 	/**
 	 * Replacement send() method that does not send.
@@ -34,10 +32,8 @@ class Stop_Emails_Fake_PHPMailer extends Stop_Emails_PHPMailer {
 	 * this method never calls the method postSend(),
 	 * which is where the email is actually sent
 	 *
-	 * @since 0.8.0
-	 * @return bool
 	 */
-	function send() {
+	public function send() {
 		try {
 			if ( ! $this->preSend() ) {
 				return false;
@@ -47,7 +43,9 @@ class Stop_Emails_Fake_PHPMailer extends Stop_Emails_PHPMailer {
 				'to'     => $this->to,
 				'cc'     => $this->cc,
 				'bcc'    => $this->bcc,
+				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 				'header' => $this->MIMEHeader,
+				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 				'body'   => $this->MIMEBody,
 			);
 
@@ -67,13 +65,12 @@ class Stop_Emails_Fake_PHPMailer extends Stop_Emails_PHPMailer {
  * Replaces PHPMailer global instance $phpmailer with an instance
  * of the subclass Stop_Emails_Fake_PHPMailer
  *
- * @since 0.8.0
  */
+ // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
 class Stop_Emails {
 	/**
 	 * Constuctor to setup plugin.
 	 *
-	 * @since 0.8.0
 	 */
 	public function __construct() {
 		$this->add_hooks();
@@ -82,7 +79,6 @@ class Stop_Emails {
 	/**
 	 * Add hooks.
 	 *
-	 * @since 0.8.0
 	 */
 	public function add_hooks() {
 		add_action( 'plugins_loaded', array( $this, 'replace_phpmailer' ) );
@@ -97,10 +93,6 @@ class Stop_Emails {
 	/**
 	 * Replace the global $phpmailer with fake phpmailer.
 	 *
-	 * @since 0.8.0
-	 *
-	 * @return Stop_Emails_Fake_PHPMailer instance, the object that replaced
-	 *                                                 the global $phpmailer
 	 */
 	public function replace_phpmailer() {
 		global $phpmailer;
@@ -110,13 +102,9 @@ class Stop_Emails {
 	/**
 	 * Replace the parameter object with an instance of
 	 * Stop_Emails_Fake_PHPMailer.
-	 *
-	 *
-	 * @param PHPMailer $obj WordPress PHPMailer object.
-	 * @return Stop_Emails_Fake_PHPMailer $obj
 	 */
 	public function replace_w_fake_phpmailer( &$obj = null ) {
-		$obj = new Stop_Emails_Fake_PHPMailer;
+		$obj = new Stop_Emails_Fake_PHPMailer();
 
 		return $obj;
 	}
@@ -139,4 +127,4 @@ class Stop_Emails {
 
 }
 
-new Stop_Emails;
+new Stop_Emails();
