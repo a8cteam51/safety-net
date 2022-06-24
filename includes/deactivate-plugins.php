@@ -15,8 +15,7 @@ function deactivate_plugins() {
 
 	// blacklist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
 	$blacklisted_plugins = array( 'paypal', 'stripe', 'affirm', 'smtp', 'in-stock-mailer-for-wc', 'klaviyo', 'wp-mail-bank', 'mailchimp', 'mailgun', 'metorik', 'sendinblue', 'wp-sendgrid-mailer', 'socketlabs', 'shipstation', 'wp-console', 'wp-ses', 'algolia', 'zapier',  );
-
-	apply_filters( 'safety_net_blacklisted_plugins', $blacklisted_plugins );
+	$blacklisted_plugins = apply_filters( 'safety_net_blacklisted_plugins', $blacklisted_plugins );
 
 	// let's tack on all the Woo payment methods, in case we can deactivate any of those too
 	if ( class_exists( 'woocommerce' ) ) {
@@ -59,7 +58,7 @@ function deactivate_plugins() {
 */
 function scrub_options() {
 	$options_to_clear = array( 'woocommerce_shipstation_auth_key', 'woocommerce_braintree_paypal_settings', 'woocommerce_braintree_credit_card_settings', 'klaviyo_settings', 'klaviyo_api_key', 'woocommerce_stripe_account_settings', 'woocommerce_stripe_api_settings', 'woocommerce_stripe_settings', 'woocommerce_ppcp-gateway_settings', 'woocommerce-ppcp-settings', 'woocommerce_paypal_settings', 'woocommerce_woocommerce_payments_settings', );
-	apply_filters( 'safety_net_options_to_clear', $options_to_clear );
+	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	foreach ( $options_to_clear as $option ) {
 		if ( get_option( $option ) ) {

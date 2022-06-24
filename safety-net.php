@@ -39,8 +39,8 @@ add_action( 'admin_init', function(){
  * Deactivate plugins and clear options as soon as Safety Net plugin is activated.
  * You can find these in includes/deactivate-plugins.php
  */
-function run_at_activation() {
+function safety_net_activation() {
 	\SafetyNet\DeactivatePlugins\scrub_options();
 	\SafetyNet\DeactivatePlugins\deactivate_plugins();
 }
-register_activation_hook( __FILE__, 'run_at_activation' );
+register_activation_hook( __FILE__, 'safety_net_activation' );
