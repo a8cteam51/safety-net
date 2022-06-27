@@ -28,19 +28,3 @@ require_once __DIR__ . '/includes/classes/class-stop-emails-phpmailer.php';
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/cli/anonymize.php';
 }
-
-add_action( 'admin_init', function(){
-	if ( isset( $_GET['delete_all_users' ] ) ) {
-		\SafetyNet\Delete\delete_users();
-	}
-});
-
-/*
- * Deactivate plugins and clear options as soon as Safety Net plugin is activated.
- * You can find these in includes/deactivate-plugins.php
- */
-function safety_net_activation() {
-	\SafetyNet\DeactivatePlugins\scrub_options();
-	\SafetyNet\DeactivatePlugins\deactivate_plugins();
-}
-register_activation_hook( __FILE__, 'safety_net_activation' );

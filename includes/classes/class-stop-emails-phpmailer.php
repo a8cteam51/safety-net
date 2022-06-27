@@ -114,7 +114,7 @@ class Stop_Emails {
 	 *
 	 */
 	public function show_warning() {
-		echo "\n<div class='error'><p>";
+		echo "\n<div class='notice notice-info'><p>";
 		echo '<strong>';
 			esc_html_e( 'Emails Disabled', 'safety-net' );
 		echo ': ';
