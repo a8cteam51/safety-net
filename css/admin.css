@@ -19,3 +19,15 @@ body.loading .loading-overlay {
 body.loading .loading-overlay {
     display: block;
 }
+
+.form-table td p.description {
+	max-width: 650px;
+	font-size:.8rem;
+}
+button {
+	padding: 10px 15px;
+}
+
+button:hover {
+	cursor: pointer;
+}
