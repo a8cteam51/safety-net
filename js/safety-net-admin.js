@@ -65,6 +65,7 @@
 					scrubOptionsButton.disabled = true;
 					deactivatePluginsButton.disabled = true;
 					deleteUsersButton.disabled = true;
+					toggleLoadingOverlay();
 				},
 				error : function(request, status, error) {
 					showAdminNotice({
@@ -77,6 +78,7 @@
 					scrubOptionsButton.disabled = false;
 					deactivatePluginsButton.disabled = false;
 					deleteUsersButton.disabled = false;
+					toggleLoadingOverlay();
 
 					if ( true === response.success ) {
 						showAdminNotice({
@@ -94,6 +96,10 @@
 		)
 	}
 
+	function toggleLoadingOverlay() {
+		$('body').toggleClass('loading');
+	}
+	
 	function showAdminNotice(options) {
 		let classes = 'notice settings-error is-dismissible';
 

@@ -36,6 +36,8 @@ function enqueue_scripts( string $hook_suffix ) {
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
 		]
 	);
+
+	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'css/admin.css', array(), '0.0' );
 }
 
 /**
@@ -188,6 +190,7 @@ function render_options_html() {
 			?>
 		</form>
 	</div>
+	<div class="loading-overlay"></div>
 	<?php
 }
 
