@@ -153,7 +153,7 @@ function render_field( array $args = [] ) {
 	} ?>
 
 	<?php if ( 'button' === $args['type'] ) : ?>
-		<button type="button" id="<?php echo esc_attr( $args['id'] ); ?>" data-nonce="<?php echo wp_create_nonce( $args['id'] ); ?>">
+		<button type="button" id="<?php echo esc_attr( $args['id'] ); ?>" class="button button-large" data-nonce="<?php echo wp_create_nonce( $args['id'] ); ?>">
 			<?php echo esc_html( $args['button_text' ] ) ?>
 		</button>
 	<?php endif; ?>
@@ -179,13 +179,13 @@ function render_options_html() {
 		<p><h4><span style="color:red;">DATA DELETION WARNING - DO NOT USE ON PRODUCTION SITE</span><h4></p>
 		<p>This plugin is intended for use on Team51 Development sites, to help anonymize user data and deactivate sensitive plugins.<br>Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
 		<hr/>
-		<h5>We recommend you do these in order.</h5>
+		<h3>Tools</h3>
 		<form action="options.php" method="post">
 			<?php
 			settings_fields( 'safety-net' );
 			do_settings_sections( 'safety_net_options' ); ?>
 			<hr>
-			<h5>Proceed only if you know what you're doing.</h5>
+			<h5>Caution - Proceed only if you know what you're doing.</h5>
 			<?php
 			do_settings_sections( 'safety_net_advanced_options' );
 			?>
