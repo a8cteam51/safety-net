@@ -2,11 +2,13 @@
 
 (function (window, document, $) {
 	const anonymizeUsersButton = document.getElementById( 'safety-net-anonymize-users' );
+	const scrubOptionsButton = document.getElementById( 'safety-net-scrub-options' );
+	const deactivatePluginsButton = document.getElementById( 'safety-net-deactivate-plugins' );
 	const deleteUsersButton = document.getElementById( 'safety-net-delete-users' );
 	const settingsTitle = document.getElementById( 'safety-net-settings-title' );
 
 	function anonymizeUsers() {
-		if ( ! confirm( 'Are you user you want to anonymize all users? This cannot be undone!') ) {
+		if ( ! confirm( 'Are you sure you want to anonymize all users? This cannot be undone!') ) {
 			return;
 		}
 
@@ -16,8 +18,31 @@
 		});
 	}
 
+	function scrubOptions() {
+		if ( ! confirm( 'Are you sure you want to scrub options? This cannot be undone!') ) {
+			return;
+		}
+
+		ajax({
+			action: 'safety_net_scrub_options',
+			nonce: scrubOptionsButton.dataset.nonce,
+		});
+	}
+
+	function deactivatePlugins() {
+		if ( ! confirm( 'Are you sure you want to deactivate plugins? Make sure you scrub options first!') ) {
+			return;
+		}
+
+		ajax({
+			action: 'safety_net_deactivate_plugins',
+			nonce: deactivatePluginsButton.dataset.nonce,
+		});
+	}
+
+
 	function deleteUsers() {
-		if ( ! confirm( 'Are you user you want to delete all users? This cannot be undone!') ) {
+		if ( ! confirm( 'Are you sure you want to delete all users? This cannot be undone!') ) {
 			return;
 		}
 
@@ -37,7 +62,10 @@
 				beforeSend: function() {
 					hideAdminNotice();
 					anonymizeUsersButton.disabled = true;
+					scrubOptionsButton.disabled = true;
+					deactivatePluginsButton.disabled = true;
 					deleteUsersButton.disabled = true;
+					toggleLoadingOverlay();
 				},
 				error : function(request, status, error) {
 					showAdminNotice({
@@ -47,7 +75,10 @@
 				},
 				success: function(response) {
 					anonymizeUsersButton.disabled = false;
+					scrubOptionsButton.disabled = false;
+					deactivatePluginsButton.disabled = false;
 					deleteUsersButton.disabled = false;
+					toggleLoadingOverlay();
 
 					if ( true === response.success ) {
 						showAdminNotice({
@@ -65,6 +96,10 @@
 		)
 	}
 
+	function toggleLoadingOverlay() {
+		$('body').toggleClass('loading');
+	}
+	
 	function showAdminNotice(options) {
 		let classes = 'notice settings-error is-dismissible';
 
@@ -88,5 +123,7 @@
 	}
 
 	anonymizeUsersButton.addEventListener( 'click', anonymizeUsers );
+	scrubOptionsButton.addEventListener( 'click', scrubOptions );
+	deactivatePluginsButton.addEventListener( 'click', deactivatePlugins );
 	deleteUsersButton.addEventListener( 'click', deleteUsers );
 })(window, document, jQuery);
