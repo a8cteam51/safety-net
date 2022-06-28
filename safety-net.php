@@ -1,7 +1,7 @@
 <?php
 /*
- * Plugin Name: Safety Net - for Team 51 Development Sites
- * Description: Helps protect development sites by anonymizing user data and more!
+ * Plugin Name: Safety Net
+ * Description: For Team51 Development Sites. Anonymizes user data and more!
  * Version: 1.0.0
  * Author: WordPress.com Special Projects
  * Author URI: https://wpspecialprojects.wordpress.com
@@ -37,3 +37,19 @@ add_action('plugins_loaded', function() {
 	new \SafetyNet\Background_Anonymize_Order();
 	new \SafetyNet\Background_Anonymize_Customer();
 });
+
+
+/**
+ * Adds the action link on plugins page
+ *
+ * @return void
+ */
+
+function add_action_links( $actions ) {
+	$mylinks = array(
+		'<a href="' . admin_url( 'tools.php?page=safety_net_options' ) . '">Tools</a>',
+	);
+	$actions = array_merge( $actions, $mylinks );
+	return $actions;
+}
+add_filter( 'plugin_action_links_' . plugin_basename(__FILE__), 'add_action_links' );
