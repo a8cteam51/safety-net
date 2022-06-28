@@ -16,14 +16,14 @@ add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_aj
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 
 /**
- * Enqueues the JavaScript for the settings page.
+ * Enqueues the JavaScript for the tools page.
  *
  * @param string $hook_suffix The current admin page.
  *
  * @return void
  */
 function enqueue_scripts( string $hook_suffix ) {
-	if ( 'settings_page_safety_net_options' !== $hook_suffix ) {
+	if ( 'tools_page_safety_net_options' !== $hook_suffix ) {
 		return;
 	}
 
@@ -41,12 +41,13 @@ function enqueue_scripts( string $hook_suffix ) {
 }
 
 /**
- * Adds the options page under Settings > Safety Net.
+ * Adds the options page under Tools > Safety Net.
  *
  * @return void
  */
 function create_options_menu() {
-	add_options_page(
+	add_submenu_page(
+		'tools.php',
 		esc_html__( 'Safety Net', 'safety-net' ),
 		esc_html__( 'Safety Net', 'safety-net' ),
 		'manage_options',
@@ -56,7 +57,7 @@ function create_options_menu() {
 }
 
 /**
- * Registers the settings fields.
+ * Registers the fields on the Tools page.
  *
  * @return void
  */

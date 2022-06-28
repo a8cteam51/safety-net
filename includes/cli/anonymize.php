@@ -9,7 +9,7 @@
 	/**
 	 * Anonymizer command line utilities.
 	 */
-	class SafteyNet_CLI extends WP_CLI_Command {
+	class SafetyNet_CLI extends WP_CLI_Command {
 
 		/**
 		 * Anonymize a user and their data

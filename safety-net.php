@@ -23,8 +23,17 @@ require_once __DIR__ . '/includes/common.php';
 require_once __DIR__ . '/includes/delete.php';
 require_once __DIR__ . '/includes/utilities.php';
 require_once __DIR__ . '/includes/deactivate-plugins.php';
+require_once __DIR__ . '/includes/classes/background-anonymize-customer.php';
+require_once __DIR__ . '/includes/classes/background-anonymize-order.php';
+require_once __DIR__ . '/includes/classes/background-anonymize-user.php';
 require_once __DIR__ . '/includes/classes/class-stop-emails-phpmailer.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/cli/anonymize.php';
 }
+
+add_action('plugins_loaded', function() {
+	new \SafetyNet\Background_Anonymize_User();
+	new \SafetyNet\Background_Anonymize_Order();
+	new \SafetyNet\Background_Anonymize_Customer();
+});
