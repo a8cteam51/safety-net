@@ -1,0 +1,21 @@
+.loading-overlay {
+    display:    none;
+    position:   fixed;
+    z-index:    1000;
+    top:        0;
+    left:       0;
+    height:     100%;
+    width:      100%;
+    background: rgba( 255, 255, 255, .8 )
+                url('/wp-includes/images/spinner-2x.gif')
+                50% 50%
+                no-repeat;
+}
+
+body.loading .loading-overlay {
+    overflow: hidden;
+}
+
+body.loading .loading-overlay {
+    display: block;
+}

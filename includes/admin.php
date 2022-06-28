@@ -3,12 +3,16 @@
 namespace SafetyNet\Admin;
 
 use function SafetyNet\Anonymize\anonymize_data;
+use function SafetyNet\DeactivatePlugins\scrub_options;
+use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users;
 
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
 add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
 add_action( 'admin_init', __NAMESPACE__ . '\settings_init' );
 add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_anonymize_users' );
+add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
+add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 
 /**
@@ -32,6 +36,8 @@ function enqueue_scripts( string $hook_suffix ) {
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
 		]
 	);
+
+	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'css/admin.css', array(), '0.0' );
 }
 
 /**
@@ -41,7 +47,7 @@ function enqueue_scripts( string $hook_suffix ) {
  */
 function create_options_menu() {
 	add_options_page(
-		esc_html__( 'Safety Net - for Team 51 Development Sites', 'safety-net' ),
+		esc_html__( 'Safety Net', 'safety-net' ),
 		esc_html__( 'Safety Net', 'safety-net' ),
 		'manage_options',
 		'safety_net_options',
@@ -68,9 +74,17 @@ function settings_init() {
 		'safety_net_options'
 	);
 
+	// Register section for the settings
+	add_settings_section(
+		'safety_net_option',
+		'',
+		null,
+		'safety_net_advanced_options'
+	);
+
 	add_settings_field(
 		'safety_net_anonymize_users',
-		esc_html__( 'Anonymize', 'safety-net' ),
+		esc_html__( '1. Anonymize User Data', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
@@ -78,7 +92,35 @@ function settings_init() {
 			'type' => 'button',
 			'id' => 'safety-net-anonymize-users',
 			'button_text' => esc_html__( 'Anonymize', 'safety-net' ),
-			'description' => esc_html__( 'Replaces all non-admin user data with random fake data. This anonymizes user accounts, Woo orders and Woo Subscriptions.', 'safety-net' ),
+			'description' => esc_html__( 'Replaces all non-admin user data with random fake data. This anonymizes users, Woo orders and Woo subscriptions. Will also disconnect Woo subscriptions from their payment method.', 'safety-net' ),
+		]
+	);
+
+	add_settings_field(
+		'safety_net_scrub_options',
+		esc_html__( '2. Scrub Options', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		[
+			'type' => 'button',
+			'id' => 'safety-net-scrub-options',
+			'button_text' => esc_html__( 'Scrub Options', 'safety-net' ),
+			'description' => esc_html__( 'Clears specific blacklisted options, such as API keys, which could cause problems on a development site.', 'safety-net' ),
+		]
+	);
+
+	add_settings_field(
+		'safety_net_deactivate_plugins',
+		esc_html__( '3. Deactivate Plugins', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		[
+			'type' => 'button',
+			'id' => 'safety-net-deactivate-plugins',
+			'button_text' => esc_html__( 'Deactivate Plugins', 'safety-net' ),
+			'description' => esc_html__( 'Deactivates blacklisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).', 'safety-net' ),
 		]
 	);
 
@@ -86,7 +128,7 @@ function settings_init() {
 		'safety_net_delete_users',
 		esc_html__( 'Delete All Users', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
-		'safety_net_options',
+		'safety_net_advanced_options',
 		'safety_net_option',
 		[
 			'type' => 'button',
@@ -133,13 +175,22 @@ function render_options_html() {
 	?>
 	<div class="wrap">
 		<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
+		<p><h4><span style="color:red;">DATA DELETION WARNING - DO NOT USE ON PRODUCTION SITE</span><h4></p>
+		<p>This plugin is intended for use on Team51 Development sites, to help anonymize user data and deactivate sensitive plugins.<br>Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
+		<hr/>
+		<h5>We recommend you do these in order.</h5>
 		<form action="options.php" method="post">
 			<?php
 			settings_fields( 'safety-net' );
-			do_settings_sections( 'safety_net_options' );
+			do_settings_sections( 'safety_net_options' ); ?>
+			<hr>
+			<h5>Proceed only if you know what you're doing.</h5>
+			<?php
+			do_settings_sections( 'safety_net_advanced_options' );
 			?>
 		</form>
 	</div>
+	<div class="loading-overlay"></div>
 	<?php
 }
 
@@ -161,6 +212,54 @@ function handle_ajax_anonymize_users() {
 		[
 			'success' => true,
 			'message' => esc_html__( 'Users have been successfully anonymized!' ),
+		]
+	);
+
+	die();
+}
+
+/**
+ * Handles the AJAX request for scrubbing options.
+ *
+ * @return void
+ */
+function handle_ajax_scrub_options() {
+	// Permissions and security checks.
+	check_the_permissions();
+	check_the_nonce( $_POST['nonce'],'safety-net-scrub-options' );
+
+	// Checks passed. Scrub the options.
+	scrub_options();
+
+	// Send the AJAX response.
+	echo json_encode(
+		[
+			'success' => true,
+			'message' => esc_html__( 'Options have been scrubbed.' ),
+		]
+	);
+
+	die();
+}
+
+/**
+ * Handles the AJAX request for deactivating plugins.
+ *
+ * @return void
+ */
+function handle_ajax_deactivate_plugins() {
+	// Permissions and security checks.
+	check_the_permissions();
+	check_the_nonce( $_POST['nonce'],'safety-net-deactivate-plugins' );
+
+	// Checks passed. Scrub the options.
+	deactivate_plugins();
+
+	// Send the AJAX response.
+	echo json_encode(
+		[
+			'success' => true,
+			'message' => esc_html__( 'Plugins have been deactivated.' ),
 		]
 	);
 
