@@ -84,8 +84,36 @@ function settings_init() {
 	);
 
 	add_settings_field(
+		'safety_net_scrub_options',
+		esc_html__( '1. Scrub Options', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		[
+			'type' => 'button',
+			'id' => 'safety-net-scrub-options',
+			'button_text' => esc_html__( 'Scrub Options', 'safety-net' ),
+			'description' => esc_html__( 'Clears specific denylisted options, such as API keys, which could cause problems on a development site.', 'safety-net' ),
+		]
+	);
+
+	add_settings_field(
+		'safety_net_deactivate_plugins',
+		esc_html__( '2. Deactivate Plugins', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		[
+			'type' => 'button',
+			'id' => 'safety-net-deactivate-plugins',
+			'button_text' => esc_html__( 'Deactivate Plugins', 'safety-net' ),
+			'description' => esc_html__( 'Deactivates a handful of denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them (deactivates the actual plugin, not from the checkout settings).', 'safety-net' ),
+		]
+	);
+
+	add_settings_field(
 		'safety_net_anonymize_users',
-		esc_html__( '1. Anonymize User Data', 'safety-net' ),
+		esc_html__( '3. Anonymize User Data', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
@@ -94,34 +122,6 @@ function settings_init() {
 			'id' => 'safety-net-anonymize-users',
 			'button_text' => esc_html__( 'Anonymize', 'safety-net' ),
 			'description' => esc_html__( 'Replaces all non-admin user data with random fake data. This anonymizes users, Woo orders and Woo subscriptions. Will also disconnect Woo subscriptions from their payment method.', 'safety-net' ),
-		]
-	);
-
-	add_settings_field(
-		'safety_net_scrub_options',
-		esc_html__( '2. Scrub Options', 'safety-net' ),
-		__NAMESPACE__ . '\render_field',
-		'safety_net_options',
-		'safety_net_option',
-		[
-			'type' => 'button',
-			'id' => 'safety-net-scrub-options',
-			'button_text' => esc_html__( 'Scrub Options', 'safety-net' ),
-			'description' => esc_html__( 'Clears specific blacklisted options, such as API keys, which could cause problems on a development site.', 'safety-net' ),
-		]
-	);
-
-	add_settings_field(
-		'safety_net_deactivate_plugins',
-		esc_html__( '3. Deactivate Plugins', 'safety-net' ),
-		__NAMESPACE__ . '\render_field',
-		'safety_net_options',
-		'safety_net_option',
-		[
-			'type' => 'button',
-			'id' => 'safety-net-deactivate-plugins',
-			'button_text' => esc_html__( 'Deactivate Plugins', 'safety-net' ),
-			'description' => esc_html__( 'Deactivates blacklisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).', 'safety-net' ),
 		]
 	);
 

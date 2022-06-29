@@ -43,6 +43,11 @@ table {
 	max-width: 650px;
 }
 
+.form-table tr:nth-child(2n) th,
+.form-table tr:nth-child(2n) td {
+  background: #fcfcfc;
+}
+
 .button.button-large {
 	float:right;
 }
