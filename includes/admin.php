@@ -27,7 +27,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		return;
 	}
 
-	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'js/safety-net-admin.js', [ 'jquery' ], '1.0', true );
+	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', [ 'jquery' ], '1.0', true );
 
 	wp_localize_script(
 		'safety-net-admin',
@@ -37,7 +37,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		]
 	);
 
-	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'css/admin.css', array(), '0.0' );
+	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.0' );
 }
 
 /**

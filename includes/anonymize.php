@@ -2,12 +2,9 @@
 
 namespace SafetyNet\Anonymize;
 
-use Faker\Factory;
-use Faker\Generator;
 use SafetyNet\Background_Anonymize_Customer;
 use SafetyNet\Background_Anonymize_Order;
 use SafetyNet\Background_Anonymize_User;
-use function SafetyNet\Utilities\get_customer_user_ids;
 use function SafetyNet\Utilities\get_customers;
 use function SafetyNet\Utilities\get_orders;
 use function SafetyNet\Utilities\get_users;
@@ -18,23 +15,19 @@ use function SafetyNet\Utilities\get_users;
  * @return void
  */
 function anonymize_data() {
-	$faker  = Factory::create();
+	anonymize_users();
 
-	anonymize_users( $faker );
+	anonymize_orders();
 
-	anonymize_orders( $faker );
-
-	anonymize_customers( $faker );
+	anonymize_customers();
 
 	update_option( 'anonymized_status', true, false );
 }
 
 /**
  * Updates all users (except admins) with randomized data.
- *
- * @param Generator $faker An instance of Faker
  */
-function anonymize_users( Generator $faker ) {
+function anonymize_users() {
 	$background_anonymize_user = new Background_Anonymize_User();
 	$offset                    = 0;
 
@@ -63,10 +56,8 @@ function anonymize_users( Generator $faker ) {
 
 /**
  * Updates all WooCommerce orders with randomized data
- *
- * @param Generator $faker An instance of Faker
  */
-function anonymize_orders( Generator $faker ) {
+function anonymize_orders() {
 	$background_anonymize_order = new Background_Anonymize_Order();
 	$offset = 0;
 
@@ -90,10 +81,8 @@ function anonymize_orders( Generator $faker ) {
 
 /**
  * Updates all WooCommerce customers with randomized data
- *
- * @param Generator $faker An instance of Faker
  */
-function anonymize_customers( Generator $faker ) {
+function anonymize_customers() {
 	$background_anonymize_customer = new Background_Anonymize_Customer();
 	$offset                        = 0;
 

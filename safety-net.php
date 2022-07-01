@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/includes/library/wp-background-processing/wp-background-processing.php';
 require_once __DIR__ . '/includes/anonymize.php';
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/common.php';
@@ -27,6 +27,7 @@ require_once __DIR__ . '/includes/classes/background-anonymize-customer.php';
 require_once __DIR__ . '/includes/classes/background-anonymize-order.php';
 require_once __DIR__ . '/includes/classes/background-anonymize-user.php';
 require_once __DIR__ . '/includes/classes/class-stop-emails-phpmailer.php';
+require_once __DIR__ . '/includes/classes/class-dummy.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/cli/anonymize.php';

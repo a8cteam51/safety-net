@@ -7,9 +7,6 @@
 
 namespace SafetyNet;
 
-use Faker\Factory;
-use function SafetyNet\Utilities\get_customer_user_ids;
-
 /**
  * Background Anonymize User class
  */
@@ -28,53 +25,43 @@ class Background_Anonymize_User extends \WP_Background_Process {
 	 * @return bool
 	 */
 	protected function task( $item ): bool {
-		$customer_ids = get_customer_user_ids();
-		$faker        = Factory::create();
+		$fake_user = Dummy::get_instance( $item['ID'] );
 
 		// Default user meta to update.
 		$meta_input = array(
-			'first_name'  => $faker->firstName(),
-			'last_name'   => $faker->lastName(),
-			'nickname'    => $faker->firstName(),
-			'description' => $faker->sentence(),
+			'first_name'          => $fake_user->first_name,
+			'last_name'           => $fake_user->last_name,
+			'nickname'            => $fake_user->first_name,
+			'description'         => $fake_user->description,
+			'billing_first_name'  => $fake_user->first_name,
+			'shipping_first_name' => $fake_user->first_name,
+			'billing_last_name'   => $fake_user->last_name,
+			'shipping_last_name'  => $fake_user->last_name,
+			'billing_address_1'   => $fake_user->street_address,
+			'shipping_address_1'  => $fake_user->street_address,
+			'billing_address_2'   => '',
+			'shipping_address_2'  => '',
+			'billing_city'        => $fake_user->city,
+			'shipping_city'       => $fake_user->city,
+			'billing_state'       => $fake_user->state,
+			'shipping_state'      => $fake_user->state,
+			'billing_postcode'    => $fake_user->postcode,
+			'shipping_postcode'   => $fake_user->postcode,
+			'billing_country'     => 'US',
+			'shipping_country'    => 'US',
+			'billing_email'       => $fake_user->email_address,
+			'billing_phone'       => $fake_user->phone,
 		);
-
-		// If this user is a WooCommerce customer, update those fields too.
-		if ( in_array( $item['ID'], $customer_ids, true ) ) {
-			$meta_input = array_merge(
-				$meta_input,
-				array(
-					'billing_first_name'  => $faker->firstName(),
-					'shipping_first_name' => $faker->firstName(),
-					'billing_last_name'   => $faker->lastName(),
-					'shipping_last_name'  => $faker->lastName(),
-					'billing_address_1'   => $faker->streetAddress(),
-					'shipping_address_1'  => $faker->streetAddress(),
-					'billing_address_2'   => '',
-					'shipping_address_2'  => '',
-					'billing_city'        => $faker->city(),
-					'shipping_city'       => $faker->city(),
-					'billing_state'       => $faker->stateAbbr(),
-					'shipping_state'      => $faker->stateAbbr(),
-					'billing_postcode'    => $faker->postcode(),
-					'shipping_postcode'   => $faker->postcode(),
-					'billing_country'     => 'US',
-					'shipping_country'    => 'US',
-					'billing_email'       => $faker->unique()->safeEmail(),
-					'billing_phone'       => $faker->phoneNumber(),
-				)
-			);
-		}
 
 		wp_insert_user(
 			array(
 				'ID'                  => $item['ID'],
-				'user_email'          => $faker->unique()->safeEmail(),
-				'user_url'            => $faker->url(),
+				'user_email'          => $fake_user->email_address,
+				'user_url'            => $fake_user->url,
 				'user_activation_key' => '',
-				'display_name'        => $faker->firstName(),
-				'user_login'          => $faker->unique()->userName(),
-				'nice_name'           => mb_substr( $faker->unique()->userName(), 0, 50 ),
+				'display_name'        => $fake_user->first_name,
+				'user_login'          => $fake_user->username,
+				'nice_name'           => $fake_user->username,
 				'user_pass'           => wp_generate_password( 32, true, true ),
 				'meta_input'          => $meta_input,
 			)

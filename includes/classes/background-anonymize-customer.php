@@ -7,8 +7,6 @@
 
 namespace SafetyNet;
 
-use Faker\Factory;
-
 /**
  * Background Anonymize Customer class
  */
@@ -29,7 +27,7 @@ class Background_Anonymize_Customer extends \WP_Background_Process {
 	protected function task( $item ): bool {
 		global $wpdb;
 
-		$faker = Factory::create();
+		$fake_user = Dummy::get_instance( $item['customer_id'] );
 
 		$wpdb->query(
 			$wpdb->prepare(
@@ -46,14 +44,14 @@ class Background_Anonymize_Customer extends \WP_Background_Process {
 					WHERE
 						customer_id = %d",
 				array(
-					$faker->userName(),
-					$faker->firstName(),
-					$faker->lastName(),
-					$faker->safeEmail(),
+					$fake_user->username,
+					$fake_user->first_name,
+					$fake_user->last_name,
+					$fake_user->email_address,
 					'US',
-					$faker->postcode(),
-					$faker->city(),
-					$faker->stateAbbr(),
+					$fake_user->postcode,
+					$fake_user->city,
+					$fake_user->state,
 					$item['customer_id'],
 				)
 			)

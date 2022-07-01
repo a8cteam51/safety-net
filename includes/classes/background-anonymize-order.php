@@ -7,8 +7,6 @@
 
 namespace SafetyNet;
 
-use Faker\Factory;
-
 /**
  * Background Anonymize Order class.
  */
@@ -27,34 +25,34 @@ class Background_Anonymize_Order extends \WP_Background_Process {
 	 * @return bool
 	 */
 	protected function task( $item ): bool {
-		$faker = Factory::create();
+		$fake_user = Dummy::get_instance( $item['ID'] );
 
 		wp_update_post(
 			array(
 				'ID'         => $item['ID'],
 				'meta_input' => array(
-					'_customer_ip_address'    => $faker->ipv4(),
-					'_customer_user_agent'    => $faker->userAgent(),
-					'_billing_first_name'     => $faker->firstName(),
-					'_shipping_first_name'    => $faker->firstName(),
-					'_billing_last_name'      => $faker->lastName(),
-					'_shipping_last_name'     => $faker->lastName(),
-					'_billing_address_1'      => $faker->streetAddress(),
-					'_shipping_address_1'     => $faker->streetAddress(),
+					'_customer_ip_address'    => $fake_user->ip_address,
+					'_customer_user_agent'    => $fake_user->user_agent,
+					'_billing_first_name'     => $fake_user->first_name,
+					'_shipping_first_name'    => $fake_user->first_name,
+					'_billing_last_name'      => $fake_user->last_name,
+					'_shipping_last_name'     => $fake_user->last_name,
+					'_billing_address_1'      => $fake_user->street_address,
+					'_shipping_address_1'     => $fake_user->street_address,
 					'_billing_address_2'      => '',
 					'_shipping_address_2'     => '',
-					'_billing_city'           => $faker->city(),
-					'_shipping_city'          => $faker->city(),
-					'_billing_state'          => $faker->stateAbbr(),
-					'_shipping_state'         => $faker->stateAbbr(),
-					'_billing_postcode'       => $faker->postcode(),
-					'_shipping_postcode'      => $faker->postcode(),
+					'_billing_city'           => $fake_user->city,
+					'_shipping_city'          => $fake_user->city,
+					'_billing_state'          => $fake_user->state,
+					'_shipping_state'         => $fake_user->state,
+					'_billing_postcode'       => $fake_user->postcode,
+					'_shipping_postcode'      => $fake_user->postcode,
 					'_billing_country'        => 'US',
 					'_shipping_country'       => 'US',
-					'_billing_email'          => $faker->unique()->safeEmail(),
-					'_billing_phone'          => $faker->phoneNumber(),
-					'_billing_address_index'  => $faker->address(),
-					'_shipping_address_index' => $faker->address(),
+					'_billing_email'          => $fake_user->email_address,
+					'_billing_phone'          => $fake_user->phone,
+					'_billing_address_index'  => $fake_user->street_address,
+					'_shipping_address_index' => $fake_user->street_address,
 					'_payment_method'         => 'FakePaymentMethod',
 					'_payment_method_title'   => 'FakePaymentMethod',
 				),
