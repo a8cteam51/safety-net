@@ -1,6 +1,0 @@
-{
-    "require": {
-        "fakerphp/faker": "^1.19",
-        "deliciousbrains/wp-background-processing": "^1.0"
-    }
-}

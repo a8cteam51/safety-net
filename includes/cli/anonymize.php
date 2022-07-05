@@ -1,6 +1,5 @@
 <?php
 
-use Faker\Factory;
 use function SafetyNet\Anonymize\anonymize_orders;
 use function SafetyNet\Anonymize\anonymize_users;
 use function SafetyNet\Anonymize\anonymize_customers;
@@ -20,13 +19,11 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	*
 	*/
 	public function anonymize( $args ) {
-		$faker = Factory::create();
+		anonymize_users();
 
-		anonymize_users( $faker );
+		anonymize_orders();
 
-		anonymize_orders( $faker );
-
-		anonymize_customers( $faker );
+		anonymize_customers();
 
 		update_option( 'anonymized_status', true, false );
 

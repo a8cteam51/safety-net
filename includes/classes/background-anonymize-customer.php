@@ -7,7 +7,7 @@
 
 namespace SafetyNet;
 
-use Faker\Factory;
+use function SafetyNet\Anonymize\anonymize_customers;
 
 /**
  * Background Anonymize Customer class
@@ -20,47 +20,24 @@ class Background_Anonymize_Customer extends \WP_Background_Process {
 	protected $action = 'anonymize_customer';
 
 	/**
-	 * Anonymizes each customer in the queue.
+	 * Anonymizes customers in the queue.
 	 *
 	 * @param array $item Customer to anonymize
 	 *
-	 * @return bool
+	 * @return bool|array
 	 */
-	protected function task( $item ): bool {
-		global $wpdb;
+	protected function task( $item ) {
+		$result = anonymize_customers( $item['offset'] );
 
-		$faker = Factory::create();
+		// If there are no more results, return false.
+		if ( ! $result ) {
+			return false;
+		}
 
-		$wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}wc_customer_lookup
-					SET
-						username = %s,
-						first_name = %s,
-						last_name = %s,
-						email = %s,
-						country = %s,
-						postcode = %s,
-						city = %s,
-						state = %s
-					WHERE
-						customer_id = %d",
-				array(
-					$faker->userName(),
-					$faker->firstName(),
-					$faker->lastName(),
-					$faker->safeEmail(),
-					'US',
-					$faker->postcode(),
-					$faker->city(),
-					$faker->stateAbbr(),
-					$item['customer_id'],
-				)
-			)
-		);
+		// Increase the offset.
+		$item['offset'] += 500;
 
-		// Returning false removes the item from the queue
-		return false;
+		return $item;
 	}
 
 }

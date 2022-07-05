@@ -27,9 +27,6 @@ To stop emails, simply activate Safety Net from the main plugins menu.
 
 To deactivate plugins, scrub denylisted options, or anonymize users, orders, and subscriptions, visit **Tools > Safety Net** and manually click the buttons in the Tools section.
 
-## Development
-If you're cloning the repo directly, you'll have to run `composer install` from the plugin folder to get the vendors folder, so you can run it locally.
-
 ## Changelog
 ```
 2022.06.29 - version 1.0.0-beta.1
