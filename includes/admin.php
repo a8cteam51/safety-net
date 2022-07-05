@@ -212,7 +212,7 @@ function handle_ajax_anonymize_users() {
 	echo json_encode(
 		[
 			'success' => true,
-			'message' => esc_html__( 'Users have been successfully anonymized!' ),
+			'message' => esc_html__( 'Users have been scheduled to be anonymized in the background.' ),
 		]
 	);
 
