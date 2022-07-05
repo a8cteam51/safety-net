@@ -29,6 +29,9 @@ To deactivate plugins, scrub denylisted options, or anonymize users, orders, and
 
 ## Changelog
 ```
+2022.07.05 - version 1.0.0-beta.2
+ * Batch processing - Anonymizes users in the background via a batch process
+
 2022.06.29 - version 1.0.0-beta.1
  * First Release
 ```
