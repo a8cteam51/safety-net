@@ -61,8 +61,22 @@ function scrub_options() {
 
 	foreach ( $options_to_clear as $option ) {
 		if ( get_option( $option ) ) {
+
 			update_option( $option . '_backup', get_option( $option ) );
-			update_option( $option, '' );
+
+			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option ) {
+				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
+				$keys_to_scrub = array ( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production' );
+				$option_array = get_option( $option );
+				foreach ( $keys_to_scrub as $key ) {
+					if ( array_key_exists( $key, $option_array ) ) {
+						$option_array[$key] = '';
+					}
+				}
+				update_option( $option, $option_array );
+			} else {
+				update_option( $option, '' );
+			}
 		}
 	}
 
