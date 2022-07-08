@@ -67,14 +67,13 @@ function scrub_options() {
 			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
 				$keys_to_scrub = array ( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production' );
-				$option_array = maybe_unserialize( get_option( $option ) );
+				$option_array = get_option( $option );
 				foreach ( $keys_to_scrub as $key ) {
 					if ( array_key_exists( $key, $option_array ) ) {
 						$option_array[$key] = '';
 					}
-				$serialized_option_array = maybe_serialize( $option_array );
-				update_option( $option, $serialized_option_array );
 				}
+				update_option( $option, $option_array );
 			} else {
 				update_option( $option, '' );
 			}
