@@ -22,7 +22,7 @@ function deactivate_plugins() {
 		$installed_payment_methods = array_keys( WC()->payment_gateways->payment_gateways() );
 		foreach ( $installed_payment_methods as $key => $installed_payment_method ) {
 			$installed_payment_method = str_replace( '_', '-', $installed_payment_method );
-			$denylisted_plugins[]    = $installed_payment_method;
+			$denylisted_plugins[]     = $installed_payment_method;
 		}
 	}
 
@@ -64,13 +64,13 @@ function scrub_options() {
 
 			update_option( $option . '_backup', get_option( $option ) );
 
-			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option ) {
+			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
-				$keys_to_scrub = array ( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production' );
-				$option_array = get_option( $option );
+				$keys_to_scrub = array( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' );
+				$option_array  = get_option( $option );
 				foreach ( $keys_to_scrub as $key ) {
 					if ( array_key_exists( $key, $option_array ) ) {
-						$option_array[$key] = '';
+						$option_array[ $key ] = '';
 					}
 				}
 				update_option( $option, $option_array );
