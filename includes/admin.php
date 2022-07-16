@@ -14,6 +14,7 @@ add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_
 add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
+add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 
 /**
  * Enqueues the JavaScript for the tools page.
@@ -327,4 +328,18 @@ function check_the_nonce( string $nonce, $action ) {
 
 		die();
 	}
+}
+
+/**
+ * Adds the action link on plugins page
+ *
+ * @return array
+ */
+
+function add_action_links( $actions ) {
+	$links = array(
+		'<a href="' . admin_url( 'tools.php?page=safety_net_options' ) . '">Tools</a>',
+	);
+
+	return array_merge( $actions, $links );
 }
