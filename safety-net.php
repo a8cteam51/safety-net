@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
+define( 'SAFETY_NET_BASENAME', plugin_basename(__FILE__) );
 
 require_once __DIR__ . '/includes/library/wp-background-processing/wp-background-processing.php';
 require_once __DIR__ . '/includes/anonymize.php';
@@ -33,24 +34,4 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/cli/anonymize.php';
 }
 
-add_action('plugins_loaded', function() {
-	new \SafetyNet\Background_Anonymize_User();
-	new \SafetyNet\Background_Anonymize_Order();
-	new \SafetyNet\Background_Anonymize_Customer();
-});
 
-
-/**
- * Adds the action link on plugins page
- *
- * @return void
- */
-
-function add_action_links( $actions ) {
-	$mylinks = array(
-		'<a href="' . admin_url( 'tools.php?page=safety_net_options' ) . '">Tools</a>',
-	);
-	$actions = array_merge( $actions, $mylinks );
-	return $actions;
-}
-add_filter( 'plugin_action_links_' . plugin_basename(__FILE__), 'add_action_links' );
