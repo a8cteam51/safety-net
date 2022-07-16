@@ -66,21 +66,13 @@ class Stop_Emails_Fake_PHPMailer extends Stop_Emails_PHPMailer {
  * of the subclass Stop_Emails_Fake_PHPMailer
  *
  */
- // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
+// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
 class Stop_Emails {
-	/**
-	 * Constuctor to setup plugin.
-	 *
-	 */
-	public function __construct() {
-		$this->add_hooks();
-	}
-
 	/**
 	 * Add hooks.
 	 *
 	 */
-	public function add_hooks() {
+	public function register_hooks() {
 		add_action( 'plugins_loaded', array( $this, 'replace_phpmailer' ) );
 		add_action( 'admin_notices', array( $this, 'show_warning' ) );
 
@@ -127,4 +119,5 @@ class Stop_Emails {
 
 }
 
-new Stop_Emails();
+$stop_emails = new Stop_Emails();
+$stop_emails->register_hooks();
