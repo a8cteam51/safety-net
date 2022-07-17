@@ -104,7 +104,6 @@ function anonymize_users( int $offset = 0 ): bool {
 	// Return false if there are no more users to process.
 	if ( empty( $users ) ) {
 		if ( 0 === $offset ) {
-			error_log('going to wait' );
 			// Database isn't ready yet. Wait and try again.
 			sleep( 60 );
 			anonymize_users( $offset );
