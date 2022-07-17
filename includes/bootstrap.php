@@ -36,7 +36,7 @@ function maybe_scrub_options() {
 	}
 
 	// If we're not on staging, development, or a local environment, give warning and return.
-	if ( in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
+	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
 		_doing_it_wrong(
 			__FUNCTION__,
 			esc_html__( 'Safety Net plugin should not be run on production! Remove plugin or set WP_ENVIRONMENT_TYPE correctly.', 'safety-net' ),
@@ -60,7 +60,7 @@ function maybe_disable_plugins() {
 	}
 
 	// If we're not on staging, development, or a local environment, give warning and return.
-	if ( in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
+	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
 		_doing_it_wrong(
 			__FUNCTION__,
 			esc_html__( 'Safety Net plugin should not be run on production! Remove plugin or set WP_ENVIRONMENT_TYPE correctly.', 'safety-net' ),
@@ -84,7 +84,7 @@ function maybe_anonymize_data() {
 	}
 
 	// If we're not on staging, development, or a local environment, give warning and return.
-	if ( in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
+	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
 		_doing_it_wrong(
 			__FUNCTION__,
 			esc_html__( 'Safety Net plugin should not be run on production! Remove plugin or set WP_ENVIRONMENT_TYPE correctly.', 'safety-net' ),
