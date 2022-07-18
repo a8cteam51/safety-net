@@ -11,7 +11,7 @@ use SafetyNet\Background_Anonymize_Order;
 use SafetyNet\Background_Anonymize_User;
 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
-add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_disable_plugins' );
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_anonymize_data' );
 add_action( 'plugins_loaded', __NAMESPACE__ . '\instantiate_background_classes' );
 
@@ -49,13 +49,13 @@ function maybe_scrub_options() {
 }
 
 /**
- * Determines if deny-listed plugins should be disabled.
+ * Determines if deny-listed plugins should be deactivated.
  *
- * Plugins will be disabled if we're on staging, development, or local AND it hasn't already been anonymized.
+ * Plugins will be deactivated if we're on staging, development, or local AND it hasn't already been anonymized.
  */
-function maybe_disable_plugins() {
-	// If plugins have already been disabled, skip.
-	if ( get_option( 'safety_net_plugins_disabled' ) ) {
+function maybe_deactivate_plugins() {
+	// If plugins have already been deactivated, skip.
+	if ( get_option( 'safety_net_plugins_deactivated' ) ) {
 		return;
 	}
 
@@ -69,7 +69,7 @@ function maybe_disable_plugins() {
 		return;
 	}
 
-	do_action( 'safety_net_disable_plugins' );
+	do_action( 'safety_net_deactivate_plugins' );
 }
 
 /**
