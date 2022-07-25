@@ -14,7 +14,7 @@ function deactivate_plugins() {
 	$all_installed_plugins = array_keys( get_plugins() );
 
 	// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
-	$denylisted_plugins = array( 'postmatic', 'webgility', 'shareasale', 'paypal', 'stripe', 'affirm', 'smtp', 'in-stock-mailer-for-wc', 'klaviyo', 'wp-mail-bank', 'mailchimp', 'mailgun', 'metorik', 'sendinblue', 'wp-sendgrid-mailer', 'socketlabs', 'shipstation', 'wpmandrill', 'wp-console', 'wp-ses', 'algolia', 'zapier' );
+	$denylisted_plugins = array( 'avatax', 'postmatic', 'webgility', 'shareasale', 'paypal', 'stripe', 'affirm', 'smtp', 'in-stock-mailer-for-wc', 'klaviyo', 'wp-mail-bank', 'mailchimp', 'mailgun', 'metorik', 'sendinblue', 'wp-sendgrid-mailer', 'socketlabs', 'shipstation', 'wpmandrill', 'wp-console', 'wp-ses', 'algolia', 'zapier' );
 	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', $denylisted_plugins );
 
 	// let's tack on all the Woo payment methods, in case we can deactivate any of those too
