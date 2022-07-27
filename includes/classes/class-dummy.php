@@ -235,7 +235,7 @@ class Dummy {
 	 */
 	private function setup() {
 		$fake_user = $this->fake_users[ $this->seed % 1000 ];
-		$date      = gmdate( 'Y-m-d' );
+		$date      = gmdate( 'Y-m-d H:i:s T' );
 
 		$this->first_name     = $fake_user['first_name'];
 		$this->last_name      = $fake_user['last_name'];

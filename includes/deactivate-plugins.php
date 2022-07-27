@@ -2,6 +2,9 @@
 
 namespace SafetyNet\DeactivatePlugins;
 
+add_action( 'safety_net_deactivate_plugins', __NAMESPACE__ . '\deactivate_plugins' );
+add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
+
 /*
 * Deactivate plugins from a denylist
 */
@@ -50,6 +53,7 @@ function deactivate_plugins() {
 		}
 	}
 
+	update_option( 'safety_net_plugins_deactivated', true );
 }
 
 /*
@@ -80,4 +84,5 @@ function scrub_options() {
 		}
 	}
 
+	update_option( 'safety_net_options_scrubbed', true );
 }
