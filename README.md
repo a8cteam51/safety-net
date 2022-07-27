@@ -38,11 +38,3 @@ If `wp_get_environment_type` returns `staging`, `development`, or `local`, activ
 
 If that environment variable is not set for your site, you can also visit **Tools > Safety Net** and manually click the buttons in the Tools section to perform these actions.
 
-## Changelog
-```
-2022.07.05 - version 1.0.0-beta.2
- * Batch processing - Anonymizes users in the background via a batch process
-
-2022.06.29 - version 1.0.0-beta.1
- * First Release
-```
