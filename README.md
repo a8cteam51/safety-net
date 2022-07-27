@@ -29,12 +29,9 @@ Activating the plugin will:
 
 1. Stop emails. You can still test and view emails by activating the [WP Mail Logging plugin](https://wordpress.org/plugins/wp-mail-logging/). 
 2. Deactivate Action Scheduler. If you need to test anything that requires Action Scheduler, you will probably need to deactivate Safety Net.
+3. Scrub denylisted options.*
+4. Deactivate denylisted plugins.*
+5. Anonymize users, orders, and subscriptions.*
 
-If `wp_get_environment_type` returns `staging`, `development`, or `local`, activating the plugin will also do these things:
-
-3. Scrub denylisted options.
-4. Deactivate denylisted plugins.
-5. Anonymize users, orders, and subscriptions.
-
-If that environment variable is not set for your site, you can also visit **Tools > Safety Net** and manually click the buttons in the Tools section to perform these actions.
+* Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If that environment variable is not set for your site, you can also visit **Tools > Safety Net** and manually click the buttons in the Tools section to perform these actions.
 
