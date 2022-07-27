@@ -10,7 +10,7 @@ This is a WordPress plugin developed by WordPress.com Special Projects (Team 51)
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
 - **Stop Emails**: When Safety Net is activated, WordPress will be blocked from sending emails. (Caution: may not block SMTP or other plugins from doing so). 
-- **Disable Action Scheduler**: When Safety Net is activated, the default queue runner for Action Scheduler is unhooked. This means that Woo Subscription renewals, for example, will not be triggered at all. 
+- **Disable Action Scheduler**: When Safety Net is activated, the default queue runner for Action Scheduler is unhooked. This means that WooCommerce Subscriptions renewals, for example, will not be triggered at all. 
 
 #### Advanced features
 - **Delete Users**: Deletes users from the site. Should be used with caution, and only if Woo payment gateways are deactivated. Runs as a background process to handle large sites.
