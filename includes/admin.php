@@ -14,8 +14,8 @@ add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_
 add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
-add_action( 'init', 'disable_action_scheduler', 10 );
-add_action( 'admin_notices', 'show_warning' );
+add_action( 'init', __NAMESPACE__ . '\disable_action_scheduler', 10 );
+add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 
 /**
@@ -352,8 +352,8 @@ function add_action_links( $actions ) {
  */
 
 function disable_action_scheduler() {
-	if ( class_exists( 'ActionScheduler' ) ) {
-		remove_action( 'action_scheduler_run_queue', array( ActionScheduler::runner(), 'run' ) );
+	if ( class_exists( '\ActionScheduler' ) ) {
+		remove_action( 'action_scheduler_run_queue', array( \ActionScheduler::runner(), 'run' ) );
 	}
 }
 
