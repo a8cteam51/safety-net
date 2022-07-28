@@ -15,7 +15,7 @@ add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_sc
 add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 add_action( 'init', 'disable_action_scheduler', 10 );
-add_action( 'admin_notices', array( $this, 'show_warning' ) );
+add_action( 'admin_notices', 'show_warning' );
 add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 
 /**
@@ -361,7 +361,7 @@ function disable_action_scheduler() {
  * Display Warning that Safety Net is activated.
  *
  */
-public function show_warning() {
+function show_warning() {
 	echo "\n<div class='notice notice-info'><p>";
 	echo '<strong>';
 		esc_html_e( 'Safety Net Activated', 'safety-net' );
