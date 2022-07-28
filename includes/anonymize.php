@@ -25,7 +25,7 @@ function anonymize_data() {
 	$wpdb->query( "INSERT INTO {$wpdb->users}_temp SELECT * FROM $wpdb->users" );
 
 	// Remove all users, except administrators.
-	$wpdb->query( "DELETE wp_users FROM $wpdb->users wp_users INNER JOIN $wpdb->usermeta ON wp_users.ID = {$wpdb->usermeta}.user_id WHERE meta_key = 'wp_capabilities' AND meta_value NOT LIKE '%administrator%'" );
+	$wpdb->query( "DELETE wp_users FROM $wpdb->users wp_users INNER JOIN $wpdb->usermeta ON wp_users.ID = {$wpdb->usermeta}.user_id WHERE meta_key = '{$wpdb->prefix}capabilities' AND meta_value NOT LIKE '%administrator%'" );
 
 	// Copy the user meta table.
 	$wpdb->query( "CREATE TABLE {$wpdb->usermeta}_temp LIKE $wpdb->usermeta" );
