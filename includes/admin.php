@@ -353,7 +353,7 @@ function add_action_links( $actions ) {
 
 function disable_action_scheduler() {
 	if ( class_exists( 'ActionScheduler' ) ) {
-		remove_action( 'action_scheduler_run_queue', array( ActionScheduler::runner(), 'run' ) );
+		remove_action( 'action_scheduler_run_queue', array( \ActionScheduler::runner(), 'run' ) );
 	}
 }
 
