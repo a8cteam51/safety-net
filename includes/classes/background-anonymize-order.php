@@ -40,5 +40,12 @@ class Background_Anonymize_Order extends \WP_Background_Process {
 		return $item;
 	}
 
+	/**
+	 * When all orders have been anonymized, flush the cache.
+	 */
+	protected function complete() {
+		wp_cache_flush();
+	}
+
 }
 
