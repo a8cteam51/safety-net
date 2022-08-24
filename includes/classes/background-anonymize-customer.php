@@ -40,5 +40,12 @@ class Background_Anonymize_Customer extends \WP_Background_Process {
 		return $item;
 	}
 
+	/**
+	 * When all customers have been anonymized, flush the cache.
+	 */
+	protected function complete() {
+		wp_cache_flush();
+	}
+
 }
 

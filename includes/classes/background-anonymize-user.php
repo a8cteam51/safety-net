@@ -55,6 +55,9 @@ class Background_Anonymize_User extends \WP_Background_Process {
 		$wpdb->query( "DROP TABLE {$wpdb->users}_temp" );
 		$wpdb->query( "INSERT INTO $wpdb->usermeta (SELECT * FROM {$wpdb->usermeta}_temp WHERE user_id NOT IN (SELECT user_id FROM $wpdb->usermeta))" );
 		$wpdb->query( "DROP TABLE {$wpdb->usermeta}_temp" );
+
+		// Flush the cache.
+		wp_cache_flush();
 	}
 
 }
