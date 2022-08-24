@@ -13,9 +13,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly
 }
 
+// Protect against more than one copy of the plugin being activated
+if ( defined( 'SAFETY_NET_PATH' ) ) {
+	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	deactivate_plugins( plugin_basename( __FILE__ ) );
+
+	function deactivation_admin_notice() {
+		$class   = 'notice notice-error';
+		$message = __( 'It looks like more than one copy of Safety Net is installed, so one has been deactivated.', 'safety-net' );
+		printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
+	}
+	add_action( 'admin_notices', 'deactivation_admin_notice' );
+
+	return;
+}
+
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
-define( 'SAFETY_NET_BASENAME', plugin_basename(__FILE__) );
+define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
 
 require_once __DIR__ . '/includes/library/wp-background-processing/wp-background-processing.php';
 require_once __DIR__ . '/includes/anonymize.php';
