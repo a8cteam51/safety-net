@@ -13,7 +13,7 @@ This is a WordPress plugin developed by WordPress.com Special Projects (Team 51)
 - **Anonymize**: Replaces all non-admin user data with fake data. Works on the user table, WooCommerce orders and subscriptions. Also detaches individual subscriptions from their payment methods. Runs as a background process to handle large sites.
 
 #### Advanced features
-- **Delete Users**: Deletes users from the site. Should be used with caution, and only if Woo payment gateways are deactivated. Runs as a background process to handle large sites.
+- **Delete**: Deletes users, WooCommerce Orders and WooCommerce Subscriptions from the site.
 - **CLI commands**: CLI equivalents of the above two features: `wp safety-net anonymize` and `wp safety-net delete`
 
 ## Planned Features
