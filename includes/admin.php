@@ -116,9 +116,9 @@ function settings_init() {
 
 	add_settings_field(
 		'safety_net_anonymize_users',
-		esc_html__( '3. Anonymize User Data', 'safety-net' ),
+		esc_html__( 'Anonymize User Data', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
-		'safety_net_options',
+		'safety_net_advanced_options',
 		'safety_net_option',
 		[
 			'type' => 'button',
@@ -130,14 +130,14 @@ function settings_init() {
 
 	add_settings_field(
 		'safety_net_delete_users',
-		esc_html__( 'Delete All Users and Orders', 'safety-net' ),
+		esc_html__( 'Delete All Users, Orders, and Subscriptions', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_advanced_options',
 		'safety_net_option',
 		[
 			'type' => 'button',
 			'id' => 'safety-net-delete-users',
-			'button_text' => esc_html__( 'Delete Users', 'safety-net' ),
+			'button_text' => esc_html__( 'Delete', 'safety-net' ),
 			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
 		]
 	);
@@ -187,8 +187,7 @@ function render_options_html() {
 			<?php
 			settings_fields( 'safety-net' );
 			do_settings_sections( 'safety_net_options' ); ?>
-			<hr>
-			<h5>Caution - Proceed only if you know what you're doing.</h5>
+			<h3>Run both of the above, <em>then</em> choose one of the below.</h3>
 			<?php
 			do_settings_sections( 'safety_net_advanced_options' );
 			?>
@@ -286,7 +285,7 @@ function handle_ajax_delete_users() {
 	echo json_encode(
 		[
 			'success' => true,
-			'message' => esc_html__( 'Users have been successfully deleted!' ),
+			'message' => esc_html__( 'Users, orders, and subscriptions have been successfully deleted!' ),
 		]
 	);
 
