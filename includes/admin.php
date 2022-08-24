@@ -5,7 +5,7 @@ namespace SafetyNet\Admin;
 use function SafetyNet\Anonymize\anonymize_data;
 use function SafetyNet\DeactivatePlugins\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
-use function SafetyNet\Delete\delete_users;
+use function SafetyNet\Delete\delete_users_and_orders;
 
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
 add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
@@ -130,7 +130,7 @@ function settings_init() {
 
 	add_settings_field(
 		'safety_net_delete_users',
-		esc_html__( 'Delete All Users', 'safety-net' ),
+		esc_html__( 'Delete All Users and Orders', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_advanced_options',
 		'safety_net_option',
@@ -138,7 +138,7 @@ function settings_init() {
 			'type' => 'button',
 			'id' => 'safety-net-delete-users',
 			'button_text' => esc_html__( 'Delete Users', 'safety-net' ),
-			'description' => esc_html__( 'Deletes all non-admin users. Caution: Woo orders and subscriptions retain user data, so if this is a Woo store, you\'re probably better off anonymizing everything.', 'safety-net' ),
+			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
 		]
 	);
 }
@@ -179,7 +179,7 @@ function render_options_html() {
 	?>
 	<div class="wrap">
 		<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
-		<p><h4><span style="color:red;">DATA DELETION WARNING - DO NOT USE ON PRODUCTION SITE</span><h4></p>
+		<p><h4><span style="color:red;">DATA DELETION WARNING - DO NOT USE ON PRODUCTION SITE</span></h4></p>
 		<p>This plugin is intended for use on Team51 Development sites, to help anonymize user data and deactivate sensitive plugins.<br>Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
 		<hr/>
 		<h3>Tools</h3>
@@ -281,7 +281,7 @@ function handle_ajax_delete_users() {
 	check_the_nonce( $_POST['nonce'], 'safety-net-delete-users' );
 
 	// Checks passed. Delete the users.
-	delete_users();
+	delete_users_and_orders();
 
 	echo json_encode(
 		[

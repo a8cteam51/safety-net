@@ -5,12 +5,22 @@ namespace SafetyNet\Delete;
 /**
  * Deletes all users and their data, except administrators.
  *
+ * Also deletes orders and subscriptions.
+ *
  * @return void
  */
-function delete_users() {
+function delete_users_and_orders() {
 	global $wpdb;
 
-	$users = $wpdb->get_results("SELECT ID FROM $wpdb->users ORDER BY ID");
+	// Delete orders, order meta, and subscriptions.
+	$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
+	$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
+	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
+
+	$users = $wpdb->get_results( "SELECT ID FROM $wpdb->users ORDER BY ID" );
 
 	foreach ( $users as $user ) {
 		// Skip administrators.
@@ -18,14 +28,14 @@ function delete_users() {
 			continue;
 		}
 
-		// First, reassign any posts to an admin
-		reassign_posts( $user->ID);
+		// First, reassign any posts to an admin.
+		reassign_posts( $user->ID );
 
-		// Get all of their meta and delete it
+		// Get all of their meta and delete it.
 		delete_all_users_meta( $user->ID );
 
-		// Delete the user
-		$wpdb->delete( $wpdb->users, [ 'ID' => $user->ID ] );
+		// Delete the user.
+		$wpdb->delete( $wpdb->users, array( 'ID' => $user->ID ) );
 	}
 }
 

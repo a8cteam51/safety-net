@@ -3,7 +3,7 @@
 use function SafetyNet\Anonymize\anonymize_orders;
 use function SafetyNet\Anonymize\anonymize_users;
 use function SafetyNet\Anonymize\anonymize_customers;
-use function SafetyNet\Delete\delete_users;
+use function SafetyNet\Delete\delete_users_and_orders;
 
 /**
 * Anonymizer command line utilities.
@@ -39,7 +39,7 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	*
 	*/
 	public function delete() {
-		delete_users();
+		delete_users_and_orders();
 
 		WP_CLI::success( __( 'Users and their data have been deleted' ) );
 	}
