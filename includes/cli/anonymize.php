@@ -85,7 +85,7 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	}
 
 	/**
-	 * Clear options such as API keys so that plugins won't talk to 3rd parties
+	 * Deactivate problematic plugins from a denylist
 	 *
 	 * ## EXAMPLES
 	 *
