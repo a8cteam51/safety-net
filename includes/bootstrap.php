@@ -9,6 +9,7 @@ namespace SafetyNet\Bootstrap;
 use SafetyNet\Background_Anonymize_Customer;
 use SafetyNet\Background_Anonymize_Order;
 use SafetyNet\Background_Anonymize_User;
+use function SafetyNet\Utilities\is_production;
 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
@@ -35,13 +36,8 @@ function maybe_scrub_options() {
 		return;
 	}
 
-	// If we're not on staging, development, or a local environment, give warning and return.
-	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
-		_doing_it_wrong(
-			__FUNCTION__,
-			esc_html__( 'Safety Net plugin should not be run on production! Remove plugin or set WP_ENVIRONMENT_TYPE correctly.', 'safety-net' ),
-			'1.0.0-beta.3'
-		);
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
 		return;
 	}
 
@@ -59,13 +55,8 @@ function maybe_deactivate_plugins() {
 		return;
 	}
 
-	// If we're not on staging, development, or a local environment, give warning and return.
-	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
-		_doing_it_wrong(
-			__FUNCTION__,
-			esc_html__( 'Safety Net plugin should not be run on production! Remove plugin or set WP_ENVIRONMENT_TYPE correctly.', 'safety-net' ),
-			'1.0.0-beta.3'
-		);
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
 		return;
 	}
 
@@ -83,13 +74,8 @@ function maybe_anonymize_data() {
 		return;
 	}
 
-	// If we're not on staging, development, or a local environment, give warning and return.
-	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
-		_doing_it_wrong(
-			__FUNCTION__,
-			esc_html__( 'Safety Net plugin should not be run on production! Remove plugin or set WP_ENVIRONMENT_TYPE correctly.', 'safety-net' ),
-			'1.0.0-beta.3'
-		);
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
 		return;
 	}
 

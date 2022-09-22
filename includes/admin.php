@@ -6,6 +6,7 @@ use function SafetyNet\Anonymize\anonymize_data;
 use function SafetyNet\DeactivatePlugins\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\Utilities\is_production;
 
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
 add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
@@ -179,22 +180,26 @@ function render_options_html() {
 	?>
 	<div class="wrap">
 		<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
-		<p><h4><span style="color:red;">DATA DELETION WARNING - DO NOT USE ON PRODUCTION SITE</span></h4></p>
-		<p>This plugin is intended for use on Team51 Development sites, to help anonymize user data and deactivate sensitive plugins.<br>Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
+		<p>This plugin is intended for use on Team51 Development sites, to scrub sensitive API keys, delete user data, and deactivate sensitive plugins. The first time it is activated on a non-production site, it will automatically scrub, deactivate, and delete. If you need to run these functions again, you can use the tools below.</p>
+		<p>It is a work in progress. Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
 		<hr/>
+		<?php if ( is_production() ) { ?>
+			<p class="info"><strong>It appears that you are are viewing this page on a production site.</strong><br>
+			For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local. <a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.</p>
+		<?php } else { ?>
 		<h3>Tools</h3>
 		<form action="options.php" method="post">
 			<?php
 			settings_fields( 'safety-net' );
 			do_settings_sections( 'safety_net_options' ); ?>
-			<h3>Run both of the above, <em>then</em> choose one of the below.</h3>
+			<h4>Run both of the above, <em>then</em> choose one of the below.</h4>
 			<?php
 			do_settings_sections( 'safety_net_advanced_options' );
 			?>
 		</form>
 	</div>
 	<div class="loading-overlay"></div>
-	<?php
+	<?php }
 }
 
 /**
@@ -203,6 +208,19 @@ function render_options_html() {
  * @return void
  */
 function handle_ajax_anonymize_users() {
+
+	// If we're not on staging, development, or a local environment, die with a warning.
+	if ( is_production() ) {
+		// Send an AJAX warning.
+		echo json_encode(
+			[
+				'warning' => true,
+				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
+			]
+		);
+		die();
+	}
+
 	// Permissions and security checks.
 	check_the_permissions();
 	check_the_nonce( $_POST['nonce'],'safety-net-anonymize-users' );
@@ -227,6 +245,19 @@ function handle_ajax_anonymize_users() {
  * @return void
  */
 function handle_ajax_scrub_options() {
+
+	// If we're not on staging, development, or a local environment, die with a warning.
+	if ( is_production() ) {
+		// Send an AJAX warning.
+		echo json_encode(
+			[
+				'warning' => true,
+				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
+			]
+		);
+		die();
+	}
+
 	// Permissions and security checks.
 	check_the_permissions();
 	check_the_nonce( $_POST['nonce'],'safety-net-scrub-options' );
@@ -251,6 +282,19 @@ function handle_ajax_scrub_options() {
  * @return void
  */
 function handle_ajax_deactivate_plugins() {
+
+	// If we're not on staging, development, or a local environment, die with a warning.
+	if ( is_production() ) {
+		// Send an AJAX warning.
+		echo json_encode(
+			[
+				'warning' => true,
+				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
+			]
+		);
+		die();
+	}
+
 	// Permissions and security checks.
 	check_the_permissions();
 	check_the_nonce( $_POST['nonce'],'safety-net-deactivate-plugins' );
@@ -275,6 +319,19 @@ function handle_ajax_deactivate_plugins() {
  * @return void
  */
 function handle_ajax_delete_users() {
+
+	// If we're not on staging, development, or a local environment, die with a warning.
+	if ( is_production() ) {
+		// Send an AJAX warning.
+		echo json_encode(
+			[
+				'warning' => true,
+				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
+			]
+		);
+		die();
+	}
+
 	// Permissions and security checks.
 	check_the_permissions();
 	check_the_nonce( $_POST['nonce'], 'safety-net-delete-users' );
@@ -361,13 +418,17 @@ function disable_action_scheduler() {
  *
  */
 function show_warning() {
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
 	echo "\n<div class='notice notice-info'><p>";
 	echo '<strong>';
 		esc_html_e( 'Safety Net Activated', 'safety-net' );
 	echo ': ';
 	echo '</strong>';
-
 	esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent, and prevents Action Scheduler from running.  ', 'safety-net' );
-	esc_html_e( 'To send emails or enable the AS queue runner, deactivate the Safety Net plugin.', 'safety-net' );
+	esc_html_e( 'To send emails or enable the AS queue runner, deactivate the Safety Net plugin.  ', 'safety-net' );
+	echo 'This site\'s environment type is set to "' . wp_get_environment_type() . '".';
 	echo '</p></div>';
 }
