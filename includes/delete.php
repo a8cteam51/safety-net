@@ -2,6 +2,10 @@
 
 namespace SafetyNet\Delete;
 
+use function SafetyNet\Utilities\get_admin_user_ids;
+
+add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders' );
+
 /**
  * Deletes all users and their data, except administrators.
  *
@@ -20,11 +24,14 @@ function delete_users_and_orders() {
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
 
-	$users = $wpdb->get_results( "SELECT ID FROM $wpdb->users ORDER BY ID" );
+	$users  = $wpdb->get_results( "SELECT ID FROM $wpdb->users ORDER BY ID" );
+	$admins = get_admin_user_ids();
+
+	error_log(print_r($admins,1));
 
 	foreach ( $users as $user ) {
 		// Skip administrators.
-		if ( user_can( $user->ID, 'administrator' ) ) {
+		if ( in_array( $user->ID, $admins, true ) ) {
 			continue;
 		}
 
@@ -37,6 +44,9 @@ function delete_users_and_orders() {
 		// Delete the user.
 		$wpdb->delete( $wpdb->users, array( 'ID' => $user->ID ) );
 	}
+
+	// Set option so this function doesn't run again.
+	update_option( 'safety_net_data_deleted', true );
 }
 
 /**

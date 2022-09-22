@@ -13,7 +13,7 @@ use function SafetyNet\Utilities\is_production;
 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
-add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_anonymize_data' );
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
 add_action( 'plugins_loaded', __NAMESPACE__ . '\instantiate_background_classes' );
 
 /**
@@ -68,9 +68,9 @@ function maybe_deactivate_plugins() {
  *
  * Data will be anonymized if we're on staging, development, or local AND it hasn't already been anonymized.
  */
-function maybe_anonymize_data() {
-	// If data has already been anonymized, skip.
-	if ( get_option( 'safety_net_anonymized' ) ) {
+function maybe_delete_data() {
+	// If data has already been deleted, skip.
+	if ( get_option( 'safety_net_data_deleted' ) ) {
 		return;
 	}
 
@@ -80,5 +80,5 @@ function maybe_anonymize_data() {
 	}
 
 	// Fire hooks to let plugin know to anonymize data.
-	do_action( 'safety_net_anonymize_data' );
+	do_action( 'safety_net_delete_data' );
 }
