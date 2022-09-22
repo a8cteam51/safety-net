@@ -57,3 +57,15 @@ function get_customers( int $offset = 0 ): array {
 		$wpdb->prepare( "SELECT customer_id FROM {$wpdb->prefix}wc_customer_lookup LIMIT 1000 OFFSET %d", $offset ), ARRAY_A
 	);
 }
+
+/**
+ * Returns true if plugin is running on production
+ *
+ * @return bool
+ */
+function is_production() {
+	// If we're not on staging, development, or a local environment, return true.
+	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
+		return true;
+	}
+}
