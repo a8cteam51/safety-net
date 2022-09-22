@@ -184,7 +184,8 @@ function render_options_html() {
 		<p>It is a work in progress. Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
 		<hr/>
 		<?php if ( is_production() ) { ?>
-			<p>It appears that you are are viewing this page on a production site. For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local. The type can be set via the WP_ENVIRONMENT_TYPE global system variable, or a constant of the same name.</p>
+			<p class="info"><strong>It appears that you are are viewing this page on a production site.</strong><br>
+			For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local. <a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.</p>
 		<?php } else { ?>
 		<h3>Tools</h3>
 		<form action="options.php" method="post">
