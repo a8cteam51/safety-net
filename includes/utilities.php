@@ -28,6 +28,12 @@ function get_customer_user_ids(): array {
 	return $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_customer_user' AND meta_value > 0" );
 }
 
+function get_admin_user_ids(): array {
+	global $wpdb;
+
+	return $wpdb->get_col( "SELECT u.ID FROM $wpdb->users u INNER JOIN $wpdb->usermeta m ON m.user_id = u.ID WHERE m.meta_key = 'wp_capabilities' AND m.meta_value LIKE '%administrator%' ORDER BY u.user_registered" );
+}
+
 /**
  * Returns an array of up to 1,000 WooCommerce orders from the database.
  *
