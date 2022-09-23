@@ -66,7 +66,7 @@ function maybe_deactivate_plugins() {
 /**
  * Determines if data should be anonymized.
  *
- * Data will be anonymized if we're on staging, development, or local AND it hasn't already been anonymized.
+ * Data will be deleted if we're on staging, development, or local AND it hasn't already been anonymized.
  */
 function maybe_delete_data() {
 	// If data has already been deleted, skip.
@@ -79,6 +79,6 @@ function maybe_delete_data() {
 		return;
 	}
 
-	// Fire hooks to let plugin know to anonymize data.
+	// Fire hooks to let plugin know to delete data.
 	do_action( 'safety_net_delete_data' );
 }
