@@ -17,26 +17,33 @@ function delete_users_and_orders() {
 	global $wpdb;
 
 	// Delete orders, order meta, and subscriptions.
-	$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
-	$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
+
+	// check if table exists before purging 
+	$table_name = $wpdb->prefix.'woocommerce_order_itemmeta';
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
+	}
+	// check if table exists before purging 
+	$table_name = $wpdb->prefix.'woocommerce_order_items';
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
+	}
 	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
 	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
 
+	// reassigning all posts to the first admin user
+	reassign_all_posts();
+
 	$users  = $wpdb->get_results( "SELECT ID FROM $wpdb->users ORDER BY ID" );
 	$admins = get_admin_user_ids();
-
-	error_log(print_r($admins,1));
 
 	foreach ( $users as $user ) {
 		// Skip administrators.
 		if ( in_array( $user->ID, $admins, true ) ) {
 			continue;
 		}
-
-		// First, reassign any posts to an admin.
-		reassign_posts( $user->ID );
 
 		// Get all of their meta and delete it.
 		delete_all_users_meta( $user->ID );
@@ -47,27 +54,21 @@ function delete_users_and_orders() {
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
+
+	wp_cache_flush();
 }
 
 /**
- * Reassigns all of a user's posts to an admin.
- *
- * @param int $user_id The ID of the user.
+ * Reassigns all posts to an admin.
  *
  * @return void
  */
-function reassign_posts( $user_id ) {
+function reassign_all_posts() {
 	global $wpdb;
 
-	$post_ids = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM $wpdb->posts WHERE post_author = %d", $user_id ) );
+	$wpdb->get_results( $wpdb->prepare( "UPDATE $wpdb->posts SET post_author = %d", get_admin_id() ) );
 
-	$wpdb->update( $wpdb->posts, [ 'post_author' => get_admin_id() ], [ 'post_author' => $user_id ] );
-
-	if ( ! empty( $post_ids ) ) {
-		foreach ( $post_ids as $post_id ) {
-			clean_post_cache( $post_id );
-		}
-	}
+	wp_cache_flush();
 }
 
 /**
