@@ -11,10 +11,10 @@ use SafetyNet\Background_Anonymize_Order;
 use SafetyNet\Background_Anonymize_User;
 use function SafetyNet\Utilities\is_production;
 
-add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
-add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
-add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_anonymize_data' );
 add_action( 'plugins_loaded', __NAMESPACE__ . '\instantiate_background_classes' );
+add_action( 'plugins_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
+add_action( 'plugins_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
+add_action( 'plugins_loaded', __NAMESPACE__ . '\maybe_anonymize_data' );
 
 /**
  * Background Process classes need to be instantiated on plugins_loaded hook.
