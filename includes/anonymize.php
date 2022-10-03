@@ -7,8 +7,6 @@ use SafetyNet\Background_Anonymize_Order;
 use SafetyNet\Background_Anonymize_User;
 use SafetyNet\Dummy;
 
-add_action( 'safety_net_anonymize_data', __NAMESPACE__ . '\anonymize_data' );
-
 /**
  * Anonymizes user info by replacing it with fake data.
  *
@@ -16,9 +14,6 @@ add_action( 'safety_net_anonymize_data', __NAMESPACE__ . '\anonymize_data' );
  */
 function anonymize_data() {
 	global $wpdb;
-
-	// Set option so this function doesn't run again.
-	update_option( 'safety_net_anonymized', true );
 
 	// Copy user table to a temporary table that will be anonymized later.
 	$wpdb->query( "CREATE TABLE {$wpdb->users}_temp LIKE $wpdb->users" );
