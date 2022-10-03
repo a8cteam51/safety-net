@@ -16,6 +16,7 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
 add_action( 'plugins_loaded', __NAMESPACE__ . '\instantiate_background_classes' );
 
+
 /**
  * Background Process classes need to be instantiated on plugins_loaded hook.
  */
