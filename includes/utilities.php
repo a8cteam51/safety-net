@@ -75,3 +75,34 @@ function is_production() {
 		return true;
 	}
 }
+
+/**
+ * Reads the plugin or options denylist txt files, and returns an array for use
+ *
+ * @param string accepts options|plugins
+ * 
+ * @return array
+ */
+function get_denylist_array( $denylist_type ) {
+
+	$denylist_array = array();
+
+	if ( 'options' == $denylist_type ) {
+		$filename = 'option_scrublist.txt';
+	} elseif ( 'plugins' == $denylist_type ) {
+		$filename = 'plugin_denylist.txt';
+	}
+
+	$row = 1;
+	if ( ( $handle = fopen( WP_PLUGIN_DIR . '/safety-net/assets/data/' . $filename, 'r' ) ) !== FALSE ) {
+		while ( ( $data = fgetcsv( $handle, 1000 ) ) !== FALSE ) {
+			$num = count( $data );
+			$row++;
+			for ( $c=0; $c < $num; $c++ ) {
+				$denylist_array[] =  $data[$c];
+			}
+		}
+		fclose($handle);
+	}
+	return $denylist_array;
+}

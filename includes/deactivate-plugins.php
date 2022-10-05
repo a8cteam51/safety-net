@@ -2,6 +2,8 @@
 
 namespace SafetyNet\DeactivatePlugins;
 
+use function SafetyNet\Utilities\get_denylist_array;
+
 add_action( 'safety_net_deactivate_plugins', __NAMESPACE__ . '\deactivate_plugins' );
 add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 
@@ -16,8 +18,7 @@ function deactivate_plugins() {
 
 	$all_installed_plugins = array_keys( get_plugins() );
 
-	// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
-	$denylisted_plugins = array( 'avatax', 'postmatic', 'webgility', 'shareasale', 'paypal', 'stripe', 'affirm', 'smtp', 'in-stock-mailer-for-wc', 'klaviyo', 'wp-mail-bank', 'mailchimp', 'mailgun', 'metorik', 'sendinblue', 'wp-sendgrid-mailer', 'socketlabs', 'shipstation', 'wpmandrill', 'wp-console', 'wp-ses', 'algolia', 'zapier' );
+	$denylisted_plugins = get_denylist_array( 'plugins' );
 	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', $denylisted_plugins );
 
 	// let's tack on all the Woo payment methods, in case we can deactivate any of those too
@@ -37,6 +38,7 @@ function deactivate_plugins() {
 
 		foreach ( $denylisted_plugins as $denylisted_plugin ) {
 
+			// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
 			if ( stristr( $installed_plugin, $denylisted_plugin ) ) {
 
 				// remove plugin silently from active plugins list without triggering hooks
@@ -60,27 +62,8 @@ function deactivate_plugins() {
 * Clear options such as API keys so that plugins won't talk to 3rd parties
 */
 function scrub_options() {
-	$options_to_clear = array(
-		'shareasale_wc_tracker_options',
-		'mc4wp',
-		'woocommerce_afterpay_settings',
-		'mailchimp-woocommerce',
-		'mailchimp-woocommerce-cached-api-account-name',
-		'wpmandrill',
-		'woocommerce_shipstation_auth_key',
-		'woocommerce_braintree_paypal_settings',
-		'woocommerce_braintree_credit_card_settings',
-		'klaviyo_settings',
-		'klaviyo_api_key',
-		'woocommerce_stripe_account_settings',
-		'woocommerce_stripe_api_settings',
-		'woocommerce_stripe_settings',
-		'woocommerce_ppcp-gateway_settings',
-		'woocommerce-ppcp-settings',
-		'woocommerce_paypal_settings',
-		'woocommerce_woocommerce_payments_settings',
-		'jetpack_active_modules',
-	);
+
+	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	foreach ( $options_to_clear as $option ) {
