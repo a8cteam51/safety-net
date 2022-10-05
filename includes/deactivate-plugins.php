@@ -60,24 +60,56 @@ function deactivate_plugins() {
 * Clear options such as API keys so that plugins won't talk to 3rd parties
 */
 function scrub_options() {
-	$options_to_clear = array( 'shareasale_wc_tracker_options', 'mc4wp', 'woocommerce_afterpay_settings', 'mailchimp-woocommerce', 'mailchimp-woocommerce-cached-api-account-name', 'wpmandrill', 'woocommerce_shipstation_auth_key', 'woocommerce_braintree_paypal_settings', 'woocommerce_braintree_credit_card_settings', 'klaviyo_settings', 'klaviyo_api_key', 'woocommerce_stripe_account_settings', 'woocommerce_stripe_api_settings', 'woocommerce_stripe_settings', 'woocommerce_ppcp-gateway_settings', 'woocommerce-ppcp-settings', 'woocommerce_paypal_settings', 'woocommerce_woocommerce_payments_settings' );
+	$options_to_clear = array(
+		'shareasale_wc_tracker_options',
+		'mc4wp',
+		'woocommerce_afterpay_settings',
+		'mailchimp-woocommerce',
+		'mailchimp-woocommerce-cached-api-account-name',
+		'wpmandrill',
+		'woocommerce_shipstation_auth_key',
+		'woocommerce_braintree_paypal_settings',
+		'woocommerce_braintree_credit_card_settings',
+		'klaviyo_settings',
+		'klaviyo_api_key',
+		'woocommerce_stripe_account_settings',
+		'woocommerce_stripe_api_settings',
+		'woocommerce_stripe_settings',
+		'woocommerce_ppcp-gateway_settings',
+		'woocommerce-ppcp-settings',
+		'woocommerce_paypal_settings',
+		'woocommerce_woocommerce_payments_settings',
+		'jetpack_active_modules',
+	);
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	foreach ( $options_to_clear as $option ) {
-		if ( get_option( $option ) ) {
+		$option_value = get_option( $option );
+		if ( $option_value ) {
 
-			update_option( $option . '_backup', get_option( $option ) );
+			update_option( $option . '_backup', $option_value );
 
 			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
 				$keys_to_scrub = array( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' );
-				$option_array  = get_option( $option );
+				$option_array  = $option_value;
 				foreach ( $keys_to_scrub as $key ) {
 					if ( array_key_exists( $key, $option_array ) ) {
 						$option_array[ $key ] = '';
 					}
 				}
 				update_option( $option, $option_array );
+			} elseif ( 'jetpack_active_modules' === $option ) {
+				// Clear some Jetpack options to disable specific modules.
+				$modules_to_disable = array( 'publicize' );
+				$modules_array      = array_filter(
+					$option_value,
+					function( $v ) use ( $modules_to_disable ) {
+						return ! in_array( $v, $modules_to_disable, true );
+					},
+				);
+
+				update_option( $option, $modules_array );
 			} else {
 				update_option( $option, '' );
 			}
