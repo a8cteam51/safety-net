@@ -102,12 +102,13 @@ function scrub_options() {
 			} elseif ( 'jetpack_active_modules' === $option ) {
 				// Clear some Jetpack options to disable specific modules.
 				$modules_to_disable = array( 'publicize' );
-				$modules_array      = $option_value;
-				foreach ( $modules_to_disable as $key ) {
-					if ( array_key_exists( $key, $modules_array ) ) {
-						$modules_array[ $key ] = '';
-					}
-				}
+				$modules_array      = array_filter(
+					$option_value,
+					function( $v ) use ( $modules_to_disable ) {
+						return ! in_array( $v, $modules_to_disable, true );
+					},
+				);
+
 				update_option( $option, $modules_array );
 			} else {
 				update_option( $option, '' );
