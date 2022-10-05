@@ -102,7 +102,7 @@ function get_denylist_array( $denylist_type ) {
 			$num = count( $data );
 			$row++;
 			for ( $c = 0; $c < $num; $c++ ) {
-				$denylist_array[] = $data[ $c ];
+				$denylist_array[] = trim( $data[ $c ] );
 			}
 		}
 		fclose( $handle );
