@@ -79,7 +79,7 @@ function scrub_options() {
 					}
 				}
 				update_option( $option, $option_array );
-			} elseif ( 'jetpack_active_modules-gateway_settings' === $option ) {
+			} elseif ( 'jetpack_active_modules' === $option ) {
 				// Clear some Jetpack options to disable specific modules.
 				$modules_to_disable = array( 'publicize' );
 				$modules_array      = $option_value;
