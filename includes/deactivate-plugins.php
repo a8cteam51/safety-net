@@ -64,14 +64,15 @@ function scrub_options() {
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	foreach ( $options_to_clear as $option ) {
-		if ( get_option( $option ) ) {
+		$option_value = get_option( $option );
+		if ( $option_value ) {
 
-			update_option( $option . '_backup', get_option( $option ) );
+			update_option( $option . '_backup', $option_value );
 
 			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
 				$keys_to_scrub = array( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' );
-				$option_array  = get_option( $option );
+				$option_array  = $option_value;
 				foreach ( $keys_to_scrub as $key ) {
 					if ( array_key_exists( $key, $option_array ) ) {
 						$option_array[ $key ] = '';
