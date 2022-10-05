@@ -13,7 +13,8 @@ function get_users( int $offset = 0 ): array {
 	global $wpdb;
 
 	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT ID, user_login FROM {$wpdb->users} LIMIT 1000 OFFSET %d", $offset ), ARRAY_A
+		$wpdb->prepare( "SELECT ID, user_login FROM {$wpdb->users} LIMIT 1000 OFFSET %d", $offset ),
+		ARRAY_A
 	);
 }
 
@@ -45,7 +46,8 @@ function get_orders( int $offset = 0 ): array {
 	global $wpdb;
 
 	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' LIMIT 1000 OFFSET %d", $offset ), ARRAY_A
+		$wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' LIMIT 1000 OFFSET %d", $offset ),
+		ARRAY_A
 	);
 }
 
@@ -60,7 +62,8 @@ function get_customers( int $offset = 0 ): array {
 	global $wpdb;
 
 	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT customer_id FROM {$wpdb->prefix}wc_customer_lookup LIMIT 1000 OFFSET %d", $offset ), ARRAY_A
+		$wpdb->prepare( "SELECT customer_id FROM {$wpdb->prefix}wc_customer_lookup LIMIT 1000 OFFSET %d", $offset ),
+		ARRAY_A
 	);
 }
 
@@ -80,29 +83,29 @@ function is_production() {
  * Reads the plugin or options denylist txt files, and returns an array for use
  *
  * @param string accepts options|plugins
- * 
+ *
  * @return array
  */
 function get_denylist_array( $denylist_type ) {
 
 	$denylist_array = array();
 
-	if ( 'options' == $denylist_type ) {
+	if ( 'options' === $denylist_type ) {
 		$filename = 'option_scrublist.txt';
-	} elseif ( 'plugins' == $denylist_type ) {
+	} elseif ( 'plugins' === $denylist_type ) {
 		$filename = 'plugin_denylist.txt';
 	}
 
 	$row = 1;
-	if ( ( $handle = fopen( WP_PLUGIN_DIR . '/safety-net/assets/data/' . $filename, 'r' ) ) !== FALSE ) {
-		while ( ( $data = fgetcsv( $handle, 1000 ) ) !== FALSE ) {
+	if ( ( $handle = fopen( WP_PLUGIN_DIR . '/safety-net/assets/data/' . $filename, 'r' ) ) !== false ) {
+		while ( ( $data = fgetcsv( $handle, 1000 ) ) !== false ) {
 			$num = count( $data );
 			$row++;
-			for ( $c=0; $c < $num; $c++ ) {
-				$denylist_array[] =  $data[$c];
+			for ( $c = 0; $c < $num; $c++ ) {
+				$denylist_array[] = $data[ $c ];
 			}
 		}
-		fclose($handle);
+		fclose( $handle );
 	}
 	return $denylist_array;
 }
