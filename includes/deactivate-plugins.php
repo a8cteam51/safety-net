@@ -60,7 +60,27 @@ function deactivate_plugins() {
 * Clear options such as API keys so that plugins won't talk to 3rd parties
 */
 function scrub_options() {
-	$options_to_clear = array( 'shareasale_wc_tracker_options', 'mc4wp', 'woocommerce_afterpay_settings', 'mailchimp-woocommerce', 'mailchimp-woocommerce-cached-api-account-name', 'wpmandrill', 'woocommerce_shipstation_auth_key', 'woocommerce_braintree_paypal_settings', 'woocommerce_braintree_credit_card_settings', 'klaviyo_settings', 'klaviyo_api_key', 'woocommerce_stripe_account_settings', 'woocommerce_stripe_api_settings', 'woocommerce_stripe_settings', 'woocommerce_ppcp-gateway_settings', 'woocommerce-ppcp-settings', 'woocommerce_paypal_settings', 'woocommerce_woocommerce_payments_settings' );
+	$options_to_clear = array(
+		'shareasale_wc_tracker_options',
+		'mc4wp',
+		'woocommerce_afterpay_settings',
+		'mailchimp-woocommerce',
+		'mailchimp-woocommerce-cached-api-account-name',
+		'wpmandrill',
+		'woocommerce_shipstation_auth_key',
+		'woocommerce_braintree_paypal_settings',
+		'woocommerce_braintree_credit_card_settings',
+		'klaviyo_settings',
+		'klaviyo_api_key',
+		'woocommerce_stripe_account_settings',
+		'woocommerce_stripe_api_settings',
+		'woocommerce_stripe_settings',
+		'woocommerce_ppcp-gateway_settings',
+		'woocommerce-ppcp-settings',
+		'woocommerce_paypal_settings',
+		'woocommerce_woocommerce_payments_settings',
+		'jetpack_active_modules',
+	);
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	foreach ( $options_to_clear as $option ) {
