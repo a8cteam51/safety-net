@@ -17,7 +17,6 @@ This is a WordPress plugin developed by WordPress.com Special Projects (Team 51)
 - **CLI commands**: CLI equivalents of the above two features: `wp safety-net anonymize` and `wp safety-net delete`
 
 ## Planned Features
-- The ability to pull in the denylisted plugins and options from a location that is more easily editable than a hardcoded array
 - Multi-site (WordPress network) compatibility
 - Add admin toggle to turn Action Scheduler and/or WP-Cron on and off.
 - Do you have a suggestion for the next great feature to add? Please create an issue or submit a PR!
@@ -34,6 +33,13 @@ Activating the plugin on a non-production site will:
 5. Deactivate Action Scheduler. If you need to test anything that requires Action Scheduler, you will probably need to deactivate Safety Net.
 
 *Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If that environment variable is not set for your site, you can also visit **Tools > Safety Net** and manually click the buttons in the Tools section to perform these actions.
+
+## How to add plugins or options to the denylists
+These denylists are `txt` files that live in the `assets/data/` folder. Each plugin or option is on its own line. 
+
+You may:
+- Create a new issue or dev request to have a plugin or option added to the denylists, or
+- Submit a PR to add something yourself, and let us know so we can merge it
 
 ## Troubleshooting
 
