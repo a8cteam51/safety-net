@@ -97,7 +97,7 @@ function get_denylist_array( $denylist_type ) {
 	}
 
 	$row = 1;
-	if ( ( $handle = fopen( WP_PLUGIN_DIR . '/safety-net/assets/data/' . $filename, 'r' ) ) !== false ) {
+	if ( ( $handle = fopen( SAFETY_NET_URL . '/assets/data/' . $filename, 'r' ) ) !== false ) {
 		while ( ( $data = fgetcsv( $handle, 1000 ) ) !== false ) {
 			$num = count( $data );
 			$row++;
