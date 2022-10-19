@@ -15,7 +15,7 @@ add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_
 add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
-add_action( 'init', __NAMESPACE__ . '\disable_action_scheduler', 10 );
+add_action( 'init', __NAMESPACE__ . '\pause_renewal_actions', 10 );
 add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 
@@ -403,13 +403,18 @@ function add_action_links( $actions ) {
 }
 
 /**
- * Unhook the Action Scheduler queue runner
+ * Pause WooCommerce Subscriptions renewal and failed payment retry scheduled actions
  *
  */
 
-function disable_action_scheduler() {
+function pause_renewal_actions() {
 	if ( class_exists( '\ActionScheduler' ) ) {
-		remove_action( 'action_scheduler_run_queue', array( \ActionScheduler::runner(), 'run' ) );
+		add_action( 'action_scheduler_pre_init', function() {
+				require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
+				add_filter( 'action_scheduler_store_class', function( $class ) {
+					return 'ActionScheduler_Custom_DBStore';
+				}, 101, 1 );
+		});
 	}
 }
 
@@ -427,8 +432,8 @@ function show_warning() {
 		esc_html_e( 'Safety Net Activated', 'safety-net' );
 	echo ': ';
 	echo '</strong>';
-	esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent, and prevents Action Scheduler from running.  ', 'safety-net' );
-	esc_html_e( 'To send emails or enable the AS queue runner, deactivate the Safety Net plugin.  ', 'safety-net' );
+	esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent, and prevents WooCommerce Subscriptions renewal actions from running.  ', 'safety-net' );
+	esc_html_e( 'To send emails or enable renewals, deactivate the Safety Net plugin.  ', 'safety-net' );
 	echo 'This site\'s environment type is set to "' . wp_get_environment_type() . '".';
 	echo '</p></div>';
 }
