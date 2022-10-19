@@ -432,8 +432,8 @@ function show_warning() {
 		esc_html_e( 'Safety Net Activated', 'safety-net' );
 	echo ': ';
 	echo '</strong>';
-	esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent, and prevents Action Scheduler from running.  ', 'safety-net' );
-	esc_html_e( 'To send emails or enable the AS queue runner, deactivate the Safety Net plugin.  ', 'safety-net' );
+	esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent, and prevents WooCommerce Subscriptions renewal actions from running.  ', 'safety-net' );
+	esc_html_e( 'To send emails or enable renewals, deactivate the Safety Net plugin.  ', 'safety-net' );
 	echo 'This site\'s environment type is set to "' . wp_get_environment_type() . '".';
 	echo '</p></div>';
 }
