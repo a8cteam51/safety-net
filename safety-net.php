@@ -1,7 +1,7 @@
 <?php
 /*
  * Plugin Name: Safety Net
- * Description: For Team51 Development Sites. Anonymizes user data and more!
+ * Description: For Team51 Development Sites. Deletes user data and more!
  * Version: 1.0.0-beta.3
  * Author: WordPress.com Special Projects
  * Author URI: https://wpspecialprojects.wordpress.com

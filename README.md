@@ -8,13 +8,14 @@ This is a WordPress plugin developed by WordPress.com Special Projects (Team 51)
 ## Existing Features
 - **Stop Emails**: When Safety Net is activated, WordPress will be blocked from sending emails. (Caution: may not block SMTP or other plugins from doing so). 
 - **Disable Action Scheduler**: When Safety Net is activated, the default queue runner for Action Scheduler is unhooked. This means that WooCommerce Subscriptions renewals, for example, will not be triggered at all. 
+- **Discourage search engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
+- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
 - **Anonymize**: Replaces all non-admin user data with fake data. Works on the user table, WooCommerce orders and subscriptions. Also detaches individual subscriptions from their payment methods. Runs as a background process to handle large sites.
 
 #### Advanced features
-- **Delete**: Deletes users, WooCommerce Orders and WooCommerce Subscriptions from the site.
-- **CLI commands**: CLI equivalents of the above two features: `wp safety-net anonymize` and `wp safety-net delete`
+- **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, `wp safety-net anonymize` and `wp safety-net delete`
 
 ## Planned Features
 - Multi-site (WordPress network) compatibility
@@ -31,6 +32,7 @@ Activating the plugin on a non-production site will:
 3. Delete users, orders, and subscriptions.*
 4. Stop emails. You can still test and view emails by activating the [WP Mail Logging plugin](https://wordpress.org/plugins/wp-mail-logging/). 
 5. Deactivate Action Scheduler. If you need to test anything that requires Action Scheduler, you will probably need to deactivate Safety Net.
+6. Discourage search engines.
 
 *Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If that environment variable is not set for your site, you can also visit **Tools > Safety Net** and manually click the buttons in the Tools section to perform these actions.
 
@@ -56,5 +58,5 @@ You'll need to go into the `includes/bootstrap.php` file and comment out whichev
 ```php
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
-add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_anonymize_data' )
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 ```
