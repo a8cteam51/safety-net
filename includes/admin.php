@@ -15,7 +15,7 @@ add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_
 add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
-add_action( 'init', __NAMESPACE__ . '\pause_scheduled_actions', 10 );
+add_action( 'init', __NAMESPACE__ . '\pause_renewal_actions', 10 );
 add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 
@@ -407,7 +407,7 @@ function add_action_links( $actions ) {
  *
  */
 
-function pause_scheduled_actions() {
+function pause_renewal_actions() {
 	if ( class_exists( '\ActionScheduler' ) ) {
 		add_action( 'action_scheduler_pre_init', function() {
 				require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
