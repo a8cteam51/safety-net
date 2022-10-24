@@ -1,9 +1,15 @@
+| :exclamation:  This is a public repository |
+|--------------------------------------------|
+
 # Safety Net
 
 **for Team51 Development Sites**
 
 ## What's this?
 This is a WordPress plugin developed by WordPress.com Special Projects (Team 51) that secures sensitive data on development, staging, and local sites. It anonymizes personally identifiable information as well as prevents sites from acting on real user data (e.g. sending emails, processing renewals, etc.)
+
+## Disclaimer
+This public plugin is provided as an example of how such a plugin could be implemented, and is provided without any support or guarantees. Please use at your own discretion. Incorrect usage could result in data deletion.
 
 ## Existing Features
 - **Stop Emails**: When Safety Net is activated, WordPress will be blocked from sending emails. (Caution: may not block SMTP or other plugins from doing so). 
@@ -39,7 +45,7 @@ Activating the plugin on a non-production site will:
 ## How to add plugins or options to the denylists
 These denylists are `txt` files that live in the `assets/data/` folder. Each plugin or option is on its own line. 
 
-You may:
+You may also:
 - Create a new issue or dev request to have a plugin or option added to the denylists, or
 - Submit a PR to add something yourself, and let us know so we can merge it
 
