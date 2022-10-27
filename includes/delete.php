@@ -14,6 +14,17 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
  * @return void
  */
 function delete_users_and_orders() {
+
+	if ( true != get_option( 'safety_net_plugins_deactivated' ) ) {
+		function plugins_admin_notice() {
+			$class   = 'notice notice-error';
+			$message = __( 'There was a problem with Safety Net, and user data was not deleted.', 'safety-net' );
+			printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
+		}
+		add_action( 'admin_notices', 'plugins_admin_notice' );
+		exit;
+	}
+
 	global $wpdb;
 
 	// Delete orders, order meta, and subscriptions.

@@ -12,6 +12,16 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 */
 function deactivate_plugins() {
 
+	if ( true != get_option( 'safety_net_options_scrubbed' ) ) {
+		function plugins_admin_notice() {
+			$class   = 'notice notice-error';
+			$message = __( 'There was a problem with Safety Net, and plugins were not deactivated.', 'safety-net' );
+			printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
+		}
+		add_action( 'admin_notices', 'plugins_admin_notice' );
+		exit;
+	}
+
 	if ( ! function_exists( 'get_plugins' ) ) {
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
 	}
