@@ -37,11 +37,11 @@ function delete_users_and_orders() {
 	reassign_all_posts();
 
 	$admins          = get_admin_user_ids();
-	$adminListString = implode( ",", $admins );
+	$admin_list_string = implode( ",", $admins );
 
 	// Delete all non-admin users and their usermeta
-	$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( $adminListString )" );
-	$wpdb->query( "DELETE FROM $wpdb->users WHERE ID NOT IN ( $adminListString )" );
+	$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( $admin_list_string )" );
+	$wpdb->query( "DELETE FROM $wpdb->users WHERE ID NOT IN ( $admin_list_string )" );
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
