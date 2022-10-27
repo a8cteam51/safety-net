@@ -33,24 +33,15 @@ function delete_users_and_orders() {
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
 
-	// reassigning all posts to the first admin user
+	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
-	$users  = $wpdb->get_results( "SELECT ID FROM $wpdb->users ORDER BY ID" );
-	$admins = get_admin_user_ids();
+	$admins          = get_admin_user_ids();
+	$admin_list_string = implode( ",", $admins );
 
-	foreach ( $users as $user ) {
-		// Skip administrators.
-		if ( in_array( $user->ID, $admins, true ) ) {
-			continue;
-		}
-
-		// Get all of their meta and delete it.
-		delete_all_users_meta( $user->ID );
-
-		// Delete the user.
-		$wpdb->delete( $wpdb->users, array( 'ID' => $user->ID ) );
-	}
+	// Delete all non-admin users and their usermeta
+	$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( $admin_list_string )" );
+	$wpdb->query( "DELETE FROM $wpdb->users WHERE ID NOT IN ( $admin_list_string )" );
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
