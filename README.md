@@ -56,6 +56,8 @@ For Safety Net to run - and to access the tools page - the environment type need
 
 One way to do that is to edit your `wp-config.php` file, and add `define('WP_ENVIRONMENT_TYPE', 'development');`
 
+Or, if you have access to WP-CLI, you can SSH in and run `wp config set WP_ENVIRONMENT_TYPE staging --type=constant`
+
 ### Plugin won't activate
 It's possible that there is another copy of the plugin active on the site. Check in the `mu-plugins` folder.
 
