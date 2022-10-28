@@ -11,6 +11,17 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 * Deactivate plugins from a denylist
 */
 function deactivate_plugins() {
+	
+	if ( true != get_option( 'safety_net_options_scrubbed' ) ) {
+		echo json_encode(
+			[
+				'success' => false,
+				'message' => esc_html__( 'Safety Net Error: options need to be scrubbed first.' ),
+			]
+		);
+
+		die();
+	}
 
 	if ( ! function_exists( 'get_plugins' ) ) {
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
