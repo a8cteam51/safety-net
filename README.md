@@ -14,7 +14,7 @@ This public plugin is provided as an example of how such a plugin could be imple
 ## Existing Features
 - **Stop Emails**: When Safety Net is activated, WordPress will be blocked from sending emails. (Caution: may not block SMTP or other plugins from doing so). 
 - **Pause Renewal Actions**: When Safety Net is activated, Action Scheduler will not claim renewal actions or payment retry actions from WooCommerce Subscriptions, effectively pausing them. Other scheduled actions will continue to run.
-- **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file.
+- **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
 - **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
