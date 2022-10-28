@@ -40,7 +40,7 @@ Activating the plugin on a non-production site will:
 5. Pause Renewal Actions.
 6. Discourage search engines.
 
-*Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If that environment variable is not set for your site, you can also visit **Tools > Safety Net** and manually click the buttons in the Tools section to perform these actions.
+*Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If you have access to WP-CLI, you can SSH in and run `wp config set WP_ENVIRONMENT_TYPE staging --type=constant`
 
 ## How to add plugins or options to the denylists
 These denylists are `txt` files that live in the `assets/data/` folder. Each plugin or option is on its own line. 
