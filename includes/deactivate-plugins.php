@@ -11,15 +11,16 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 * Deactivate plugins from a denylist
 */
 function deactivate_plugins() {
-
+	
 	if ( true != get_option( 'safety_net_options_scrubbed' ) ) {
-		function plugins_admin_notice() {
-			$class   = 'notice notice-error';
-			$message = __( 'There was a problem with Safety Net, and plugins were not deactivated.', 'safety-net' );
-			printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
-		}
-		add_action( 'admin_notices', 'plugins_admin_notice' );
-		exit;
+		echo json_encode(
+			[
+				'success' => false,
+				'message' => esc_html__( 'Safety Net Error: options need to be scrubbed first.' ),
+			]
+		);
+
+		die();
 	}
 
 	if ( ! function_exists( 'get_plugins' ) ) {
