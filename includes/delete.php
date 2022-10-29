@@ -14,18 +14,30 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
  * @return void
  */
 function delete_users_and_orders() {
+
+	if ( true != get_option( 'safety_net_plugins_deactivated' ) ) {
+		echo json_encode(
+			[
+				'success' => false,
+				'message' => esc_html__( 'Safety Net Error: plugins need to be deactivated first.' ),
+			]
+		);
+
+		die();
+	}
+
 	global $wpdb;
 
 	// Delete orders, order meta, and subscriptions.
 
-	// check if table exists before purging 
+	// check if table exists before purging
 	$table_name = $wpdb->prefix . 'woocommerce_order_itemmeta';
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
 	}
-	// check if table exists before purging 
+	// check if table exists before purging
 	$table_name = $wpdb->prefix . 'woocommerce_order_items';
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
 	}
 	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
@@ -46,8 +58,8 @@ function delete_users_and_orders() {
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
-	$admins          = get_admin_user_ids();
-	$admin_list_string = implode( ",", $admins );
+	$admins            = get_admin_user_ids();
+	$admin_list_string = implode( ',', $admins );
 
 	// Delete all non-admin users and their usermeta
 	$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( $admin_list_string )" );
@@ -96,13 +108,13 @@ function delete_all_users_meta( $user_id ) {
  */
 function get_admin_id() {
 	$admin = get_users(
-		[
-			'role__in' => [
-				'administrator'
-			],
-			'fields' => 'ids',
-			'number' => 1
-		]
+		array(
+			'role__in' => array(
+				'administrator',
+			),
+			'fields'   => 'ids',
+			'number'   => 1,
+		)
 	);
 
 	return $admin[0];
