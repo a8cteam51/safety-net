@@ -40,7 +40,7 @@ function delete_users_and_orders() {
 	}
 	$table_name = $wpdb->prefix . 'actionscheduler_actions'; // check if table exists before purging 
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
-		$wpdb->query( "DELETE FROM '{$wpdb->prefix}actionscheduler_actions' WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry' )" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry' )" );
 	}
 
 	// Reassigning all posts to the first admin user
