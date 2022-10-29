@@ -48,11 +48,11 @@ function delete_users_and_orders() {
 	// Delete renewal scheduled actions
 	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging 
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
-		$wpdb->query( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry' )" );
+		$wpdb->query( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
 	}
 	$table_name = $wpdb->prefix . 'actionscheduler_actions'; // check if table exists before purging 
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry' )" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
 	}
 
 	// Reassigning all posts to the first admin user
