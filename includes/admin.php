@@ -410,7 +410,7 @@ function pause_renewal_actions() {
 	require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
 	add_filter( 'action_scheduler_store_class', function( $class ) {
 		return 'ActionScheduler_Custom_DBStore';
-	}, 100 );
+	}, 101, 1 );
 }
 
 /**
