@@ -18,12 +18,12 @@ class ActionScheduler_Custom_DBStore extends ActionScheduler_DBStore {
 			current_time( 'mysql' ),
 		);
 
-		$where    = "WHERE claim_id = 0 AND scheduled_date_gmt <= %s AND status=%s AND hook NOT IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry' )";
+		$where    = "WHERE claim_id = 0 AND scheduled_date_gmt <= %s AND status=%s AND hook NOT IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )";
 		$params[] = $date->format( 'Y-m-d H:i:s' );
 		$params[] = self::STATUS_PENDING;
 
 		if ( ! empty( $hooks ) ) {
-			$remove_these = array( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry' );
+			$remove_these = array( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' );
 			$hooks = array_diff( $hooks, $remove_these );
 
 			$placeholders = array_fill( 0, count( $hooks ), '%s' );
