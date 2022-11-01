@@ -150,6 +150,7 @@ function render_field( array $args = [] ) {
 	} ?>
 
 	<?php if ( 'checkbox' === $args['type'] ) : 
+		$checked = '';
 		if ( 'on' === get_option( $args['name'] ) ) {
 			$checked = ' checked="checked" '; 
 		} ?>
