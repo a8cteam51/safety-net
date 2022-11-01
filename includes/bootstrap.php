@@ -33,7 +33,7 @@ function instantiate_background_classes() {
  */
 function maybe_pause_renewal_actions() {
 	// If the value isn't false, then the toggle has already been turned on or off.
-	if ( false !== get_option( 'safety_net_pause_renewal_actions_toggle', false ) ) {
+	if ( false !== get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
 		return;
 	}
 
