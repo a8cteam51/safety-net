@@ -70,6 +70,7 @@ function settings_init() {
 	register_setting( 'safety-net', 'safety_net_' );
 	register_setting( 'safety-net', 'safety_net_dismiss_bar' );
 	register_setting( 'safety-net', 'safety_net_display_content' );
+	register_setting( 'safety-net', 'safety_net_pause_renewal_actions_toggle' );
 
 	// Register section for the settings
 	add_settings_section(
@@ -79,17 +80,9 @@ function settings_init() {
 		'safety_net_options'
 	);
 
-	// Register section for the settings
-	add_settings_section(
-		'safety_net_option',
-		'',
-		null,
-		'safety_net_advanced_options'
-	);
-
 	add_settings_field(
 		'safety_net_scrub_options',
-		esc_html__( '1. Scrub Options', 'safety-net' ),
+		esc_html__( 'Scrub Options', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
@@ -103,7 +96,7 @@ function settings_init() {
 
 	add_settings_field(
 		'safety_net_deactivate_plugins',
-		esc_html__( '2. Deactivate Plugins', 'safety-net' ),
+		esc_html__( 'Deactivate Plugins', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
@@ -116,24 +109,10 @@ function settings_init() {
 	);
 
 	add_settings_field(
-		'safety_net_anonymize_users',
-		esc_html__( 'Anonymize User Data', 'safety-net' ),
-		__NAMESPACE__ . '\render_field',
-		'safety_net_advanced_options',
-		'safety_net_option',
-		[
-			'type' => 'button',
-			'id' => 'safety-net-anonymize-users',
-			'button_text' => esc_html__( 'Anonymize', 'safety-net' ),
-			'description' => esc_html__( 'Replaces all non-admin user data with random fake data. This anonymizes users, Woo orders and Woo subscriptions. Will also disconnect Woo subscriptions from their payment method.', 'safety-net' ),
-		]
-	);
-
-	add_settings_field(
 		'safety_net_delete_users',
 		esc_html__( 'Delete All Users, Orders, and Subscriptions', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
-		'safety_net_advanced_options',
+		'safety_net_options',
 		'safety_net_option',
 		[
 			'type' => 'button',
@@ -141,6 +120,20 @@ function settings_init() {
 			'button_text' => esc_html__( 'Delete', 'safety-net' ),
 			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
 		]
+	);
+
+	add_settings_field(
+		'safety_net_pause_renewal_actions_toggle',
+		esc_html__( 'Pause renewal actions', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		array(
+			'type'      => 'checkbox',
+			'name'      => 'safety_net_pause_renewal_actions_toggle',
+			'class'     => 'safety-net-pause-renewal-actions-toggle',
+			'label_for' => 'safety_net_pause_renewal_actions_toggle',
+		)
 	);
 }
 
@@ -155,6 +148,17 @@ function render_field( array $args = [] ) {
 	if ( ! isset( $args['type'] ) ) {
 		return;
 	} ?>
+
+	<?php if ( 'checkbox' === $args['type'] ) : 
+		if ( 'on' === get_option( $args['name'] ) ) {
+		$checked = ' checked="checked" '; }
+		$html  = '';
+		$html .= '<input id="' . esc_attr( $args['name'] ) . '" 
+		class="' . esc_attr( $args['class'] ) . '" 
+        name="' . esc_attr( $args['name'] ) . '" 
+        type="checkbox" ' . $checked . '/>';
+		echo $html;
+	endif; ?>
 
 	<?php if ( 'button' === $args['type'] ) : ?>
 		<button type="button" id="<?php echo esc_attr( $args['id'] ); ?>" class="button button-large" data-nonce="<?php echo wp_create_nonce( $args['id'] ); ?>">
@@ -180,8 +184,7 @@ function render_options_html() {
 	?>
 	<div class="wrap">
 		<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
-		<p>This plugin is intended for use on Team51 Development sites, to scrub sensitive API keys, delete user data, and deactivate sensitive plugins. The first time it is activated on a non-production site, it will automatically scrub, deactivate, and delete. If you need to run these functions again, you can use the tools below.</p>
-		<p>It is a work in progress. Read more about it or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
+		<p>Read about Safety Net or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
 		<hr/>
 		<?php if ( is_production() ) { ?>
 			<p class="info"><strong>It appears that you are are viewing this page on a production site.</strong><br>
@@ -192,51 +195,11 @@ function render_options_html() {
 			<?php
 			settings_fields( 'safety-net' );
 			do_settings_sections( 'safety_net_options' ); ?>
-			<h4>Run both of the above, <em>then</em> choose one of the below.</h4>
-			<?php
-			do_settings_sections( 'safety_net_advanced_options' );
-			?>
+			<input name="Submit" type="submit" class="button button-primary" value="<?php esc_attr_e( 'Save Changes' ); ?>" />
 		</form>
 	</div>
 	<div class="loading-overlay"></div>
 	<?php }
-}
-
-/**
- * Handles the AJAX request for anonymizing all users.
- *
- * @return void
- */
-function handle_ajax_anonymize_users() {
-
-	// If we're not on staging, development, or a local environment, die with a warning.
-	if ( is_production() ) {
-		// Send an AJAX warning.
-		echo json_encode(
-			[
-				'warning' => true,
-				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
-			]
-		);
-		die();
-	}
-
-	// Permissions and security checks.
-	check_the_permissions();
-	check_the_nonce( $_POST['nonce'],'safety-net-anonymize-users' );
-
-	// Checks passed. Anonymize the data.
-	anonymize_data();
-
-	// Send the AJAX response.
-	echo json_encode(
-		[
-			'success' => true,
-			'message' => esc_html__( 'Users have been scheduled to be anonymized in the background.' ),
-		]
-	);
-
-	die();
 }
 
 /**
@@ -407,10 +370,12 @@ function add_action_links( $actions ) {
  *
  */
 function pause_renewal_actions() {
-	require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
-	add_filter( 'action_scheduler_store_class', function( $class ) {
-		return 'ActionScheduler_Custom_DBStore';
-	}, 101, 1 );
+	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+		require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
+		add_filter( 'action_scheduler_store_class', function( $class ) {
+			return 'ActionScheduler_Custom_DBStore';
+		}, 101, 1 );
+	}
 }
 
 /**
@@ -427,8 +392,10 @@ function show_warning() {
 		esc_html_e( 'Safety Net Activated', 'safety-net' );
 	echo ': ';
 	echo '</strong>';
-	esc_html_e( 'The Safety Net plugin is currently active, which will prevent any emails from being sent, and prevents WooCommerce Subscriptions renewal actions from running.  ', 'safety-net' );
-	esc_html_e( 'To send emails or enable renewals, deactivate the Safety Net plugin.  ', 'safety-net' );
+	esc_html_e( 'The Safety Net plugin is currently active. ' . PHP_EOL, 'safety-net' );
+	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused. ' . PHP_EOL, 'safety-net' );
+	}
 	echo 'This site\'s environment type is set to "' . wp_get_environment_type() . '".';
 	echo '</p></div>';
 }

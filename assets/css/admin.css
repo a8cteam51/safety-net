@@ -63,3 +63,71 @@ p.info {
 	box-shadow: 0 1px 1px rgba(0,0,0,.04);
 	background: white;
 }
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    width: auto;
+    height: auto;
+    vertical-align: middle;
+    position: relative;
+    border: 0;
+    outline: 0;
+    cursor: pointer;
+    margin: 0 4px;
+    background: none;
+    box-shadow: none;
+}
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:focus {
+    box-shadow: none;
+}
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:after {
+    content: '';
+    font-size: 8px;
+    font-weight: 400;
+    line-height: 18px;
+    text-indent: -14px;
+    color: #ffffff;
+    width: 56px;
+    height: 18px;
+    display: inline-block;
+    background-color: #a7aaad;
+    border-radius: 72px;
+    box-shadow: 0 0 12px rgb(0 0 0 / 15%) inset;
+}
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    display: block;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    margin: 0;
+    border-radius: 50%;
+    background-color: #ffffff;
+}
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:before {
+    left: 40px;
+    margin: 0;
+    background-color: #ffffff;
+}
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle,
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:before,
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:after,
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:before,
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:after {
+    transition: ease .15s;
+}
+
+input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:after {
+    content: 'PAUSED';
+    background-color: #2271b1;
+}
