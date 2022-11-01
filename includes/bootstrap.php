@@ -11,6 +11,7 @@ use SafetyNet\Background_Anonymize_Order;
 use SafetyNet\Background_Anonymize_User;
 use function SafetyNet\Utilities\is_production;
 
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_pause_renewal_actions' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
@@ -24,6 +25,24 @@ function instantiate_background_classes() {
 	new Background_Anonymize_User();
 	new Background_Anonymize_Order();
 	new Background_Anonymize_Customer();
+}
+
+/**
+ * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
+ *
+ */
+function maybe_pause_renewal_actions() {
+	// If the value isn't false, then the toggle has already been turned on or off.
+	if ( false !== get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+		return;
+	}
+
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
+	update_option( 'safety_net_pause_renewal_actions_toggle', 'on' );
 }
 
 /**
