@@ -131,3 +131,7 @@ input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:after {
     content: 'PAUSED';
     background-color: #2271b1;
 }
+
+button.safety-net-save {
+    margin-top: 10px;
+}

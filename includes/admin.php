@@ -192,7 +192,7 @@ function render_options_html() {
 			<?php
 			settings_fields( 'safety-net' );
 			do_settings_sections( 'safety_net_options' ); ?>
-			<input name="Submit" type="submit" class="button button-primary" value="<?php esc_attr_e( 'Save Changes' ); ?>" />
+			<input name="Submit" type="submit" class="button button-primary safety-net-save" value="<?php esc_attr_e( 'Save Changes' ); ?>" />
 		</form>
 	</div>
 	<div class="loading-overlay"></div>
