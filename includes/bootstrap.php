@@ -32,8 +32,8 @@ function instantiate_background_classes() {
  *
  */
 function maybe_pause_renewal_actions() {
-	// If data has already been deleted, skip.
-	if ( get_option( 'safety_net_data_deleted' ) ) {
+	// If the value isn't false, then the toggle has already been turned on or off.
+	if ( false !== get_option( 'safety_net_pause_renewal_actions_toggle', false ) ) {
 		return;
 	}
 
