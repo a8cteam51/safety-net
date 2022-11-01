@@ -151,14 +151,10 @@ function render_field( array $args = [] ) {
 
 	<?php if ( 'checkbox' === $args['type'] ) : 
 		if ( 'on' === get_option( $args['name'] ) ) {
-		$checked = ' checked="checked" '; }
-		$html  = '';
-		$html .= '<input id="' . esc_attr( $args['name'] ) . '" 
-		class="' . esc_attr( $args['class'] ) . '" 
-        name="' . esc_attr( $args['name'] ) . '" 
-        type="checkbox" ' . $checked . '/>';
-		echo $html;
-	endif; ?>
+			$checked = ' checked="checked" '; 
+		} ?>
+		<input id="<?php echo esc_attr( $args['name'] ) ?>" class="<?php echo esc_attr( $args['class'] ) ?>" name="<?php echo esc_attr( $args['name'] ) ?>" type="checkbox" <?php echo $checked ?> />
+	<?php endif; ?>
 
 	<?php if ( 'button' === $args['type'] ) : ?>
 		<button type="button" id="<?php echo esc_attr( $args['id'] ); ?>" class="button button-large" data-nonce="<?php echo wp_create_nonce( $args['id'] ); ?>">
