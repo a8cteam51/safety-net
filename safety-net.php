@@ -9,8 +9,12 @@
  * License: GPLv3
 */
 
-if ( ! defined( 'ABSPATH' ) || defined( 'SAFETY_NET_PATH' ) ) {
-	exit; // Exit if accessed directly or if another copy of the plugin is activated
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
+
+if ( defined( 'SAFETY_NET_PATH' ) ) {
+	return; // Return if another copy of the plugin is activated
 }
 
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
