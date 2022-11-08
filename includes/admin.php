@@ -18,6 +18,7 @@ add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_del
 add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
 add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
+add_filter( 'wp_mail', __NAMESPACE__ . '\stop_emails', 10, 1 );
 
 /**
  * Enqueues the JavaScript for the tools page.
@@ -396,3 +397,14 @@ function show_warning() {
 	echo 'This site\'s environment type is set to "' . wp_get_environment_type() . '".';
 	echo '</p></div>';
 }
+
+/**
+ * Stop all emails except password resets
+ *
+ */
+function stop_emails( $args ) {
+	if (! strstr( $args['subject'], 'Password Reset Request' ) ) {
+		unset ( $args['to'] );
+	}
+    return $args;
+};
