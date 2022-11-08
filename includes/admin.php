@@ -404,7 +404,6 @@ function show_warning() {
  */
 function stop_emails( $args ) {
 	if (! strstr( $args['subject'], 'Password Reset Request' ) ) {
-		error_log( "Safety Net blocked outgoing email" );
 		unset ( $args['to'] );
 	}
     return $args;
