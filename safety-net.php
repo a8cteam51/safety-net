@@ -32,7 +32,6 @@ require_once __DIR__ . '/includes/deactivate-plugins.php';
 require_once __DIR__ . '/includes/classes/background-anonymize-customer.php';
 require_once __DIR__ . '/includes/classes/background-anonymize-order.php';
 require_once __DIR__ . '/includes/classes/background-anonymize-user.php';
-require_once __DIR__ . '/includes/classes/class-stop-emails-phpmailer.php';
 require_once __DIR__ . '/includes/classes/class-dummy.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
