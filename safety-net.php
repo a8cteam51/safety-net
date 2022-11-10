@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Safety Net
  * Description: For Team51 Development Sites. Deletes user data and more!
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: WordPress.com Special Projects
  * Author URI: https://wpspecialprojects.wordpress.com
  * Text Domain: safety-net
