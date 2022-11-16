@@ -16,6 +16,11 @@ add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
  * @return void
  */
 function add_admin_hooks(){
+
+	if ( true === apply_filters( 'safety_net_hide_admin', false ) ) {
+		return;
+	}
+
 	add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
 	add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
 	add_action( 'admin_init', __NAMESPACE__ . '\settings_init' );
