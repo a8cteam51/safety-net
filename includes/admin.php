@@ -403,15 +403,15 @@ function show_warning() {
  *
  */
 function stop_emails( $return, $args ) {
-	if (! strstr( $args['subject'], 'Password Reset Request' ) ) {
-		error_log( "Email blocked: " . $args['subject'] );
+	if ( ! strstr( $args['subject'], 'Password Reset Request' ) ) {
+		error_log( "Email blocked: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning false says "short-circuit the wp_mail() function and indicate we did not send the email"
 		$return = false;
 	} else {
-		error_log( "Email sent: " . $args['subject'] );
+		error_log( "Email sent: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning null says "don't short circuit the wp_mail function"
 		$return = null;
 	}
 
-    return $return;
-};
+	return $return;
+}
