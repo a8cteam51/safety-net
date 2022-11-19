@@ -18,7 +18,7 @@ add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_del
 add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
 add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
-add_filter( 'wp_mail', __NAMESPACE__ . '\stop_emails', 10, 1 );
+add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
 
 /**
  * Enqueues the JavaScript for the tools page.
@@ -402,9 +402,16 @@ function show_warning() {
  * Stop all emails except password resets
  *
  */
-function stop_emails( $args ) {
-	if (! strstr( $args['subject'], 'Password Reset Request' ) ) {
-		unset ( $args['to'] );
+function stop_emails( $return, $args ) {
+	if ( ! strstr( $args['subject'], 'Password Reset' ) ) {
+		error_log( "Email blocked: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
+		// returning false says "short-circuit the wp_mail() function and indicate we did not send the email"
+		$return = false;
+	} else {
+		error_log( "Email sent: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
+		// returning null says "don't short circuit the wp_mail function"
+		$return = null;
 	}
-    return $args;
-};
+
+	return $return;
+}
