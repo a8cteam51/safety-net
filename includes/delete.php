@@ -44,6 +44,14 @@ function delete_users_and_orders() {
 	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
+	// delete data from the High Performance Order Tables, if they exist
+	$table_name = $wpdb->prefix . 'wc_orders';
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_addresses" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_operational_data" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders_meta" );
+	}
 
 	// Delete renewal scheduled actions
 	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging 
