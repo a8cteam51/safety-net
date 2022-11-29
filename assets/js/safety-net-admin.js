@@ -61,10 +61,27 @@
 				dataType: 'json',
 				beforeSend: function() {
 					hideAdminNotice();
-					anonymizeUsersButton.disabled = true;
-					scrubOptionsButton.disabled = true;
-					deactivatePluginsButton.disabled = true;
-					deleteUsersButton.disabled = true;
+
+					// If the anonymize users button exists, disable it.
+					if (anonymizeUsersButton) {
+						anonymizeUsersButton.disabled = true;
+					}
+
+					// If the scrub options button exists, disable it.
+					if (scrubOptionsButton) {
+						scrubOptionsButton.disabled = true;
+					}
+
+					// If the deactivate plugins button exists, disable it.
+					if (deactivatePluginsButton) {
+						deactivatePluginsButton.disabled = true;
+					}
+
+					// If the delete users button exists, disable it.
+					if (deleteUsersButton) {
+						deleteUsersButton.disabled = true;
+					}
+
 					toggleLoadingOverlay();
 				},
 				error : function(request, status, error) {
@@ -74,10 +91,26 @@
 					});
 				},
 				success: function(response) {
-					anonymizeUsersButton.disabled = false;
-					scrubOptionsButton.disabled = false;
-					deactivatePluginsButton.disabled = false;
-					deleteUsersButton.disabled = false;
+					// If the anonymize users button exists, enable it.
+					if (anonymizeUsersButton) {
+						anonymizeUsersButton.disabled = false;
+					}
+
+					// If the scrub options button exists, enable it.
+					if (scrubOptionsButton) {
+						scrubOptionsButton.disabled = false;
+					}
+
+					// If the deactivate plugins button exists, enable it.
+					if (deactivatePluginsButton) {
+						deactivatePluginsButton.disabled = false;
+					}
+
+					// If the delete users button exists, enable it.
+					if (deleteUsersButton) {
+						deleteUsersButton.disabled = false;
+					}
+
 					toggleLoadingOverlay();
 
 					if ( true === response.success ) {
@@ -99,7 +132,7 @@
 	function toggleLoadingOverlay() {
 		$('body').toggleClass('loading');
 	}
-	
+
 	function showAdminNotice(options) {
 		let classes = 'notice settings-error is-dismissible';
 
@@ -122,8 +155,23 @@
 		});
 	}
 
-	anonymizeUsersButton.addEventListener( 'click', anonymizeUsers );
-	scrubOptionsButton.addEventListener( 'click', scrubOptions );
-	deactivatePluginsButton.addEventListener( 'click', deactivatePlugins );
-	deleteUsersButton.addEventListener( 'click', deleteUsers );
+	// If the anonymize users button exists, add a click event listener.
+	if (anonymizeUsersButton) {
+		anonymizeUsersButton.addEventListener('click', anonymizeUsers);
+	}
+
+	// If the scrub options button exists, add a click event listener.
+	if (scrubOptionsButton) {
+		scrubOptionsButton.addEventListener('click', scrubOptions);
+	}
+
+	// If the deactivate plugins button exists, add a click event listener.
+	if (deactivatePluginsButton) {
+		deactivatePluginsButton.addEventListener('click', deactivatePlugins);
+	}
+
+	// If the delete users button exists, add a click event listener.
+	if (deleteUsersButton) {
+		deleteUsersButton.addEventListener('click', deleteUsers);
+	}
 })(window, document, jQuery);
