@@ -17,20 +17,19 @@ add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
  */
 function add_admin_hooks(){
 
-	if ( true === apply_filters( 'safety_net_hide_admin', false ) ) {
-		return;
+	if ( true !== apply_filters( 'safety_net_hide_admin', false ) ) {
+		// Skip the admin page and options if the `safety_net_hide_admin` filter returns true.
+		add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
+		add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
+		add_action( 'admin_init', __NAMESPACE__ . '\settings_init' );
+		add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_anonymize_users' );
+		add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
+		add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
+		add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
+		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
-
-	add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
-	add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
-	add_action( 'admin_init', __NAMESPACE__ . '\settings_init' );
-	add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_anonymize_users' );
-	add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
-	add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
-	add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
-	add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	add_filter( 'wp_mail', __NAMESPACE__ . '\stop_emails', 10, 1 );
 }
 
