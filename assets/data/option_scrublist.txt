@@ -1,5 +1,6 @@
 jetpack_active_modules
 klaviyo_api_key
+klaviyo_edd_license_key
 klaviyo_settings
 mailchimp-woocommerce
 mailchimp-woocommerce-cached-api-account-name
@@ -10,6 +11,7 @@ woocommerce_braintree_credit_card_settings
 woocommerce_braintree_paypal_settings
 woocommerce_paypal_settings
 woocommerce_ppcp-gateway_settings
+woocommerce_referralcandy_settings
 woocommerce_shipstation_auth_key
 woocommerce_stripe_account_settings
 woocommerce_stripe_api_settings
