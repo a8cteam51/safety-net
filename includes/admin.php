@@ -371,7 +371,7 @@ function pause_renewal_actions() {
 	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
 		require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
 		add_filter( 'action_scheduler_store_class', function( $class ) {
-			return 'ActionScheduler_Custom_DBStore';
+			return 'SafetyNet\ActionScheduler_Custom_DBStore';
 		}, 101, 1 );
 	}
 }
