@@ -1,5 +1,6 @@
 affirm
 algolia
+automator
 avatax
 in-stock-mailer-for-wc
 klaviyo
