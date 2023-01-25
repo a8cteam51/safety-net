@@ -1,6 +1,8 @@
 <?php
 
 use function SafetyNet\Anonymize\anonymize_orders;
+use function SafetyNet\Anonymize\copy_and_clear_user_tables;
+use function SafetyNet\Anonymize\store_anonymized_user_data;
 use function SafetyNet\Anonymize\anonymize_users;
 use function SafetyNet\Anonymize\anonymize_customers;
 use function SafetyNet\Delete\delete_users_and_orders;
@@ -19,7 +21,12 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	*
 	*/
 	public function anonymize( $args ) {
+
+		copy_and_clear_user_tables();
+
 		anonymize_users();
+
+		store_anonymized_user_data();
 
 		anonymize_orders();
 
