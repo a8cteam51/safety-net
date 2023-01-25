@@ -9,7 +9,7 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
 /**
  * Deletes all users and their data, except administrators.
  *
- * Also deletes orders and subscriptions.
+ * Also deletes WooCommerce data, such as orders and subscriptions.
  *
  * @return void
  */
@@ -28,14 +28,13 @@ function delete_users_and_orders() {
 
 	global $wpdb;
 
-	// Delete orders, order meta, and subscriptions.
+	// Delete WooCommerce data
 
-	// check if table exists before purging
+	// Delete orders and subscriptions
 	$table_name = $wpdb->prefix . 'woocommerce_order_itemmeta';
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
 	}
-	// check if table exists before purging
 	$table_name = $wpdb->prefix . 'woocommerce_order_items';
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
@@ -44,7 +43,19 @@ function delete_users_and_orders() {
 	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
-
+	// Delete data from the High Performance Order Tables
+	$table_name = $wpdb->prefix . 'wc_orders';
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_addresses" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_operational_data" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders_meta" );
+	}
+	// Delete Woo API keys
+	$table_name = $wpdb->prefix . 'woocommerce_api_keys';
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_api_keys" );
+	}
 	// Delete renewal scheduled actions
 	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging 
 	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
@@ -82,23 +93,6 @@ function reassign_all_posts() {
 	$wpdb->get_results( $wpdb->prepare( "UPDATE $wpdb->posts SET post_author = %d", get_admin_id() ) );
 
 	wp_cache_flush();
-}
-
-/**
- * Deletes all meta associated with a user.
- *
- * @param int $user_id The ID of the user.
- *
- * @return void
- */
-function delete_all_users_meta( $user_id ) {
-	global $wpdb;
-
-	$meta = $wpdb->get_col( $wpdb->prepare( "SELECT umeta_id FROM $wpdb->usermeta WHERE user_id = %d", $user_id ) );
-
-	foreach ( $meta as $mid ) {
-		delete_metadata_by_mid( 'user', $mid );
-	}
 }
 
 /**

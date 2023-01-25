@@ -1,6 +1,8 @@
 <?php
 
-class ActionScheduler_Custom_DBStore extends ActionScheduler_DBStore {
+namespace SafetyNet;
+
+class ActionScheduler_Custom_DBStore extends \ActionScheduler_DBStore {
 
 	protected function claim_actions( $claim_id, $limit, \DateTime $before_date = null, $hooks = array(), $group = '' ) {
 

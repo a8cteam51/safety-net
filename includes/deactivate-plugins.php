@@ -74,6 +74,8 @@ function deactivate_plugins() {
 */
 function scrub_options() {
 
+	update_option( 'admin_email', 'safetynet@scrubbedthis.option' );
+
 	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
