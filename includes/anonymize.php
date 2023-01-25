@@ -13,6 +13,22 @@ use SafetyNet\Dummy;
  * @return void
  */
 function anonymize_data() {
+
+	copy_and_clear_user_tables();
+
+	dispatch_anonymize_users();
+
+	dispatch_anonymize_orders();
+
+	dispatch_anonymize_customers();
+}
+
+/**
+ * Copy the user and user_meta tables to new temporary tables and delete all the non-admin data from the original tables.
+ *
+ * @return void
+ */
+function copy_and_clear_user_tables() {
 	global $wpdb;
 
 	// Copy user table to a temporary table that will be anonymized later.
@@ -34,6 +50,20 @@ function anonymize_data() {
 	dispatch_anonymize_orders();
 
 	dispatch_anonymize_customers();
+}
+
+/**
+ * Move all the anonymized users and their meta from the temp table to the real ones and remove the temp tables.
+ *
+ * @return void
+ */
+function store_anonymized_user_data() {
+	global $wpdb;
+
+	$wpdb->query( "INSERT INTO $wpdb->users (SELECT * FROM {$wpdb->users}_temp WHERE id NOT IN (SELECT ID FROM $wpdb->users))" );
+	$wpdb->query( "DROP TABLE {$wpdb->users}_temp" );
+	$wpdb->query( "INSERT INTO $wpdb->usermeta (SELECT * FROM {$wpdb->usermeta}_temp WHERE user_id NOT IN (SELECT user_id FROM $wpdb->usermeta))" );
+	$wpdb->query( "DROP TABLE {$wpdb->usermeta}_temp" );
 }
 
 /**
