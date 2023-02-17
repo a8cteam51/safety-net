@@ -8,6 +8,7 @@
 namespace SafetyNet;
 
 use function SafetyNet\Anonymize\anonymize_users;
+use function SafetyNet\Anonymize\store_anonymized_user_data;
 
 /**
  * Background Anonymize User class
@@ -51,10 +52,8 @@ class Background_Anonymize_User extends \WP_Background_Process {
 		// Have to call complete function in the parent's class.
 		parent::complete();
 
-		$wpdb->query( "INSERT INTO $wpdb->users (SELECT * FROM {$wpdb->users}_temp WHERE id NOT IN (SELECT ID FROM $wpdb->users))" );
-		$wpdb->query( "DROP TABLE {$wpdb->users}_temp" );
-		$wpdb->query( "INSERT INTO $wpdb->usermeta (SELECT * FROM {$wpdb->usermeta}_temp WHERE user_id NOT IN (SELECT user_id FROM $wpdb->usermeta))" );
-		$wpdb->query( "DROP TABLE {$wpdb->usermeta}_temp" );
+		// Store the anonymized users to the default tables.
+		store_anonymized_user_data();
 
 		// Flush the cache.
 		wp_cache_flush();
