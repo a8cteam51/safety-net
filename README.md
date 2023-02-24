@@ -20,10 +20,9 @@ This public plugin is provided as an example of how such a plugin could be imple
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
 - **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
-- **Anonymize**: Replaces all non-admin user data with fake data. Works on the user table, WooCommerce orders and subscriptions. Also detaches individual subscriptions from their payment methods. Runs as a background process to handle large sites.
 
 #### Advanced features
-- **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, `wp safety-net anonymize` and `wp safety-net delete`
+- **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
 
 ## Planned Features
 - Multi-site (WordPress network) compatibility

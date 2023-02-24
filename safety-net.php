@@ -22,20 +22,16 @@ define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
 define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
 
 require_once __DIR__ . '/includes/library/wp-background-processing/wp-background-processing.php';
-require_once __DIR__ . '/includes/anonymize.php';
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';
 require_once __DIR__ . '/includes/delete.php';
 require_once __DIR__ . '/includes/utilities.php';
 require_once __DIR__ . '/includes/deactivate-plugins.php';
-require_once __DIR__ . '/includes/classes/background-anonymize-customer.php';
-require_once __DIR__ . '/includes/classes/background-anonymize-order.php';
-require_once __DIR__ . '/includes/classes/background-anonymize-user.php';
 require_once __DIR__ . '/includes/classes/class-dummy.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	require_once __DIR__ . '/includes/cli/anonymize.php';
+	require_once __DIR__ . '/includes/classes/cli/class-safetynet-cli.php';
 }
 
 // Fire a hook now that the plugin is ready.

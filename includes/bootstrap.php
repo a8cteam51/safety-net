@@ -6,9 +6,6 @@
  */
 namespace SafetyNet\Bootstrap;
 
-use SafetyNet\Background_Anonymize_Customer;
-use SafetyNet\Background_Anonymize_Order;
-use SafetyNet\Background_Anonymize_User;
 use function SafetyNet\Utilities\is_production;
 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_pause_renewal_actions' );
@@ -16,16 +13,6 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
 add_action( 'plugins_loaded', __NAMESPACE__ . '\instantiate_background_classes' );
-
-
-/**
- * Background Process classes need to be instantiated on plugins_loaded hook.
- */
-function instantiate_background_classes() {
-	new Background_Anonymize_User();
-	new Background_Anonymize_Order();
-	new Background_Anonymize_Customer();
-}
 
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
@@ -48,7 +35,7 @@ function maybe_pause_renewal_actions() {
 /**
  * Determines if options should be scrubbed.
  *
- * Options will be scrubbed if we're on staging, development, or local AND it hasn't already been anonymized.
+ * Options will be scrubbed if we're on staging, development, or local AND it hasn't already been scrubbed.
  */
 function maybe_scrub_options() {
 	// If options have already been scrubbed, skip.
@@ -67,7 +54,7 @@ function maybe_scrub_options() {
 /**
  * Determines if deny-listed plugins should be deactivated.
  *
- * Plugins will be deactivated if we're on staging, development, or local AND it hasn't already been anonymized.
+ * Plugins will be deactivated if we're on staging, development, or local AND they haven't already been deactivated.
  */
 function maybe_deactivate_plugins() {
 	// If plugins have already been deactivated, skip.
@@ -84,9 +71,9 @@ function maybe_deactivate_plugins() {
 }
 
 /**
- * Determines if data should be anonymized.
+ * Determines if data should be deleted.
  *
- * Data will be deleted if we're on staging, development, or local AND it hasn't already been anonymized.
+ * Data will be deleted if we're on staging, development, or local AND it hasn't already been deleted.
  */
 function maybe_delete_data() {
 	// If data has already been deleted, skip.
