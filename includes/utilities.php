@@ -3,68 +3,14 @@
 namespace SafetyNet\Utilities;
 
 /**
- * Returns an array of up to 1,000 real users from the database.
- *
- * @param int $offset The amount to offset.
+ * Return an array of user IDs of site admins.
  *
  * @return array
  */
-function get_users( int $offset = 0 ): array {
-	global $wpdb;
-
-	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT ID, user_login FROM {$wpdb->users} LIMIT 1000 OFFSET %d", $offset ),
-		ARRAY_A
-	);
-}
-
-/**
- * Return an array of user IDs of WooCommerce customers.
- *
- * @return array
- */
-function get_customer_user_ids(): array {
-	global $wpdb;
-
-	return $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_customer_user' AND meta_value > 0" );
-}
-
 function get_admin_user_ids(): array {
 	global $wpdb;
 
 	return $wpdb->get_col( "SELECT u.ID FROM $wpdb->users u INNER JOIN $wpdb->usermeta m ON m.user_id = u.ID WHERE m.meta_key = '{$wpdb->prefix}capabilities' AND m.meta_value LIKE '%administrator%' ORDER BY u.user_registered" );
-}
-
-/**
- * Returns an array of up to 1,000 WooCommerce orders from the database.
- *
- * @param int $offset The amount to offset.
- *
- * @return array
- */
-function get_orders( int $offset = 0 ): array {
-	global $wpdb;
-
-	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' LIMIT 1000 OFFSET %d", $offset ),
-		ARRAY_A
-	);
-}
-
-/**
- * Returns an array of up to 1,000 WooCommerce customers from the database.
- *
- * @param int $offset The amount to offset.
- *
- * @return array
- */
-function get_customers( int $offset = 0 ): array {
-	global $wpdb;
-
-	return $wpdb->get_results(
-		$wpdb->prepare( "SELECT customer_id FROM {$wpdb->prefix}wc_customer_lookup LIMIT 1000 OFFSET %d", $offset ),
-		ARRAY_A
-	);
 }
 
 /**
