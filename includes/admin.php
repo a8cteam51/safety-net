@@ -2,7 +2,6 @@
 
 namespace SafetyNet\Admin;
 
-use function SafetyNet\Anonymize\anonymize_data;
 use function SafetyNet\DeactivatePlugins\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
@@ -22,7 +21,6 @@ function add_admin_hooks(){
 		add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueue_scripts' );
 		add_action( 'admin_menu', __NAMESPACE__ . '\create_options_menu' );
 		add_action( 'admin_init', __NAMESPACE__ . '\settings_init' );
-		add_action( 'wp_ajax_safety_net_anonymize_users', __NAMESPACE__ . '\handle_ajax_anonymize_users' );
 		add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 		add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 		add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
