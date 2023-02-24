@@ -1,22 +1,10 @@
 'use strict';
 
 (function (window, document, $) {
-	const anonymizeUsersButton = document.getElementById( 'safety-net-anonymize-users' );
 	const scrubOptionsButton = document.getElementById( 'safety-net-scrub-options' );
 	const deactivatePluginsButton = document.getElementById( 'safety-net-deactivate-plugins' );
 	const deleteUsersButton = document.getElementById( 'safety-net-delete-users' );
 	const settingsTitle = document.getElementById( 'safety-net-settings-title' );
-
-	function anonymizeUsers() {
-		if ( ! confirm( 'Are you sure you want to anonymize all users? This cannot be undone!') ) {
-			return;
-		}
-
-		ajax({
-			action: 'safety_net_anonymize_users',
-			nonce: anonymizeUsersButton.dataset.nonce,
-		});
-	}
 
 	function scrubOptions() {
 		if ( ! confirm( 'Are you sure you want to scrub options? This cannot be undone!') ) {
@@ -62,11 +50,6 @@
 				beforeSend: function() {
 					hideAdminNotice();
 
-					// If the anonymize users button exists, disable it.
-					if (anonymizeUsersButton) {
-						anonymizeUsersButton.disabled = true;
-					}
-
 					// If the scrub options button exists, disable it.
 					if (scrubOptionsButton) {
 						scrubOptionsButton.disabled = true;
@@ -91,10 +74,6 @@
 					});
 				},
 				success: function(response) {
-					// If the anonymize users button exists, enable it.
-					if (anonymizeUsersButton) {
-						anonymizeUsersButton.disabled = false;
-					}
 
 					// If the scrub options button exists, enable it.
 					if (scrubOptionsButton) {
@@ -153,11 +132,6 @@
 				$notice.remove();
 			});
 		});
-	}
-
-	// If the anonymize users button exists, add a click event listener.
-	if (anonymizeUsersButton) {
-		anonymizeUsersButton.addEventListener('click', anonymizeUsers);
 	}
 
 	// If the scrub options button exists, add a click event listener.
