@@ -12,7 +12,6 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_pause_renewal_actions' 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
-add_action( 'plugins_loaded', __NAMESPACE__ . '\instantiate_background_classes' );
 
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
