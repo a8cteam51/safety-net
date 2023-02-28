@@ -21,7 +21,6 @@ define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
 define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
 
-require_once __DIR__ . '/includes/library/wp-background-processing/wp-background-processing.php';
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';
