@@ -6,6 +6,7 @@ in-stock-mailer-for-wc
 klaviyo
 mailchimp
 mailgun
+mailpoet
 metorik
 paypal
 postmatic
