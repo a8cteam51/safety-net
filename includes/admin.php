@@ -44,7 +44,8 @@ function enqueue_scripts( string $hook_suffix ) {
 		return;
 	}
 
-	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery' ), '1.0', true );
+	$admin_script_path = SAFETY_NET_URL . 'assets/js/safety-net-admin.js';
+	wp_enqueue_script( 'safety-net-admin', $admin_script_path, array( 'jquery' ), filemtime( $admin_script_path ), true );
 
 	wp_localize_script(
 		'safety-net-admin',
