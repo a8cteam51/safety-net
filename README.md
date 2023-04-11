@@ -58,6 +58,8 @@ One way to do that is to edit your `wp-config.php` file, and add `define('WP_ENV
 
 Or, if you have access to WP-CLI, you can SSH in and run `wp config set WP_ENVIRONMENT_TYPE staging --type=constant`
 
+If your site is on Pressable, you can also achieve this by [setting the site as a Staging Site](https://pressable.com/knowledgebase/how-sites-staging-websites-and-website-clones-work-at-pressable/#staging-websites).
+
 ### Plugin won't activate
 It's possible that there is another copy of the plugin active on the site. Check in the `mu-plugins` folder.
 
