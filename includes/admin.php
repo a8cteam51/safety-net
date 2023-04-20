@@ -29,6 +29,7 @@ function add_admin_hooks(){
 	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 	add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
+	add_filter( 'jetpack_offline_mode', '__return_true' );
 }
 
 /**

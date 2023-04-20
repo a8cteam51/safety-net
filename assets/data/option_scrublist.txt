@@ -1,4 +1,6 @@
 jetpack_active_modules
+jetpack_private_options
+jetpack_secrets
 klaviyo_api_key
 klaviyo_edd_license_key
 klaviyo_settings
