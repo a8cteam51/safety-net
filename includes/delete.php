@@ -66,6 +66,12 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
 	}
 
+	// Delete WP Mail Logging logs
+	$table_name = $wpdb->prefix . 'wpml_mails'; // check if table exists before purging 
+	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpml_mails" );
+	}
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
