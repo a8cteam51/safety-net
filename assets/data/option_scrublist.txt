@@ -4,6 +4,7 @@ jetpack_secrets
 klaviyo_api_key
 klaviyo_edd_license_key
 klaviyo_settings
+leadin_access_token
 mailchimp-woocommerce
 mailchimp-woocommerce-cached-api-account-name
 mailster_options

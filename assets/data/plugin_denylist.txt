@@ -3,8 +3,10 @@ afterpay
 algolia
 automator
 avatax
+hubspot
 in-stock-mailer-for-wc
 klaviyo
+leadin
 mailchimp
 mailgun
 mailpoet
