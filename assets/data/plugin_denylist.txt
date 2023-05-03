@@ -27,6 +27,6 @@ stripe
 webgility
 console
 mail-bank
-ses
+wp-ses
 wpmandrill
 zapier
