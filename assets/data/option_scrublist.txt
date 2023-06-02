@@ -9,6 +9,7 @@ mailchimp-woocommerce
 mailchimp-woocommerce-cached-api-account-name
 mailster_options
 mc4wp
+novos_klaviyo_option_name
 shareasale_wc_tracker_options
 woocommerce_afterpay_settings
 woocommerce_braintree_credit_card_settings
@@ -23,3 +24,4 @@ woocommerce_stripe_settings
 woocommerce_woocommerce_payments_settings
 woocommerce-ppcp-settings
 wpmandrill
+yotpo_settings
