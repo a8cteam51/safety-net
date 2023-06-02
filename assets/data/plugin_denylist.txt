@@ -29,4 +29,5 @@ console
 mail-bank
 wp-ses
 wpmandrill
+yotpo
 zapier
