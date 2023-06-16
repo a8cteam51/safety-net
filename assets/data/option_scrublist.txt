@@ -25,3 +25,7 @@ woocommerce_woocommerce_payments_settings
 woocommerce-ppcp-settings
 wpmandrill
 yotpo_settings
+zmail_auth_code
+zmail_integ_client_secret
+zmail_refresh_token
+zmail_access_token
