@@ -31,3 +31,4 @@ wp-ses
 wpmandrill
 yotpo
 zapier
+zoho-mail
