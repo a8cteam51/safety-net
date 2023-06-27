@@ -106,6 +106,25 @@ function scrub_options() {
 				);
 
 				update_option( $option, $modules_array );
+			} elseif ( 'wprus' === $option ) {
+				// Clear some WP Remote Users Sync options to disable only keys needed for remote connections and keep the remaining settings intact.
+				$keys_to_scrub = array( 
+					'encryption' => array (
+						'aes_key', 
+						'hmac_key'
+					) 
+				);
+				$option_array  = $option_value;
+				foreach ( $keys_to_scrub as $index => $keys ) {
+					if ( array_key_exists( $index, $option_array ) ) {
+						foreach ( $keys as $key ) {
+							if ( array_key_exists( $key, $option_array[$index] ) ) {
+								$option_array[ $index ][ $key ] = '';
+							}
+						}
+					}
+				}
+				update_option( $option, $option_array );
 			} else {
 				update_option( $option, '' );
 			}
