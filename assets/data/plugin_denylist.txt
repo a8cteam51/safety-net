@@ -32,3 +32,4 @@ wpmandrill
 yotpo
 zapier
 zoho-mail
+wp-remote-users-sync
