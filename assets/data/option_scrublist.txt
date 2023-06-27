@@ -24,6 +24,7 @@ woocommerce_stripe_settings
 woocommerce_woocommerce_payments_settings
 woocommerce-ppcp-settings
 wpmandrill
+wprus
 yotpo_settings
 zmail_auth_code
 zmail_integ_client_secret
