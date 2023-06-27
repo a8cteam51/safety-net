@@ -28,8 +28,9 @@ webgility
 console
 mail-bank
 wp-ses
+wp-remote-users-sync
 wpmandrill
 yotpo
 zapier
 zoho-mail
-wp-remote-users-sync
+
