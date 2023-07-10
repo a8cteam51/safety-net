@@ -126,7 +126,13 @@ function scrub_options() {
 				}
 				update_option( $option, $option_array );
 			} else {
-				update_option( $option, '' );
+				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
+				if ( is_array( get_option( $option ) ) ) {
+					$empty_array = array();
+					update_option( $option, $empty_array );
+				} else {
+					update_option( $option, '' );
+				}
 			}
 		}
 	}
