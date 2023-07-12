@@ -15,7 +15,7 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
  */
 function delete_users_and_orders() {
 
-	if ( true != get_option( 'safety_net_plugins_deactivated' ) ) {
+	if ( '1' !== get_option( 'safety_net_plugins_deactivated' ) ) {
 		echo json_encode(
 			[
 				'success' => false,
