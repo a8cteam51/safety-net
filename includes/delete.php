@@ -14,13 +14,12 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
  * @return void
  */
 function delete_users_and_orders() {
-
 	if ( ! get_option( 'safety_net_plugins_deactivated' ) ) {
-		echo json_encode(
-			[
+		echo wp_json_encode(
+			array(
 				'success' => false,
 				'message' => esc_html__( 'Safety Net Error: plugins need to be deactivated first.' ),
-			]
+			)
 		);
 
 		die();
@@ -28,47 +27,48 @@ function delete_users_and_orders() {
 
 	global $wpdb;
 
-	// Delete WooCommerce data
-
 	// Delete orders and subscriptions
 	$table_name = $wpdb->prefix . 'woocommerce_order_itemmeta';
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
 	}
 	$table_name = $wpdb->prefix . 'woocommerce_order_items';
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
 	}
 	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
 	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
+
 	// Delete data from the High Performance Order Tables
 	$table_name = $wpdb->prefix . 'wc_orders';
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_addresses" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_operational_data" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders_meta" );
 	}
+
 	// Delete Woo API keys
 	$table_name = $wpdb->prefix . 'woocommerce_api_keys';
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name ) {
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_api_keys" );
 	}
+
 	// Delete renewal scheduled actions
-	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging 
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
 	}
-	$table_name = $wpdb->prefix . 'actionscheduler_actions'; // check if table exists before purging 
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+	$table_name = $wpdb->prefix . 'actionscheduler_actions'; // check if table exists before purging
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
 	}
 
 	// Delete WP Mail Logging logs
-	$table_name = $wpdb->prefix . 'wpml_mails'; // check if table exists before purging 
-	if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'") == $table_name ) {
+	$table_name = $wpdb->prefix . 'wpml_mails'; // check if table exists before purging
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpml_mails" );
 	}
 
@@ -76,11 +76,11 @@ function delete_users_and_orders() {
 	reassign_all_posts();
 
 	$admins            = get_admin_user_ids();
-	$admin_list_string = implode( ',', $admins );
+	$admin_list_string = implode( ',', array_map( 'intval', $admins ) ); // Ensuring we have integers to prevent SQL Injection
 
 	// Delete all non-admin users and their usermeta
-	$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( $admin_list_string )" );
-	$wpdb->query( "DELETE FROM $wpdb->users WHERE ID NOT IN ( $admin_list_string )" );
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( %s )", $admin_list_string ) );
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ( %s )", $admin_list_string ) );
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
