@@ -28,30 +28,39 @@ function is_production() {
 /**
  * Reads the plugin or options denylist txt files, and returns an array for use
  *
- * @param string accepts options|plugins
+ * @param string $denylist_type Type of denylist. Accepts 'options' or 'plugins'.
  *
  * @return array
  */
-function get_denylist_array( $denylist_type ) {
+function get_denylist_array( $denylist_type ): array {
+	global $wp_filesystem;
+
+	if ( ! $wp_filesystem ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		WP_Filesystem();
+	}
 
 	$denylist_array = array();
+	$filename       = 'options' === $denylist_type ? 'option_scrublist.txt' : 'plugin_denylist.txt';
+	$file_path      = SAFETY_NET_PATH . '/assets/data/' . $filename;
 
-	if ( 'options' === $denylist_type ) {
-		$filename = 'option_scrublist.txt';
-	} elseif ( 'plugins' === $denylist_type ) {
-		$filename = 'plugin_denylist.txt';
+	if ( ! $wp_filesystem->exists( $file_path ) ) {
+		return $denylist_array;
 	}
 
-	$row = 1;
-	if ( ( $handle = fopen( SAFETY_NET_URL . '/assets/data/' . $filename, 'r' ) ) !== false ) {
-		while ( ( $data = fgetcsv( $handle, 1000 ) ) !== false ) {
-			$num = count( $data );
-			$row++;
-			for ( $c = 0; $c < $num; $c++ ) {
-				$denylist_array[] = trim( $data[ $c ] );
-			}
+	$file_contents = $wp_filesystem->get_contents( $file_path );
+	if ( false === $file_contents ) {
+		return $denylist_array;
+	}
+
+	$rows = explode( "\n", $file_contents );
+
+	foreach ( $rows as $row ) {
+		$data = str_getcsv( $row );
+		foreach ( $data as $item ) {
+			$denylist_array[] = trim( $item );
 		}
-		fclose( $handle );
 	}
+
 	return array_filter( $denylist_array );
 }
