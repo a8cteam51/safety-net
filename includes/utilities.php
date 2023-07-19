@@ -53,5 +53,5 @@ function get_denylist_array( $denylist_type ) {
 		}
 		fclose( $handle );
 	}
-	return $denylist_array;
+	return array_filter( $denylist_array );
 }
