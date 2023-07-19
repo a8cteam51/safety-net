@@ -14,7 +14,7 @@ add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
  *
  * @return void
  */
-function add_admin_hooks(){
+function add_admin_hooks() {
 
 	if ( true !== apply_filters( 'safety_net_hide_admin', false ) ) {
 		// Skip the admin page and options if the `safety_net_hide_admin` filter returns true.
@@ -43,14 +43,14 @@ function enqueue_scripts( string $hook_suffix ) {
 		return;
 	}
 
-	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', [ 'jquery' ], '1.0', true );
+	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery' ), '1.0', true );
 
 	wp_localize_script(
 		'safety-net-admin',
 		'safety_net_params',
-		[
+		array(
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
-		]
+		)
 	);
 
 	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.0' );
@@ -98,12 +98,12 @@ function settings_init() {
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
-		[
-			'type' => 'button',
-			'id' => 'safety-net-scrub-options',
+		array(
+			'type'        => 'button',
+			'id'          => 'safety-net-scrub-options',
 			'button_text' => esc_html__( 'Scrub Options', 'safety-net' ),
 			'description' => esc_html__( 'Clears specific denylisted options, such as API keys, which could cause problems on a development site.', 'safety-net' ),
-		]
+		)
 	);
 
 	add_settings_field(
@@ -112,12 +112,12 @@ function settings_init() {
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
-		[
-			'type' => 'button',
-			'id' => 'safety-net-deactivate-plugins',
+		array(
+			'type'        => 'button',
+			'id'          => 'safety-net-deactivate-plugins',
 			'button_text' => esc_html__( 'Deactivate Plugins', 'safety-net' ),
 			'description' => esc_html__( 'Deactivates a handful of denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them (deactivates the actual plugin, not from the checkout settings).', 'safety-net' ),
-		]
+		)
 	);
 
 	add_settings_field(
@@ -126,12 +126,12 @@ function settings_init() {
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
-		[
-			'type' => 'button',
-			'id' => 'safety-net-delete-users',
+		array(
+			'type'        => 'button',
+			'id'          => 'safety-net-delete-users',
 			'button_text' => esc_html__( 'Delete', 'safety-net' ),
 			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
-		]
+		)
 	);
 
 	add_settings_field(
@@ -156,29 +156,36 @@ function settings_init() {
  *
  * @return void
  */
-function render_field( array $args = [] ) {
+function render_field( array $args = array() ) {
 	if ( ! isset( $args['type'] ) ) {
 		return;
-	} ?>
+	}
 
-	<?php if ( 'checkbox' === $args['type'] ) : 
-		$checked = '';
-		if ( 'on' === get_option( $args['name'] ) ) {
-			$checked = ' checked="checked" '; 
-		} ?>
-		<input id="<?php echo esc_attr( $args['name'] ) ?>" class="<?php echo esc_attr( $args['class'] ) ?>" name="<?php echo esc_attr( $args['name'] ) ?>" type="checkbox" <?php echo $checked ?> />
-	<?php endif; ?>
+	if ( 'checkbox' === $args['type'] ) {
+		printf(
+			'<input id="%s" class="%s" name="%s" type="checkbox"%s />',
+			esc_attr( $args['name'] ),
+			esc_attr( $args['class'] ),
+			esc_attr( $args['name'] ),
+			checked( 'on', get_option( $args['name'] ), false )
+		);
+	}
 
-	<?php if ( 'button' === $args['type'] ) : ?>
-		<button type="button" id="<?php echo esc_attr( $args['id'] ); ?>" class="button button-large" data-nonce="<?php echo wp_create_nonce( $args['id'] ); ?>">
-			<?php echo esc_html( $args['button_text' ] ) ?>
-		</button>
-	<?php endif; ?>
+	if ( 'button' === $args['type'] ) {
+		printf(
+			'<button type="button" id="%s" class="button button-large" data-nonce="%s">%s</button>',
+			esc_attr( $args['id'] ),
+			esc_attr( wp_create_nonce( $args['id'] ) ),
+			esc_html( $args['button_text'] )
+		);
+	}
 
-	<?php if ( isset( $args['description' ] ) ) : ?>
-		<p class="description" id="tagline-description"><?php echo esc_html( $args['description' ] ); ?></p>
-	<?php endif; ?>
-	<?php
+	if ( isset( $args['description'] ) ) {
+		printf(
+			'<p class="description" id="tagline-description">%s</p>',
+			esc_html( $args['description'] )
+		);
+	}
 }
 
 /**
@@ -192,23 +199,29 @@ function render_options_html() {
 	}
 	?>
 	<div class="wrap">
-		<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
-		<p>Read about Safety Net or create issues/suggestions in the <a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
-		<hr/>
-		<?php if ( is_production() ) { ?>
-			<p class="info"><strong>It appears that you are are viewing this page on a production site.</strong><br>
-			For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local. <a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.</p>
-		<?php } else { ?>
+	<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
+	<p>Read about Safety Net or create issues/suggestions in the
+		<a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
+	<hr/>
+	<?php if ( is_production() ) : ?>
+		<p class="info">
+			<strong>It appears that you are are viewing this page on a production site.</strong><br>
+			For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local.
+			<a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.
+		</p>
+	<?php else : ?>
 		<h3>Tools</h3>
 		<form action="options.php" method="post">
 			<?php
 			settings_fields( 'safety-net' );
-			do_settings_sections( 'safety_net_options' ); ?>
-			<input name="Submit" type="submit" class="button button-primary safety-net-save" value="<?php esc_attr_e( 'Save Changes' ); ?>" />
+			do_settings_sections( 'safety_net_options' );
+			?>
+			<p><input name="Submit" type="submit" class="button button-primary safety-net-save" value="<?php esc_attr_e( 'Save Changes' ); ?>"/></p>
 		</form>
-	</div>
-	<div class="loading-overlay"></div>
-	<?php }
+		</div>
+		<div class="loading-overlay"></div>
+		<?php
+	endif;
 }
 
 /**
@@ -221,28 +234,28 @@ function handle_ajax_scrub_options() {
 	// If we're not on staging, development, or a local environment, die with a warning.
 	if ( is_production() ) {
 		// Send an AJAX warning.
-		echo json_encode(
-			[
+		echo wp_json_encode(
+			array(
 				'warning' => true,
 				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
-			]
+			)
 		);
 		die();
 	}
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'],'safety-net-scrub-options' );
+	check_the_nonce( $_POST['nonce'], 'safety-net-scrub-options' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Scrub the options.
 	scrub_options();
 
 	// Send the AJAX response.
-	echo json_encode(
-		[
+	echo wp_json_encode(
+		array(
 			'success' => true,
 			'message' => esc_html__( 'Options have been scrubbed.' ),
-		]
+		)
 	);
 
 	die();
@@ -258,28 +271,28 @@ function handle_ajax_deactivate_plugins() {
 	// If we're not on staging, development, or a local environment, die with a warning.
 	if ( is_production() ) {
 		// Send an AJAX warning.
-		echo json_encode(
-			[
+		echo wp_json_encode(
+			array(
 				'warning' => true,
 				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
-			]
+			)
 		);
 		die();
 	}
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'],'safety-net-deactivate-plugins' );
+	check_the_nonce( $_POST['nonce'], 'safety-net-deactivate-plugins' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Scrub the options.
 	deactivate_plugins();
 
 	// Send the AJAX response.
-	echo json_encode(
-		[
+	echo wp_json_encode(
+		array(
 			'success' => true,
 			'message' => esc_html__( 'Plugins have been deactivated.' ),
-		]
+		)
 	);
 
 	die();
@@ -295,27 +308,27 @@ function handle_ajax_delete_users() {
 	// If we're not on staging, development, or a local environment, die with a warning.
 	if ( is_production() ) {
 		// Send an AJAX warning.
-		echo json_encode(
-			[
+		echo wp_json_encode(
+			array(
 				'warning' => true,
 				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
-			]
+			)
 		);
 		die();
 	}
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-delete-users' );
+	check_the_nonce( $_POST['nonce'], 'safety-net-delete-users' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Delete the users.
 	delete_users_and_orders();
 
-	echo json_encode(
-		[
+	echo wp_json_encode(
+		array(
 			'success' => true,
 			'message' => esc_html__( 'Users, orders, and subscriptions have been successfully deleted!' ),
-		]
+		)
 	);
 
 	die();
@@ -328,11 +341,11 @@ function handle_ajax_delete_users() {
  */
 function check_the_permissions() {
 	if ( ! current_user_can( 'manage_options' ) ) {
-		echo json_encode(
-			[
+		echo wp_json_encode(
+			array(
 				'success' => false,
 				'message' => esc_html__( 'You do not have permission to do that.' ),
-			]
+			)
 		);
 
 		die();
@@ -342,18 +355,18 @@ function check_the_permissions() {
 /**
  * Checks if the nonce passed is correct, and sends the AJAX response if it doesn't.
  *
- * @param string $nonce  The nonce to check.
+ * @param string $nonce The nonce to check.
  * @param string $action The action the nonce was created from.
  *
  * @return void
  */
 function check_the_nonce( string $nonce, $action ) {
 	if ( ! wp_verify_nonce( $nonce, $action ) ) {
-		echo json_encode(
-			[
+		echo wp_json_encode(
+			array(
 				'success' => false,
 				'message' => esc_html__( 'Security check failed. Refresh the page and try again.' ),
-			]
+			)
 		);
 
 		die();
@@ -381,9 +394,14 @@ function add_action_links( $actions ) {
 function pause_renewal_actions() {
 	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
 		require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
-		add_filter( 'action_scheduler_store_class', function( $class ) {
-			return 'SafetyNet\ActionScheduler_Custom_DBStore';
-		}, 101, 1 );
+		add_filter(
+			'action_scheduler_store_class',
+			function ( $class ) {
+				return 'SafetyNet\ActionScheduler_Custom_DBStore';
+			},
+			101,
+			1
+		);
 	}
 }
 
@@ -398,14 +416,16 @@ function show_warning() {
 	}
 	echo "\n<div class='notice notice-info'><p>";
 	echo '<strong>';
-		esc_html_e( 'Safety Net Activated', 'safety-net' );
+	esc_html_e( 'Safety Net Activated', 'safety-net' );
 	echo ': ';
 	echo '</strong>';
-	esc_html_e( 'The Safety Net plugin is currently active. ' . PHP_EOL, 'safety-net' );
+	esc_html_e( 'The Safety Net plugin is currently active', 'safety-net' );
+	echo '<br>';
 	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
-		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused. ' . PHP_EOL, 'safety-net' );
+		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );
+		echo '<br>';
 	}
-	echo 'This site\'s environment type is set to "' . wp_get_environment_type() . '".';
+	echo 'This site\'s environment type is set to "' . esc_html( wp_get_environment_type() ) . '".';
 	echo '</p></div>';
 }
 
