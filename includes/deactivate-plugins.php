@@ -12,7 +12,7 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 */
 function deactivate_plugins() {
 
-	if ( '1' !== get_option( 'safety_net_options_scrubbed' ) ) {
+	if ( ! get_option( 'safety_net_options_scrubbed' ) ) {
 		echo wp_json_encode(
 			array(
 				'success' => false,
