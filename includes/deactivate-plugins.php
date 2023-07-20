@@ -12,7 +12,7 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 */
 function deactivate_plugins() {
 
-	if ( '1' !== get_option( 'safety_net_options_scrubbed' ) ) {
+	if ( ! get_option( 'safety_net_options_scrubbed' ) ) {
 		echo wp_json_encode(
 			array(
 				'success' => false,
@@ -29,8 +29,7 @@ function deactivate_plugins() {
 
 	$all_installed_plugins = array_keys( get_plugins() );
 
-	$denylisted_plugins = get_denylist_array( 'plugins' );
-	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', $denylisted_plugins );
+	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', get_denylist_array( 'plugins' ) );
 
 	// let's tack on all the Woo payment methods, in case we can deactivate any of those too
 	if ( class_exists( 'woocommerce' ) ) {

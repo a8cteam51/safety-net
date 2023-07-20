@@ -2,9 +2,12 @@
 
 namespace SafetyNet;
 
+use InvalidArgumentException;
+use RuntimeException;
+
 class ActionScheduler_Custom_DBStore extends \ActionScheduler_DBStore {
 
-	protected function claim_actions( $claim_id, $limit, \DateTime $before_date = null, $hooks = array(), $group = '' ) {
+	protected function claim_actions( $claim_id, $limit, \DateTime $before_date = null, $hooks = array(), $group = '' ): int {
 
 		/** @var \wpdb $wpdb */
 		global $wpdb;
@@ -26,7 +29,7 @@ class ActionScheduler_Custom_DBStore extends \ActionScheduler_DBStore {
 
 		if ( ! empty( $hooks ) ) {
 			$remove_these = array( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' );
-			$hooks = array_diff( $hooks, $remove_these );
+			$hooks        = array_diff( $hooks, $remove_these );
 
 			$placeholders = array_fill( 0, count( $hooks ), '%s' );
 			$where       .= ' AND hook IN (' . join( ', ', $placeholders ) . ')';
@@ -60,7 +63,7 @@ class ActionScheduler_Custom_DBStore extends \ActionScheduler_DBStore {
 		$sql           = $wpdb->prepare( "{$update} {$where} {$order} LIMIT %d", $params ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders
 		$rows_affected = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false === $rows_affected ) {
-			throw new \RuntimeException( __( 'Unable to claim actions. Database error.', 'action-scheduler' ) );
+			throw new RuntimeException( __( 'Unable to claim actions. Database error.', 'action-scheduler' ) );
 		}
 
 		return (int) $rows_affected;
