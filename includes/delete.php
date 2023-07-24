@@ -75,12 +75,12 @@ function delete_users_and_orders() {
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
-	$admins            = get_admin_user_ids();
-	$admin_list_string = implode( ',', array_map( 'intval', $admins ) ); // Ensuring we have integers to prevent SQL Injection
+	$admins = get_admin_user_ids(); // returns an array of ids
 
-	// Delete all non-admin users and their usermeta
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ( %s )", $admin_list_string ) );
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ( %s )", $admin_list_string ) );
+	// Delete all non-admin users and their user meta
+	$placeholders = implode( ',', array_fill( 0, count( $admins ), '%d' ) );
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
