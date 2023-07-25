@@ -33,4 +33,4 @@ wpmandrill
 yotpo
 zapier
 zoho-mail
-
+woocommerce-zapier
