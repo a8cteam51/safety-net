@@ -3,10 +3,12 @@ afterpay
 algolia
 automator
 avatax
+console
 hubspot
 in-stock-mailer-for-wc
 klaviyo
 leadin
+mail-bank
 mailchimp
 mailgun
 mailpoet
@@ -25,12 +27,10 @@ socketlabs
 sparkpost
 stripe
 webgility
-console
-mail-bank
-wp-ses
+woocommerce-zapier
 wp-remote-users-sync
+wp-ses
 wpmandrill
 yotpo
 zapier
 zoho-mail
-
