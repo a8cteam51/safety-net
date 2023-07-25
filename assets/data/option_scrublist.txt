@@ -11,6 +11,7 @@ mailster_options
 mc4wp
 novos_klaviyo_option_name
 shareasale_wc_tracker_options
+woocommerce-ppcp-settings
 woocommerce_afterpay_settings
 woocommerce_braintree_credit_card_settings
 woocommerce_braintree_paypal_settings
@@ -22,11 +23,10 @@ woocommerce_stripe_account_settings
 woocommerce_stripe_api_settings
 woocommerce_stripe_settings
 woocommerce_woocommerce_payments_settings
-woocommerce-ppcp-settings
 wpmandrill
 wprus
 yotpo_settings
+zmail_access_token
 zmail_auth_code
 zmail_integ_client_secret
 zmail_refresh_token
-zmail_access_token
