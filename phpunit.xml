@@ -3,5 +3,10 @@
     colors="true"
     printerClass="Codedungeon\PHPUnitPrettyResultPrinter\Printer"
 >
+    <testsuites>
+        <testsuite name="WP Unit Testing">
+            <directory prefix="test-.php">./tests/</directory>
+        </testsuite>
+    </testsuites>
 </phpunit>
 
