@@ -23,7 +23,6 @@ function add_admin_hooks() {
 		add_action( 'admin_init', __NAMESPACE__ . '\settings_init' );
 		add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 		add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
-		add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
@@ -121,20 +120,6 @@ function settings_init() {
 	);
 
 	add_settings_field(
-		'safety_net_delete_users',
-		esc_html__( 'Delete All Users, Orders, and Subscriptions', 'safety-net' ),
-		__NAMESPACE__ . '\render_field',
-		'safety_net_options',
-		'safety_net_option',
-		array(
-			'type'        => 'button',
-			'id'          => 'safety-net-delete-users',
-			'button_text' => esc_html__( 'Delete', 'safety-net' ),
-			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
-		)
-	);
-
-	add_settings_field(
 		'safety_net_pause_renewal_actions_toggle',
 		esc_html__( 'Pause renewal actions', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
@@ -206,8 +191,8 @@ function render_options_html() {
 	<?php if ( is_production() ) : ?>
 		<p class="info">
 			<strong>It appears that you are are viewing this page on a production site.</strong><br>
-			For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local.
-			<a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.
+			YOU ARE RUNNING SAFETY NET LITE, WHICH WILL RUN ON A PRODUCTION SITE
+			<a href="https://github.com/a8cteam51/safety-net/tree/lite">More info in the README</a>.
 		</p>
 	<?php else : ?>
 		<h3>Tools</h3>
@@ -230,18 +215,6 @@ function render_options_html() {
  * @return void
  */
 function handle_ajax_scrub_options() {
-
-	// If we're not on staging, development, or a local environment, die with a warning.
-	if ( is_production() ) {
-		// Send an AJAX warning.
-		echo wp_json_encode(
-			array(
-				'warning' => true,
-				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
-			)
-		);
-		die();
-	}
 
 	// Permissions and security checks.
 	check_the_permissions();
@@ -292,42 +265,6 @@ function handle_ajax_deactivate_plugins() {
 		array(
 			'success' => true,
 			'message' => esc_html__( 'Plugins have been deactivated.' ),
-		)
-	);
-
-	die();
-}
-
-/**
- * Handles the AJAX request for deleting all users.
- *
- * @return void
- */
-function handle_ajax_delete_users() {
-
-	// If we're not on staging, development, or a local environment, die with a warning.
-	if ( is_production() ) {
-		// Send an AJAX warning.
-		echo wp_json_encode(
-			array(
-				'warning' => true,
-				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
-			)
-		);
-		die();
-	}
-
-	// Permissions and security checks.
-	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-delete-users' ); // phpcs:ignore WordPress.Security.NonceVerification
-
-	// Checks passed. Delete the users.
-	delete_users_and_orders();
-
-	echo wp_json_encode(
-		array(
-			'success' => true,
-			'message' => esc_html__( 'Users, orders, and subscriptions have been successfully deleted!' ),
 		)
 	);
 
@@ -410,16 +347,12 @@ function pause_renewal_actions() {
  *
  */
 function show_warning() {
-	// If we're not on staging, development, or a local environment, return.
-	if ( is_production() ) {
-		return;
-	}
 	echo "\n<div class='notice notice-info'><p>";
 	echo '<strong>';
-	esc_html_e( 'Safety Net Activated', 'safety-net' );
+	esc_html_e( 'Safety Net Lite Activated', 'safety-net' );
 	echo ': ';
 	echo '</strong>';
-	esc_html_e( 'The Safety Net plugin is currently active', 'safety-net' );
+	esc_html_e( 'The Safety Net Lite plugin is currently active', 'safety-net' );
 	echo '<br>';
 	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
 		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );

@@ -8,20 +8,6 @@ use function SafetyNet\Delete\delete_users_and_orders;
 class SafetyNet_CLI extends WP_CLI_Command {
 
 	/**
-	* Delete all non-admin users and their data
-	*
-	* ## EXAMPLES
-	*
-	* wp safety-net delete
-	*
-	*/
-	public function delete() {
-		delete_users_and_orders();
-
-		WP_CLI::success( __( 'Users and their data have been deleted' ) );
-	}
-
-	/**
 	 * Clear options such as API keys so that plugins won't talk to 3rd parties
 	 *
 	 * ## EXAMPLES

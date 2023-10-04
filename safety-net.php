@@ -1,8 +1,8 @@
 <?php
 /*
- * Plugin Name: Safety Net
- * Description: For Team51 Development Sites. Deletes user data and more!
- * Version: 1.4.13
+ * Plugin Name: Safety Net Lite
+ * Description: Safety Net, but doesn't delete user data.
+ * Version: 1.4.13-lite
  * Author: WordPress.com Special Projects
  * Author URI: https://wpspecialprojects.wordpress.com
  * Text Domain: safety-net
@@ -24,7 +24,6 @@ define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';
-require_once __DIR__ . '/includes/delete.php';
 require_once __DIR__ . '/includes/utilities.php';
 require_once __DIR__ . '/includes/deactivate-plugins.php';
 
