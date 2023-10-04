@@ -96,7 +96,7 @@ function scrub_options() {
 				update_option( $option, $option_array );
 			} elseif ( 'jetpack_active_modules' === $option ) {
 				// Clear some Jetpack options to disable specific modules.
-				$modules_to_disable = array( 'publicize' );
+				$modules_to_disable = array( 'publicize', 'subscriptions' );
 				$modules_array      = array_filter(
 					$option_value,
 					function( $v ) use ( $modules_to_disable ) {
