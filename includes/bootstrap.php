@@ -22,6 +22,11 @@ function maybe_pause_renewal_actions() {
 		return;
 	}
 
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
 	update_option( 'safety_net_pause_renewal_actions_toggle', 'on' );
 }
 
@@ -36,6 +41,11 @@ function maybe_scrub_options() {
 		return;
 	}
 
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
 	do_action( 'safety_net_scrub_options' );
 }
 
@@ -47,6 +57,11 @@ function maybe_scrub_options() {
 function maybe_deactivate_plugins() {
 	// If plugins have already been deactivated, skip.
 	if ( get_option( 'safety_net_plugins_deactivated' ) ) {
+		return;
+	}
+
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
 		return;
 	}
 

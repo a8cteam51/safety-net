@@ -190,9 +190,8 @@ function render_options_html() {
 	<hr/>
 	<?php if ( is_production() ) : ?>
 		<p class="info">
-			<strong>It appears that you are are viewing this page on a production site.</strong><br>
-			YOU ARE RUNNING SAFETY NET LITE, WHICH WILL RUN ON A PRODUCTION SITE
-			<a href="https://github.com/a8cteam51/safety-net/tree/lite">More info in the README</a>.
+			For Safety Net to run - and to access the tools on this page - the environment type needs to be set as staging, development, or local.
+			<a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.
 		</p>
 	<?php else : ?>
 		<h3>Tools</h3>
