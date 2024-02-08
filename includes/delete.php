@@ -72,6 +72,14 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpml_mails" );
 	}
 
+    // Delete Newsletter plugin subscribers
+    $table_name = $wpdb->prefix . 'newsletter';
+    if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+        $wpdb->query( "DELETE FROM {$wpdb->prefix}newsletter" );
+    }
+
+
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
