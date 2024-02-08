@@ -1,0 +1,13 @@
+<phpunit
+    bootstrap="tests/bootstrap.php"
+    colors="true"
+>
+    <php>
+        <env name="WP_PHPUNIT__TESTS_CONFIG" value="tests/wp-tests-config.php" />
+    </php>
+    <testsuites>
+        <testsuite name="WP Unit Testing">
+            <directory prefix="test-.php">./tests/</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
