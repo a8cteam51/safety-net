@@ -56,6 +56,12 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_api_keys" );
 	}
 
+	// Delete Woo webhooks
+	$table_name = $wpdb->prefix . 'wc_webhooks';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_webhooks" );
+	}
+
 	// Delete renewal scheduled actions
 	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {

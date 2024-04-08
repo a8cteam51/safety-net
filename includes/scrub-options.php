@@ -74,5 +74,18 @@ function scrub_options() {
 		}
 	}
 
+	// Disable all Woo Webhooks
+	if ( class_exists( 'WooCommerce' ) ) {
+		$webhooks = wc_get_webhooks( array( 'status' => 'active' ) );
+
+		if ( ! empty( $webhooks ) ) {
+			foreach ( $webhooks as $webhook_id ) {
+				$webhook = new WC_Webhook( $webhook_id );
+				$webhook->set_status( 'disabled' );
+				$webhook->save();
+			}
+		}
+	}
+
 	update_option( 'safety_net_options_scrubbed', true );
 }
