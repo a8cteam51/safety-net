@@ -32,7 +32,7 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	 *
 	 */
 	public function scrub_options() {
-		\SafetyNet\DeactivatePlugins\scrub_options();
+		\SafetyNet\ScrubOptions\scrub_options();
 
 		WP_CLI::success( __( 'All options have been scrubbed.' ) );
 	}
