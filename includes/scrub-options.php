@@ -1,6 +1,8 @@
 <?php
 
 namespace SafetyNet\ScrubOptions;
+use WC_Data_Store;
+use WC_Webhook;
 
 use function SafetyNet\Utilities\get_denylist_array;
 
@@ -76,7 +78,8 @@ function scrub_options() {
 
 	// Disable all Woo Webhooks
 	if ( class_exists( 'WooCommerce' ) ) {
-		$webhooks = wc_get_webhooks( array( 'status' => 'active' ) );
+		$data_store = WC_Data_Store::load( 'webhook' );
+		$webhooks   = $data_store->search_webhooks();
 
 		if ( ! empty( $webhooks ) ) {
 			foreach ( $webhooks as $webhook_id ) {
