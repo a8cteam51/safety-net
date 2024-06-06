@@ -62,6 +62,22 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_webhooks" );
 	}
 
+	// Delete Woo payment tokens
+	$table_name = $wpdb->prefix . 'woocommerce_payment_tokens';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wp_woocommerce_payment_tokens" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wp_woocommerce_payment_tokenmeta" );
+	}
+
+	// Delete Woo customers and analytics
+	$table_name = $wpdb->prefix . 'wc_customer_lookup';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_customer_lookup" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_product_lookup" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_log" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_stats" );
+	}
+
 	// Delete renewal scheduled actions
 	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
