@@ -41,6 +41,10 @@ function delete_users_and_orders() {
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
 
+	// Delete Woo memberships
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'wc_user_membership' )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'wc_user_membership'" );
+
 	// Delete data from the High Performance Order Tables
 	$table_name = $wpdb->prefix . 'wc_orders';
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
