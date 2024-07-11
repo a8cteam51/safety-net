@@ -98,19 +98,14 @@ function scrub_options() {
  *
  * @param array $options_to_clear Options to clear.
  *
- * @return void
+ * @return array
  */
 function safety_net_scrub_options_wpcom( $options_to_clear ) {
 	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
 		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
-
-		foreach ( $unset_wpcom_options as $option ) {
-			$option_key = array_search( $option, $options_to_clear );
-
-			if ( false !== $option_key ) {
-				unset( $options_to_clear[ $option_key ] );
-			}
-		}
+		$options_to_clear = array_diff( $options_to_clear, $unset_wpcom_options );
 	}
+
+	return $options_to_clear;
 }
 add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
