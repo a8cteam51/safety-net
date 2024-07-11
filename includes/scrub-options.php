@@ -92,3 +92,25 @@ function scrub_options() {
 
 	update_option( 'safety_net_options_scrubbed', true );
 }
+
+/**
+ * Remove some options from scrubbing that are needed on WordPress.com.
+ *
+ * @param array $options_to_clear Options to clear.
+ *
+ * @return void
+ */
+function safety_net_scrub_options_wpcom( $options_to_clear ) {
+	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
+
+		foreach ( $unset_wpcom_options as $option ) {
+			$option_key = array_search( $option, $options_to_clear );
+
+			if ( false !== $option_key ) {
+				unset( $options_to_clear[ $option_key ] );
+			}
+		}
+	}
+}
+add_filter( 'safety_net_options_to_clear', 'safety_net_scrub_options_wpcom' );
