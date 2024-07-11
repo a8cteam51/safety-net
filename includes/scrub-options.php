@@ -102,7 +102,7 @@ function scrub_options() {
  */
 function safety_net_scrub_options_wpcom( $options_to_clear ) {
 	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
-		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets', 'jetpack_active_modules' );
 		$options_to_clear = array_diff( $options_to_clear, $unset_wpcom_options );
 	}
 
