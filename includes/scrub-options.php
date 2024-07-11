@@ -113,4 +113,4 @@ function safety_net_scrub_options_wpcom( $options_to_clear ) {
 		}
 	}
 }
-add_filter( 'safety_net_options_to_clear', 'safety_net_scrub_options_wpcom' );
+add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
