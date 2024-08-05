@@ -22,7 +22,7 @@ function scrub_options() {
 		$option_value = get_option( $option );
 		if ( $option_value ) {
 
-			update_option( $option . '_backup', $option_value );
+			update_option( $option . '_sn_backup', $option_value );
 
 			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
