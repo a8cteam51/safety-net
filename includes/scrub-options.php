@@ -13,7 +13,7 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 */
 function scrub_options() {
 
-	update_option( 'admin_email', 'safetynet@scrubbedthis.option' );
+	safety_net_update_option_direct( 'admin_email', 'safetynet@scrubbedthis.option' );
 
 	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
@@ -33,7 +33,7 @@ function scrub_options() {
 						$option_array[ $key ] = '';
 					}
 				}
-				update_option( $option, $option_array );
+				safety_net_update_option_direct( $option, $option_array );
 			} elseif ( 'jetpack_active_modules' === $option ) {
 				// Clear some Jetpack options to disable specific modules.
 				$modules_to_disable = array( 'enhanced-distribution', 'publicize', 'subscriptions' );
@@ -44,7 +44,7 @@ function scrub_options() {
 					},
 				);
 
-				update_option( $option, $modules_array );
+				safety_net_update_option_direct( $option, $modules_array );
 			} elseif ( 'wprus' === $option ) {
 				// Clear some WP Remote Users Sync options to disable only keys needed for remote connections and keep the remaining settings intact.
 				$keys_to_scrub = array(
@@ -63,14 +63,14 @@ function scrub_options() {
 						}
 					}
 				}
-				update_option( $option, $option_array );
+				safety_net_update_option_direct( $option, $option_array );
 			} else {
 				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
 				if ( is_array( get_option( $option ) ) ) {
 					$empty_array = array();
-					update_option( $option, $empty_array );
+					safety_net_update_option_direct( $option, $empty_array );
 				} else {
-					update_option( $option, '' );
+					safety_net_update_option_direct( $option, '' );
 				}
 			}
 		}
@@ -91,6 +91,9 @@ function scrub_options() {
 	}
 
 	update_option( 'safety_net_options_scrubbed', true );
+
+	// Clear object cache since the updates happen directly in the database.
+	wp_cache_flush();
 }
 
 /**
@@ -109,3 +112,25 @@ function safety_net_scrub_options_wpcom( $options_to_clear ) {
 	return $options_to_clear;
 }
 add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
+
+/**
+ * Updates options directly in the database to prevent notifications from being sent.
+ * 
+ * @param string $option_name The name of the option to update.
+ * @param mixed $option_value The value to set the option to.
+ * 
+ * @return void
+ */
+function safety_net_update_option_direct( $option_name, $option_value ) {
+	global $wpdb;
+
+	if ( is_array( $option_value ) ) {
+		$option_value = serialize( $option_value );
+	}
+
+	$wpdb->update(
+		$wpdb->options,
+		array( 'option_value' => $option_value ),
+		array( 'option_name' => $option_name ),
+	);
+}
