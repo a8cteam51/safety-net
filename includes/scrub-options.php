@@ -12,6 +12,7 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 * Clear options such as API keys so that plugins won't talk to 3rd parties
 */
 function scrub_options() {
+	global $wpdb;
 
 	safety_net_update_option_direct( 'admin_email', 'safetynet@scrubbedthis.option' );
 
@@ -89,6 +90,11 @@ function scrub_options() {
 			}
 		}
 	}
+
+	// Disable AutomateWoo workflows and clear the queue
+	$wpdb->query( "UPDATE $wpdb->posts SET post_status = 'aw-disabled' WHERE post_type = 'aw_workflow' AND post_status = 'publish'" );
+	$wpdb->query( "DELETE FROM {$wpdb->prefix}automatewoo_queue" );
+	$wpdb->query( "DELETE FROM {$wpdb->prefix}automatewoo_queue_meta" );
 
 	update_option( 'safety_net_options_scrubbed', true );
 
