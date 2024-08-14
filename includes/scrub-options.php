@@ -91,10 +91,11 @@ function scrub_options() {
 		}
 	}
 
-	// Disable AutomateWoo workflows and clear the queue
+	// Disable AutomateWoo workflows, clear the queue, and set scheduled actions to "done"
 	$wpdb->query( "UPDATE $wpdb->posts SET post_status = 'aw-disabled' WHERE post_type = 'aw_workflow' AND post_status = 'publish'" );
 	$wpdb->query( "DELETE FROM {$wpdb->prefix}automatewoo_queue" );
 	$wpdb->query( "DELETE FROM {$wpdb->prefix}automatewoo_queue_meta" );
+	$wpdb->query( "UPDATE {$wpdb->prefix}actionscheduler_actions SET status = 'done' WHERE status = 'pending' AND hook LIKE '%automatewoo%'" );
 
 	update_option( 'safety_net_options_scrubbed', true );
 
