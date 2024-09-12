@@ -69,8 +69,8 @@ function delete_users_and_orders() {
 	// Delete Woo payment tokens
 	$table_name = $wpdb->prefix . 'woocommerce_payment_tokens';
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wp_woocommerce_payment_tokens" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wp_woocommerce_payment_tokenmeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_payment_tokens" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_payment_tokenmeta" );
 	}
 
 	// Delete Woo customers and analytics
