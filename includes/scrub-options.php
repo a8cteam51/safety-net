@@ -1,6 +1,7 @@
 <?php
 
 namespace SafetyNet\ScrubOptions;
+
 use WC_Data_Store;
 use WC_Webhook;
 
@@ -119,9 +120,14 @@ function scrub_options() {
  * @return array
  */
 function safety_net_scrub_options_wpcom( $options_to_clear ) {
-	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
-		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets', 'jetpack_active_modules' );
-		$options_to_clear = array_diff( $options_to_clear, $unset_wpcom_options );
+
+	$url                    = $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+	$ends_with_wpcomstaging = substr( $url, -18 ) === '.wpcomstaging.com';
+
+	// checking 2 different ways if it's an Atomic site
+	if ( ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) || $ends_with_wpcomstaging ) {
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
+		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
 	}
 
 	return $options_to_clear;
@@ -130,10 +136,10 @@ add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_op
 
 /**
  * Updates options directly in the database to prevent notifications from being sent.
- * 
+ *
  * @param string $option_name The name of the option to update.
  * @param mixed $option_value The value to set the option to.
- * 
+ *
  * @return void
  */
 function safety_net_update_option_direct( $option_name, $option_value ) {
