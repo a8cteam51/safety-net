@@ -121,12 +121,11 @@ function scrub_options() {
  */
 function safety_net_scrub_options_wpcom( $options_to_clear ) {
 
-	$url                    = $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-	$ends_with_wpcomstaging = substr( $url, -18 ) === '.wpcomstaging.com';
+	$url = $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 
 	// checking 2 different ways if it's an Atomic site
-	if ( ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) || $ends_with_wpcomstaging ) {
-		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
+	if ( ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) || ( '.wpcomstaging.com' === substr( $url, -18 ) ) ) {
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets', 'jetpack_active_modules' );
 		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
 	}
 
