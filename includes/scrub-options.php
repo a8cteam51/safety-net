@@ -20,6 +20,19 @@ function scrub_options() {
 	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
+	// Check if it’s an Atomic site either via the jetpack function or URL.
+	$is_atomic_site = false;
+	if ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) {
+		$is_atomic_site = true;
+	} elseif ( str_ends_with( home_url(), 'wpcomstaging.com' ) ) {
+		$is_atomic_site = true;
+	}
+	
+	if ( $is_atomic_site ) {
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
+		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
+	}
+
 	foreach ( $options_to_clear as $option ) {
 		$option_value = get_option( $option );
 		if ( $option_value ) {
@@ -121,17 +134,24 @@ function scrub_options() {
  */
 function safety_net_scrub_options_wpcom( $options_to_clear ) {
 
-	$url = $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+	$url = home_url( $_SERVER['REQUEST_URI'] );
 
-	// checking 2 different ways if it's an Atomic site
-	if ( ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) || ( '.wpcomstaging.com' === substr( $url, -18 ) ) ) {
-		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets', 'jetpack_active_modules' );
+	// Check if it’s an Atomic site either via the function or URL.
+	$is_atomic_site = false;
+	if ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) {
+		$is_atomic_site = true;
+	} elseif ( str_ends_with( $url, 'wpcomstaging.com' ) ) {
+		$is_atomic_site = true;
+	}
+	
+	if ( $is_atomic_site ) {
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
 		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
 	}
 
 	return $options_to_clear;
 }
-add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
+// add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
 
 /**
  * Updates options directly in the database to prevent notifications from being sent.
