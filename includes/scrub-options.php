@@ -1,6 +1,7 @@
 <?php
 
 namespace SafetyNet\ScrubOptions;
+
 use WC_Data_Store;
 use WC_Webhook;
 
@@ -18,6 +19,20 @@ function scrub_options() {
 
 	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
+
+	// Check if it’s an Atomic site either via the Jetpack function or URL.
+	$is_atomic_site = false;
+	if ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) {
+		$is_atomic_site = true;
+	} elseif ( str_ends_with( home_url(), 'wpcomstaging.com' ) ) {
+		$is_atomic_site = true;
+	}
+
+	// Leave these options intact on Atomic, so that we don't disconnect Jetpack
+	if ( $is_atomic_site ) {
+		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
+		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
+	}
 
 	foreach ( $options_to_clear as $option ) {
 		$option_value = get_option( $option );
@@ -112,28 +127,11 @@ function scrub_options() {
 }
 
 /**
- * Remove some options from scrubbing that are needed on WordPress.com.
- *
- * @param array $options_to_clear Options to clear.
- *
- * @return array
- */
-function safety_net_scrub_options_wpcom( $options_to_clear ) {
-	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
-		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets', 'jetpack_active_modules' );
-		$options_to_clear = array_diff( $options_to_clear, $unset_wpcom_options );
-	}
-
-	return $options_to_clear;
-}
-add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
-
-/**
  * Updates options directly in the database to prevent notifications from being sent.
- * 
+ *
  * @param string $option_name The name of the option to update.
  * @param mixed $option_value The value to set the option to.
- * 
+ *
  * @return void
  */
 function safety_net_update_option_direct( $option_name, $option_value ) {
