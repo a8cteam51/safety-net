@@ -20,14 +20,15 @@ function scrub_options() {
 	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
-	// Check if it’s an Atomic site either via the jetpack function or URL.
+	// Check if it’s an Atomic site either via the Jetpack function or URL.
 	$is_atomic_site = false;
 	if ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) {
 		$is_atomic_site = true;
 	} elseif ( str_ends_with( home_url(), 'wpcomstaging.com' ) ) {
 		$is_atomic_site = true;
 	}
-	
+
+	// Leave these options intact on Atomic, so that we don't disconnect Jetpack
 	if ( $is_atomic_site ) {
 		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
 		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
@@ -124,34 +125,6 @@ function scrub_options() {
 	// Clear object cache since the updates happen directly in the database.
 	wp_cache_flush();
 }
-
-/**
- * Remove some options from scrubbing that are needed on WordPress.com.
- *
- * @param array $options_to_clear Options to clear.
- *
- * @return array
- */
-function safety_net_scrub_options_wpcom( $options_to_clear ) {
-
-	$url = home_url( $_SERVER['REQUEST_URI'] );
-
-	// Check if it’s an Atomic site either via the function or URL.
-	$is_atomic_site = false;
-	if ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) {
-		$is_atomic_site = true;
-	} elseif ( str_ends_with( $url, 'wpcomstaging.com' ) ) {
-		$is_atomic_site = true;
-	}
-	
-	if ( $is_atomic_site ) {
-		$unset_wpcom_options = array( 'jetpack_private_options', 'jetpack_secrets' );
-		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
-	}
-
-	return $options_to_clear;
-}
-// add_filter( 'safety_net_options_to_clear', __NAMESPACE__ . '\safety_net_scrub_options_wpcom' );
 
 /**
  * Updates options directly in the database to prevent notifications from being sent.
