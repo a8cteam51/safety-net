@@ -12,7 +12,7 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_pause_renewal_actions' 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
-
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_transients' );
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
  *
@@ -29,6 +29,25 @@ function maybe_pause_renewal_actions() {
 	}
 
 	update_option( 'safety_net_pause_renewal_actions_toggle', 'on' );
+}
+
+/**
+ * Determines if transients should be deleted.
+ *
+ * Transients will be deleted if we're on staging, development, or local AND they haven't already been deleted.
+ */
+function maybe_delete_transients() {
+	// If transients have already been deleted, skip.
+	if ( get_option( 'safety_net_transients_deleted' ) ) {
+		return;
+	}
+
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
+	do_action( 'safety_net_delete_transients' );
 }
 
 /**

@@ -25,6 +25,7 @@ require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';
 require_once __DIR__ . '/includes/delete.php';
+require_once __DIR__ . '/includes/delete-transients.php';
 require_once __DIR__ . '/includes/utilities.php';
 require_once __DIR__ . '/includes/deactivate-plugins.php';
 require_once __DIR__ . '/includes/scrub-options.php';
