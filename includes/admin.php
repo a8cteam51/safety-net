@@ -6,6 +6,7 @@ use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
 use function SafetyNet\Utilities\is_production;
+use function SafetyNet\DeleteTransients\delete_transients;
 
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
@@ -24,6 +25,7 @@ function add_admin_hooks() {
 		add_action( 'wp_ajax_safety_net_scrub_options', __NAMESPACE__ . '\handle_ajax_scrub_options' );
 		add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 		add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
+		add_action( 'wp_ajax_safety_net_delete_transients', __NAMESPACE__ . '\handle_ajax_delete_transients' );
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
@@ -122,7 +124,7 @@ function settings_init() {
 
 	add_settings_field(
 		'safety_net_delete_users',
-		esc_html__( 'Delete All Users, Orders, and Subscriptions', 'safety-net' ),
+		esc_html__( 'Delete Users, Orders, and Subscriptions', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
@@ -131,6 +133,20 @@ function settings_init() {
 			'id'          => 'safety-net-delete-users',
 			'button_text' => esc_html__( 'Delete', 'safety-net' ),
 			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
+		)
+	);
+
+	add_settings_field(
+		'safety_net_delete_transients',
+		esc_html__( 'Delete Transients', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		array(
+			'type'        => 'button',
+			'id'          => 'safety-net-delete-transients',
+			'button_text' => esc_html__( 'Delete', 'safety-net' ),
+			'description' => esc_html__( 'Deletes all transients.', 'safety-net' ),
 		)
 	);
 
@@ -328,6 +344,30 @@ function handle_ajax_delete_users() {
 		array(
 			'success' => true,
 			'message' => esc_html__( 'Users, orders, and subscriptions have been successfully deleted!' ),
+		)
+	);
+
+	die();
+}
+
+/**
+ * Handles the AJAX request for deleting transients.
+ *
+ * @return void
+ */
+function handle_ajax_delete_transients() {
+
+	// Permissions and security checks.
+	check_the_permissions();
+	check_the_nonce( $_POST['nonce'], 'safety-net-delete-transients' ); // phpcs:ignore WordPress.Security.NonceVerification
+
+	// Checks passed. Delete the transients.
+	delete_transients();
+
+	echo wp_json_encode(
+		array(
+			'success' => true,
+			'message' => esc_html__( 'Transients have been deleted.' ),
 		)
 	);
 

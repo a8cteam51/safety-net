@@ -1,6 +1,7 @@
 <?php
 
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\DeleteTransients\delete_transients;
 
 /**
 * Anonymizer command line utilities.
@@ -19,6 +20,20 @@ class SafetyNet_CLI extends WP_CLI_Command {
 		delete_users_and_orders();
 
 		WP_CLI::success( __( 'Users and their data have been deleted' ) );
+	}
+
+	/**
+	 * Delete all transients
+	 *
+	 * ## EXAMPLES
+	 *
+	 * wp safety-net delete-transients
+	 *
+	 */
+	public function delete_transients() {
+		delete_transients();
+
+		WP_CLI::success( __( 'Transients have been deleted' ) );
 	}
 
 	/**

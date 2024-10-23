@@ -5,6 +5,18 @@
 	const deactivatePluginsButton = document.getElementById( 'safety-net-deactivate-plugins' );
 	const deleteUsersButton = document.getElementById( 'safety-net-delete-users' );
 	const settingsTitle = document.getElementById( 'safety-net-settings-title' );
+	const deleteTransientsButton = document.getElementById( 'safety-net-delete-transients' );
+
+	function deleteTransients() {
+		if ( ! confirm( 'Are you sure you want to delete transients? This cannot be undone!') ) {
+			return;
+		}
+
+		ajax({
+			action: 'safety_net_delete_transients',
+			nonce: deleteTransientsButton.dataset.nonce,
+		});
+	}
 
 	function scrubOptions() {
 		if ( ! confirm( 'Are you sure you want to scrub options? This cannot be undone!') ) {
@@ -147,5 +159,10 @@
 	// If the delete users button exists, add a click event listener.
 	if (deleteUsersButton) {
 		deleteUsersButton.addEventListener('click', deleteUsers);
+	}
+
+	// If the delete transients button exists, add a click event listener.
+	if (deleteTransientsButton) {
+		deleteTransientsButton.addEventListener('click', deleteTransients);
 	}
 })(window, document, jQuery);
