@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Safety Net Lite
  * Description: Safety Net, but doesn't delete user data.
- * Version: 1.4.13-lite
+ * Version: 1.4.22-lite
  * Author: WordPress.com Special Projects
  * Author URI: https://wpspecialprojects.wordpress.com
  * Text Domain: safety-net
@@ -26,6 +26,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';
 require_once __DIR__ . '/includes/utilities.php';
 require_once __DIR__ . '/includes/deactivate-plugins.php';
+require_once __DIR__ . '/includes/scrub-options.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/classes/cli/class-safetynet-cli.php';

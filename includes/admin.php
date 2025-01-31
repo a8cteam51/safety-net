@@ -2,10 +2,11 @@
 
 namespace SafetyNet\Admin;
 
-use function SafetyNet\DeactivatePlugins\scrub_options;
+use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
 use function SafetyNet\Utilities\is_production;
+use function SafetyNet\DeleteTransients\delete_transients;
 
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
