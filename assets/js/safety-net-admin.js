@@ -6,6 +6,7 @@
 	const deleteUsersButton = document.getElementById( 'safety-net-delete-users' );
 	const settingsTitle = document.getElementById( 'safety-net-settings-title' );
 	const deleteTransientsButton = document.getElementById( 'safety-net-delete-transients' );
+	const disableWebhooksButton = document.getElementById( 'safety-net-disable-webhooks' );
 
 	function deleteTransients() {
 		if ( ! confirm( 'Are you sure you want to delete transients? This cannot be undone!') ) {
@@ -49,6 +50,17 @@
 		ajax({
 			action: 'safety_net_delete_users',
 			nonce: deleteUsersButton.dataset.nonce,
+		});
+	}
+
+	function disableWebhooks() {
+		if ( ! confirm( 'Are you sure you want to disable webhooks? This cannot be undone!') ) {
+			return;
+		}
+
+		ajax({
+			action: 'safety_net_disable_webhooks',
+			nonce: disableWebhooksButton.dataset.nonce,
 		});
 	}
 
@@ -164,5 +176,10 @@
 	// If the delete transients button exists, add a click event listener.
 	if (deleteTransientsButton) {
 		deleteTransientsButton.addEventListener('click', deleteTransients);
+	}
+
+	// If the disable webhooks button exists, add a click event listener.
+	if (disableWebhooksButton) {
+		disableWebhooksButton.addEventListener('click', disableWebhooks);
 	}
 })(window, document, jQuery);
