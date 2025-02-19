@@ -67,6 +67,22 @@ class SafetyNet_CLI extends WP_CLI_Command {
 
 		WP_CLI::success( __( 'Problematic plugins have been deactivated.' ) );
 	}
+
+	/**
+	 * Disable all WooCommerce webhooks
+	 *
+	 * ## EXAMPLES
+	 *
+	 * wp safety-net disable-webhooks
+	 *
+	 * @subcommand disable-webhooks
+	 *
+	 */
+	public function disable_webhooks() {
+		\SafetyNet\DisableWebhooks\disable_webhooks();
+
+		WP_CLI::success( __( 'All WooCommerce webhooks have been disabled.' ) );
+	}
 }
 
 $instance = new SafetyNet_CLI();
