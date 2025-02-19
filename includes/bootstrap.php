@@ -125,10 +125,5 @@ function maybe_disable_webhooks() {
 		return;
 	}
 
-	// If WooCommerce is not active, return.
-	if ( ! class_exists( 'woocommerce' ) ) {
-		return;
-	}
-
 	do_action( 'safety_net_disable_webhooks' );
 }
