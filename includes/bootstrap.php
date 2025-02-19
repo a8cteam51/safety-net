@@ -13,6 +13,7 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_transients' );
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_disable_webhooks' );
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
  *
@@ -106,4 +107,28 @@ function maybe_delete_data() {
 
 	// Fire hooks to let plugin know to delete data.
 	do_action( 'safety_net_delete_data' );
+}
+
+/**
+ * Determines if webhooks should be disabled.
+ *
+ * Webhooks will be disabled if we're on staging, development, or local AND they haven't already been disabled.
+ */
+function maybe_disable_webhooks() {
+	// If webhooks have already been disabled, skip.
+	if ( get_option( 'safety_net_webhooks_disabled' ) ) {
+		return;
+	}
+
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
+	// If WooCommerce is not active, return.
+	if ( ! class_exists( 'woocommerce' ) ) {
+		return;
+	}
+
+	do_action( 'safety_net_disable_webhooks' );
 }
