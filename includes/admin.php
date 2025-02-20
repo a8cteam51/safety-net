@@ -409,6 +409,8 @@ function handle_ajax_disable_webhooks() {
 			'message' => esc_html__( 'Webhooks have been disabled.' ),
 		)
 	);
+
+	die();
 }
 
 /**
