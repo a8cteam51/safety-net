@@ -7,7 +7,7 @@ use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
 use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
-
+use function SafetyNet\DisableWebhooks\disable_webhooks;
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
 /**
@@ -26,6 +26,7 @@ function add_admin_hooks() {
 		add_action( 'wp_ajax_safety_net_deactivate_plugins', __NAMESPACE__ . '\handle_ajax_deactivate_plugins' );
 		add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 		add_action( 'wp_ajax_safety_net_delete_transients', __NAMESPACE__ . '\handle_ajax_delete_transients' );
+		add_action( 'wp_ajax_safety_net_disable_webhooks', __NAMESPACE__ . '\handle_ajax_disable_webhooks' );
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
@@ -119,6 +120,20 @@ function settings_init() {
 			'id'          => 'safety-net-deactivate-plugins',
 			'button_text' => esc_html__( 'Deactivate Plugins', 'safety-net' ),
 			'description' => esc_html__( 'Deactivates a handful of denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them (deactivates the actual plugin, not from the checkout settings).', 'safety-net' ),
+		)
+	);
+
+	add_settings_field(
+		'safety_net_disable_webhooks',
+		esc_html__( 'Disable Webhooks', 'safety-net' ),
+		__NAMESPACE__ . '\render_field',
+		'safety_net_options',
+		'safety_net_option',
+		array(
+			'type'        => 'button',
+			'id'          => 'safety-net-disable-webhooks',
+			'button_text' => esc_html__( 'Disable Webhooks', 'safety-net' ),
+			'description' => esc_html__( 'Disables all WooCommerce webhooks.', 'safety-net' ),
 		)
 	);
 
@@ -368,6 +383,30 @@ function handle_ajax_delete_transients() {
 		array(
 			'success' => true,
 			'message' => esc_html__( 'Transients have been deleted.' ),
+		)
+	);
+
+	die();
+	}
+
+/**
+ * Handles the AJAX request for disabling webhooks.
+ *
+ * @return void
+ */
+function handle_ajax_disable_webhooks() {
+
+	// Permissions and security checks.
+	check_the_permissions();
+	check_the_nonce( $_POST['nonce'], 'safety-net-disable-webhooks' ); // phpcs:ignore WordPress.Security.NonceVerification
+
+	// Checks passed. Disable the webhooks.
+	disable_webhooks();
+
+	echo wp_json_encode(
+		array(
+			'success' => true,
+			'message' => esc_html__( 'Webhooks have been disabled.' ),
 		)
 	);
 
