@@ -9,6 +9,9 @@ mailchimp-woocommerce
 mailchimp-woocommerce-cached-api-account-name
 mailster_options
 mc4wp
+nelio-content_settings
+_transient_timeout_nelio_content_news
+_transient_nelio_content_news
 novos_klaviyo_option_name
 shareasale_wc_tracker_options
 woocommerce-ppcp-settings
