@@ -16,7 +16,7 @@ function get_admin_user_ids(): array {
 /**
  * Returns true if plugin is running on production
  *
- * @return bool
+ * @return boolean
  */
 function is_production() {
 	// If we're not on staging, development, or a local environment, return true.
