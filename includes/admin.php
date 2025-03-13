@@ -283,12 +283,15 @@ function render_plugins_table() {
 						echo wp_kses(
 							sprintf(
 								/* translators: %s: link to plugin repo*/
-								__( 'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, please consider opening an issue on the <a href="%s">Safety Net repository</a>. Include the plugin name and any relevant details. Remember, you can also extend the deny list using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.', 'safety-net' ),
+								__( 'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, please consider opening an issue on the <a href="%s" target="_blank">Safety Net repository</a>. Include the plugin name and any relevant details. Remember, you can also extend the deny list using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.', 'safety-net' ),
 								'https://github.com/a8cteam51/safety-net',
 							),
 							array(
-								'a'  => array( 'href' => array() ),
-								'em' => array(),
+								'a'      => array(
+									'href'   => array(),
+									'target' => array(),
+								),
+								'em'     => array(),
 								'strong' => array(),
 							)
 						);

@@ -28,8 +28,6 @@ function deactivate_plugins() {
 
 	$all_installed_plugins = array_keys( get_plugins() );
 
-	adie( $all_installed_plugins );
-
 	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', get_denylist_array( 'plugins' ) );
 
 	// let's tack on all the Woo payment methods, in case we can deactivate any of those too
@@ -48,12 +46,7 @@ function deactivate_plugins() {
 		}
 
 		foreach ( $denylisted_plugins as $denylisted_plugin ) {
-adump([
-	'stristr( $installed_plugin, $denylisted_plugin )',
-	$installed_plugin,
-	$denylisted_plugin,
-	stristr( $installed_plugin, $denylisted_plugin )
-]);
+
 			// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
 			if ( stristr( $installed_plugin, $denylisted_plugin ) ) {
 
