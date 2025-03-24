@@ -4,6 +4,7 @@ namespace SafetyNet\Delete;
 
 use function SafetyNet\Utilities\get_admin_user_ids;
 
+
 add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders' );
 
 /**
@@ -14,6 +15,7 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
  * @return void
  */
 function delete_users_and_orders() {
+	dump( 'calling ' . __FUNCTION__ );
 	if ( ! get_option( 'safety_net_plugins_deactivated' ) ) {
 		echo wp_json_encode(
 			array(
@@ -22,7 +24,7 @@ function delete_users_and_orders() {
 			)
 		);
 
-		die();
+		exit();
 	}
 
 	global $wpdb;

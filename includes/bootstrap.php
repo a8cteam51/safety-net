@@ -76,6 +76,7 @@ function maybe_scrub_options() {
  * Plugins will be deactivated if we're on staging, development, or local AND they haven't already been deactivated.
  */
 function maybe_deactivate_plugins() {
+	dump( 'safety_net_deactivate_plugins' );
 	// If plugins have already been deactivated, skip.
 	if ( get_option( 'safety_net_plugins_deactivated' ) ) {
 		return;

@@ -1,0 +1,101 @@
+{
+    "name": "a8cteam51/safety-net",
+    "type": "wordpress-plugin",
+    "description": "For Team51 Development Sites. Deletes user data and more!",
+    "homepage": "https://github.com/a8cteam51/safety-net",
+    "license": "GPL-2.0-or-later",
+    "authors": [{
+            "name": "Automattic Special Projects Team",
+            "homepage": "https://specialprojects.automattic.com/"
+        },
+        {
+            "name": "Contributors",
+            "homepage": "https://github.com/a8cteam51/safety-net/graphs/contributors"
+        }
+    ],
+    "repositories": [{
+            "type": "vcs",
+            "url": "https://github.com/a8cteam51/team51-configs"
+        },
+        {
+            "type": "composer",
+            "url": "https://wpackagist.org"
+        }
+    ],
+    "require": {
+        "php": ">=8.3",
+        "ext-json": "*",
+        "symfony/var-dumper": "^7.2"
+    },
+    "require-dev": {
+        "a8cteam51/team51-configs": "dev-trunk",
+        "wp-cli/i18n-command": "^2",
+        "lucatume/wp-browser": "^4",
+        "wpackagist-plugin/woocommerce": "9.5.*",
+        "roave/security-advisories": "dev-latest",
+        "wp-cli/wp-cli": "^2.11"
+    },
+    "autoload-dev": {
+        "classmap": [
+            "tests/"
+        ]
+    },
+    "scripts": {
+        "generate-autoloader": "@composer dump-autoload --ignore-platform-reqs -o",
+        "format:php": "phpcbf --standard=./.phpcs.xml --basepath=. ./ -v",
+        "lint:php": [
+            "@lint:php:phpcs",
+            "@lint:php:phpmd",
+            "@lint:php:phpstan"
+        ],
+        "lint:php:phpcs": "phpcs --standard=./.phpcs.xml --basepath=. ./ -v",
+        "lint:php:phpmd": "phpmd ./ ansi ./.phpmd.xml -v",
+        "lint:php:phpstan": "phpstan analyse -c ./.phpstan.neon -v --memory-limit=1G",
+        "internationalize": [
+            "@i18n:makepot",
+            "@i18n:updatepo",
+            "@i18n:makemo",
+            "@i18n:makephp"
+        ],
+        "i18n:makepot": "wp i18n make-pot ./ --slug=a8csp-scaffold",
+        "i18n:updatepo": "wp i18n update-po ./languages/a8csp-scaffold.pot",
+        "i18n:makemo": "wp i18n make-mo ./languages/",
+        "i18n:makephp": "wp i18n make-php ./languages/",
+        "tests:clean": "@php ./vendor/bin/codecept clean",
+        "tests:run": [
+            "@tests:run:integration",
+            "@tests:run:end-to-end"
+        ],
+
+        "tests:run:integration": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php ./vendor/bin/codecept run Integration --debug"
+        ],
+        "tests:run:end-to-end": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php ./vendor/bin/codecept run EndToEnd  --debug"
+        ],
+        "packages-install": "@composer install --ignore-platform-reqs --no-interaction",
+        "packages-update": [
+            "@composer clear-cache",
+            "@composer update --prefer-stable --ignore-platform-reqs --no-interaction"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/*": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "installer-paths": {
+            "vendor/wpackagist-plugin/{$name}/": [
+                "type:wordpress-plugin"
+            ],
+            "vendor/wpackagist-theme/{$name}/": [
+                "type:wordpress-theme"
+            ]
+        }
+    }
+}

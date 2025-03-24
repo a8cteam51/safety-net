@@ -10,6 +10,7 @@ add_action( 'safety_net_disable_webhooks', __NAMESPACE__ . '\disable_webhooks' )
 * Deactivate plugins from a denylist
 */
 function disable_webhooks() {
+	dump( 'calling ' . __FUNCTION__ );
 	global $wpdb;
 
 	// Delete all transients

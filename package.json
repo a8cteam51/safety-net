@@ -1,0 +1,77 @@
+{
+    "name": "team51-safety-net",
+    "version": "1.0.0",
+    "description": "For Team51 Development Sites. Deletes user data and more!",
+    "author": {
+        "name": "A8C Special Projects Team",
+        "url": "https://specialprojects.automattic.com/"
+    },
+    "license": "GPL-2.0-or-later",
+    "keywords": [
+        "wordpress"
+    ],
+    "homepage": "https://github.com/a8cteam51/safety-net",
+    "repository": "https://github.com/a8cteam51/safety-net",
+    "bugs": "https://github.com/a8cteam51/safety-net/issues",
+    "engines": {
+        "node": ">=20.0",
+        "npm": ">=10.0"
+    },
+    "devDependencies": {
+        "@csstools/postcss-sass": "^5.0.1",
+        "@wordpress/browserslist-config": "^6.8.1",
+        "@wordpress/env": "^10.8.1",
+        "@wordpress/postcss-plugins-preset": "^5.8.3",
+        "@wordpress/scripts": "^30.0.6",
+        "npm-run-all": "^4.1.5",
+        "postcss-cli": "^10.1.0",
+        "rtlcss": "^4.0.0"
+    },
+    "rtlcssConfig": {
+        "options": {
+            "autoRename": false,
+            "autoRenameStrict": false,
+            "blacklist": {},
+            "clean": true,
+            "greedy": false,
+            "processUrls": false,
+            "stringMap": []
+        },
+        "plugins": [],
+        "map": false
+    },
+    "browserslist": [
+        "extends @wordpress/browserslist-config"
+    ],
+    "scripts": {
+        "build": "npm-run-all --sequential build:**",
+        "build:blocks": "wp-scripts build --webpack-src-dir=blocks/src --output-path=blocks/build",
+        "build:assets:scripts": "wp-scripts build assets/js/src/*.js --output-path=assets/js/build",
+        "format": "npm-run-all --sequential format:**",
+        "format:scripts": "wp-scripts format blocks assets/js --no-error-on-unmatched-pattern",
+        "format:styles": "npm run lint:styles -- --fix",
+        "lint": "npm-run-all --sequential lint:**",
+        "lint:scripts": "wp-scripts lint-js blocks assets/js --no-error-on-unmatched-pattern",
+        "lint:styles": "wp-scripts lint-style blocks/**/*.{css,sass,scss} assets/css/**/*.{css,sass,scss} --allow-empty-input --report-descriptionless-disables --report-invalid-scope-disables --report-needless-disables",
+        "lint:pkg-json": "wp-scripts lint-pkg-json",
+        "lint:readme-md": "wp-scripts lint-md-docs README.md",
+        "packages-update": "wp-scripts packages-update --dist-tag=wp-6.7",
+        "check-engines": "wp-scripts check-engines",
+        "check-licenses": "wp-scripts check-licenses",
+        "selenium:start": "docker container start selenium-chromium",
+        "selenium:stop": "docker container stop selenium-chromium",
+        "start": "npm-run-all --parallel start:**",
+        "start:blocks": "wp-scripts start --webpack-src-dir=blocks/src --output-path=blocks/build",
+        "start:assets:scripts": "wp-scripts start assets/js/src/*.js --output-path=assets/js/build",
+        "tests:start": "wp-env start && npm run selenium:start",
+        "tests:run": "npm run tests:start && npm run tests:run:integration && npm run tests:run:end-to-end",
+        "tests:run:integration": "wp-env run tests-wordpress --env-cwd=wp-content/plugins/safety-net composer run-script tests:run:integration",
+        "tests:run:end-to-end": "wp-env run tests-wordpress --env-cwd=wp-content/plugins/safety-net composer run-script tests:run:end-to-end",
+        "tests:output-wp-path": "npm run wp-env install-path",
+        "tests:export-db": "npm run wp-env run tests-cli wp db export wp-content/plugins/safety-net/tests/Support/Data/dump.sql",
+        "wp-env:start": "wp-env start",
+        "wp-env:update": "wp-env start --update",
+        "wp-env:stop": "wp-env stop",
+        "wp-env": "wp-env"
+    }
+}

@@ -13,13 +13,13 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 * Clear options such as API keys so that plugins won't talk to 3rd parties
 */
 function scrub_options() {
+	dump( 'calling ' . __FUNCTION__ );
 	global $wpdb;
 
 	safety_net_update_option_direct( 'admin_email', 'safetynet@scrubbedthis.option' );
 
 	$options_to_clear = get_denylist_array( 'options' );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
-
 	// Check if it’s an Atomic site either via the Jetpack function or URL.
 	$is_atomic_site = false;
 	if ( function_exists( 'jetpack_is_atomic_site' ) && jetpack_is_atomic_site() ) {
@@ -36,6 +36,7 @@ function scrub_options() {
 
 	foreach ( $options_to_clear as $option ) {
 		$option_value = get_option( $option );
+		// dump([$option=> $option_value]);
 		if ( $option_value ) {
 
 			update_option( $option . '_sn_backup', $option_value );

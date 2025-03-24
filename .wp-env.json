@@ -1,0 +1,9 @@
+{
+  "phpVersion": "8.3",
+  "mappings": {
+    "wp-content/plugins/a8csp-plugin-scaffold": "."
+  },
+  "lifecycleScripts": {
+    "afterStart": "vendor/a8cteam51/team51-configs/docker/wp-env-install-pdo_mysql.sh"
+  }
+}
