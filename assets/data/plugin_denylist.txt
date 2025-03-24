@@ -1,6 +1,7 @@
 affirm
 afterpay
 algolia
+automatewoo
 automator
 avatax
 console
