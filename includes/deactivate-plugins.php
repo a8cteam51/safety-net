@@ -10,7 +10,7 @@ add_action( 'safety_net_deactivate_plugins', __NAMESPACE__ . '\deactivate_plugin
 * Deactivate plugins from a denylist
 */
 function deactivate_plugins() {
-dump('calling deactivate_plugins');
+
 	if ( ! get_option( 'safety_net_options_scrubbed' ) ) {
 		echo wp_json_encode(
 			array(

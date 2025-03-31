@@ -10,7 +10,6 @@ add_action( 'safety_net_delete_transients', __NAMESPACE__ . '\delete_transients'
  * @return void
  */
 function delete_transients() {
-	dump( 'calling ' . __FUNCTION__ );
 
 	global $wpdb;
 
