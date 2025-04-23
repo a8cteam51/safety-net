@@ -87,15 +87,17 @@ function show_production_notice() {
 		return;
 	}
 
+	// Check if the constant starts as an mu plugin.
+	$is_mu = \str_starts_with( SAFETY_NET_PATH, WPMU_PLUGIN_DIR );
 	?>
 		<div class="notice notice-warning">
 			<p>
 				<?php
-				// translators: %s: Is plugin or mu-plugin.
 				echo esc_html(
 					sprintf(
-						__( 'Safety Net is active on a production site, so all functionality is disabled. To proceed, either remove the %s or set the site to staging or development.', 'safety-net' ),
-						wp_get_mu_plugins() ? __( 'mu-plugin', 'safety-net' ) : __( 'plugin', 'safety-net' )
+						// translators: %s: Is plugin or mu-plugin.
+						__( 'Safety Net is active on a production site, which restricts certain processes from running. To proceed, either remove the %s or switch the site to a staging or development environment.', 'safety-net' ),
+						$is_mu ? __( 'mu-plugin', 'safety-net' ) : __( 'plugin', 'safety-net' )
 					)
 				);
 				?>
