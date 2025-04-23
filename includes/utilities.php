@@ -16,7 +16,7 @@ function get_admin_user_ids(): array {
 /**
  * Returns true if plugin is running on production
  *
- * @return bool
+ * @return boolean
  */
 function is_production() {
 	// If we're not on staging, development, or a local environment, return true.
@@ -63,4 +63,43 @@ function get_denylist_array( $denylist_type ): array {
 	}
 
 	return array_filter( $denylist_array );
+}
+
+/**
+ * Renders an admin notice, if the plugin is running on production
+ *
+ * @filter safety_net_show_production_notice
+ *
+ * @return void
+ */
+function show_production_notice() {
+	// If not production, return.
+	if ( ! is_production() ) {
+		return;
+	}
+
+	// Check the if the user has the capability to manage options.
+	$allowed = current_user_can( 'manage_options' );
+	// Filter for third-party plugins to add their own capability check.
+	$allowed = apply_filters( 'safety_net_show_production_notice', $allowed );
+
+	if ( ! $allowed ) {
+		return;
+	}
+
+	?>
+		<div class="notice notice-warning">
+			<p>
+				<?php
+				// translators: %s: Is plugin or mu-plugin.
+				echo esc_html(
+					sprintf(
+						__( 'Safety Net is active on a production site, so all functionality is disabled. To proceed, either remove the %s or set the site to staging or development.', 'safety-net' ),
+						wp_get_mu_plugins() ? __( 'mu-plugin', 'safety-net' ) : __( 'plugin', 'safety-net' )
+					)
+				);
+				?>
+			</p>
+		</div>
+		<?php
 }
