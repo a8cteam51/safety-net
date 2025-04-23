@@ -88,7 +88,7 @@ function show_production_notice() {
 	}
 
 	// Check if the constant starts as an mu plugin.
-	$is_mu = \str_starts_with( SAFETY_NET_PATH, WPMU_PLUGIN_DIR );
+	$is_mu = defined( 'WPMU_PLUGIN_DIR' ) && \str_starts_with( SAFETY_NET_PATH, WPMU_PLUGIN_DIR );
 	?>
 		<div class="notice notice-warning">
 			<p>
