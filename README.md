@@ -49,6 +49,13 @@ You may also:
 - Create a new issue or dev request to have a plugin or option added to the denylists, or
 - Submit a PR to add something yourself, and let us know so we can merge it
 
+## Blocking Use in Production
+Safety Net will not run on production sites. It will check the `WP_ENVIRONMENT_TYPE` global system variable, or a constant of the same name. If it is set to `production`, the plugin will not run. You can manually trigger this using the `safety_net_show_production_notice` filter (just pass back false to disable safety net). 
+
+```php
+add_filter( 'safety_net_show_production_notice', '__return_false' );
+```
+
 ## Troubleshooting
 
 ### Plugin not running
