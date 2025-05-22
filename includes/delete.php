@@ -9,7 +9,7 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
 /**
  * Deletes all users and their data, except administrators.
  *
- * Also deletes WooCommerce data, such as orders and subscriptions.
+ * Also deletes WooCommerce and GiveWP data, such as orders and subscriptions.
  *
  * @return void
  */
@@ -104,7 +104,24 @@ function delete_users_and_orders() {
         $wpdb->query( "DELETE FROM {$wpdb->prefix}newsletter" );
     }
 
+	// Delete Give plugin data
+	$table_name = $wpdb->prefix . 'give_donors';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_donors" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_donormeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_donationmeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_comments" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_commentmeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_sessions" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_subscriptions" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_subscriptionmeta" );
+	}
 
+	// Delete Give payment and donation posts
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_forms' )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_forms'" );
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_payment' )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_payment'" );
 
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
