@@ -2,3 +2,4 @@ config.json
 vendor/
 .DS_Store
 node_modules/
+.idea
