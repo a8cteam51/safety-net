@@ -117,9 +117,11 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}give_subscriptionmeta" );
 	}
 
-	// Delete Give donation posts
+	// Delete Give payment and donation posts
 	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_forms' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_forms'" );
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_payment' )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_payment'" );
 
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
