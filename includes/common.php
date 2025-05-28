@@ -9,9 +9,12 @@ add_filter( 'send_email_change_email', '__return_false' );
 add_filter(
 	'jetpack_subscriptions_exclude_all_categories_except',
 	function () {
-		return array( 'non-existing' );	
+		return array( 'non-existing' );
 	}
 );
+
+// Disable Jetpack Sync.
+update_option( 'jetpack_sync_settings_disable', 1 );
 
 // Discourage search engines from indexing the site and disallow the entire site in robots.txt.
 add_filter( 'option_blog_public', '__return_zero' );
