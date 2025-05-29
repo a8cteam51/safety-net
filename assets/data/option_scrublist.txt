@@ -10,6 +10,8 @@ mailchimp-woocommerce-cached-api-account-name
 mailster_options
 mc4wp
 nelio-content_settings
+northbeam_api_key
+northbeam_client_id
 _transient_timeout_nelio_content_news
 _transient_nelio_content_news
 novos_klaviyo_option_name
