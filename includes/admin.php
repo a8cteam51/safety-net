@@ -220,6 +220,28 @@ function render_field( array $args = array() ) {
 }
 
 /**
+ * Checks if a given plugin is in the denylist.
+ *
+ * @param string $plugin_file The plugin file to check.
+ *
+ * @return boolean True if the plugin is in the denylist, false otherwise.
+ */
+function is_plugin_in_denylist( string $plugin_file ): bool {
+	static $denylisted_plugins = null;
+	if ( null === $denylisted_plugins ) {
+		$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', \SafetyNet\Utilities\get_denylist_array( 'plugins' ) );
+	}
+
+	foreach ( $denylisted_plugins as $denylisted_plugin ) {
+		// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
+		if ( stristr( $plugin_file, $denylisted_plugin ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Renders the plugins table.
  *
  * @return void
@@ -235,16 +257,6 @@ function render_plugins_table() {
 		}
 	}
 
-	// Checks if a plugin is in the denylist.
-	$is_in_deny_list = function ( string $filename ) use ( $denylisted_plugins ): bool {
-		foreach ( $denylisted_plugins as $denylisted_plugin ) {
-			// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
-			if ( stristr( $filename, $denylisted_plugin ) ) {
-				return true;
-			}
-		}
-		return false;
-	};
 	?>
 
 		<div class="plugins_card">
@@ -264,7 +276,7 @@ function render_plugins_table() {
 						<?php
 						foreach ( get_plugins() as $plugin_file => $plugin_data ) {
 							$plugin_status = is_plugin_active( $plugin_file );
-							$is_denied     = $is_in_deny_list( $plugin_file );
+							$is_denied     = is_plugin_in_denylist( $plugin_file );
 							?>
 							<tr class="plugin-item<?php echo $plugin_status ? '' : ' inactive'; ?>">
 								<td><?php echo esc_html( $plugin_data['Name'] ); ?></td>
