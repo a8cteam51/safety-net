@@ -276,12 +276,11 @@ function render_plugins_table() {
 						<?php
 						foreach ( get_plugins() as $plugin_file => $plugin_data ) {
 							$plugin_status = is_plugin_active( $plugin_file );
-							$is_denied     = is_plugin_in_denylist( $plugin_file );
 							?>
 							<tr class="plugin-item<?php echo $plugin_status ? '' : ' inactive'; ?>">
 								<td><?php echo esc_html( $plugin_data['Name'] ); ?></td>
 								<td><?php $plugin_status ? esc_html_e( 'Active', 'safety-net' ) : esc_html_e( 'Inactive', 'safety-net' ); ?></td>
-								<td><?php echo $is_denied ? '<span class="dashicons dashicons-yes-alt" style="color:green"></span>' : '<span class="dashicons dashicons-dismiss" style="color:#c30000"></span>'; ?></td>
+								<td><?php echo is_plugin_in_denylist( $plugin_file ) ? '<span class="dashicons dashicons-yes-alt" style="color:green"></span>' : '<span class="dashicons dashicons-dismiss" style="color:#c30000"></span>'; ?></td>
 							</tr>
 							<?php
 						}
@@ -292,21 +291,29 @@ function render_plugins_table() {
 			<div class="plugins_card_footer">
 				<p>
 					<?php
-						echo wp_kses(
-							sprintf(
-								/* translators: %s: link to plugin repo*/
-								__( 'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, please consider opening an issue on the <a href="%s" target="_blank">Safety Net repository</a>. Include the plugin name and any relevant details. Remember, you can also extend the deny list using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.', 'safety-net' ),
-								'https://github.com/a8cteam51/safety-net',
-							),
-							array(
-								'a'      => array(
-									'href'   => array(),
-									'target' => array(),
-								),
-								'em'     => array(),
-								'strong' => array(),
-							)
-						);
+					$repo_url     = 'https://github.com/a8cteam51/safety-net';
+					$allowed_html = array(
+						'a'      => array(
+							'href'   => array(),
+							'target' => array(),
+						),
+						'em'     => array(),
+						'strong' => array(),
+					);
+
+					$message = sprintf(
+					/* translators: %s: link to plugin repo*/
+						__(
+							'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, ' .
+							'please consider opening an issue on the <a href="%s" target="_blank">Safety Net repository</a>. ' .
+							'Include the plugin name and any relevant details. Remember, you can also extend the deny list ' .
+							'using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.',
+							'safety-net'
+						),
+						$repo_url
+					);
+
+					echo wp_kses( $message, $allowed_html );
 					?>
 				</p>
 					
@@ -314,6 +321,22 @@ function render_plugins_table() {
 		</div>
 
 	<?php
+}
+
+/**
+ * Get the WPKSES format for the footer links.
+ *
+ * @return array
+ */
+function get_footer_links_format() {
+	return array(
+		'a'      => array(
+			'href'   => array(),
+			'target' => array(),
+		),
+		'em'     => array(),
+		'strong' => array(),
+	);
 }
 
 /**

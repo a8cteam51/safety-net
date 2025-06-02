@@ -70,3 +70,12 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 ```
+### Adding plugins to the Deny list.
+You can add a plugin to the deny list for a single site using the following filter.
+```php
+add_filter( 'safety_net_denylist_plugins', function( $denylist ) {
+    $denylist[] = 'plugin-folder/plugin-file.php'; 
+    return $denylist;
+} );
+```
+> Please ensure the correct path is given for the plugin.
