@@ -5,9 +5,11 @@ namespace SafetyNet\Admin;
 use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\Utilities\get_environment_type;
 use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
+
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
 /**
@@ -504,7 +506,7 @@ function show_warning() {
 		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );
 		echo '<br>';
 	}
-	echo 'This site\'s environment type is set to "' . esc_html( wp_get_environment_type() ) . '".';
+	echo 'This site\'s environment type is set to "' . esc_html( get_environment_type() ) . '".';
 	echo '</p></div>';
 }
 
