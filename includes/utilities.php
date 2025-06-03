@@ -23,22 +23,22 @@ function get_admin_user_ids(): array {
  * @return string
  */
 function get_environment_type(): string {
-	$current_env = wp_get_environment_type();
+    $current_env = wp_get_environment_type();
 
-	if ( 'production' === $current_env ) { // Either true production or fallback production due to an unsupported environment type.
-		$other_supported_envs = array( 'sandbox', 'dev', 'develop' );
+    if ( 'production' === $current_env ) { // Either true production or fallback production due to an unsupported environment type.
+        $other_supported_envs = array( 'sandbox', 'dev', 'develop' );
 
-		if ( function_exists( 'getenv' ) ) {
-			$env = getenv( 'WP_ENVIRONMENT_TYPE' );
+        if ( function_exists( 'getenv' ) ) {
+            $env = getenv( 'WP_ENVIRONMENT_TYPE' );
             if ( in_array( $env, $other_supported_envs, true ) ) {
                 $current_env = $env;
             }
         }
 
-		if ( defined( 'WP_ENVIRONMENT_TYPE' ) && in_array( WP_ENVIRONMENT_TYPE, $other_supported_envs, true ) ) {
-			$current_env = WP_ENVIRONMENT_TYPE;
-		}
-	}
+        if ( defined( 'WP_ENVIRONMENT_TYPE' ) && in_array( WP_ENVIRONMENT_TYPE, $other_supported_envs, true ) ) {
+            $current_env = WP_ENVIRONMENT_TYPE;
+        }
+    }
 
     return $current_env;
 }
