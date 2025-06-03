@@ -15,12 +15,29 @@ function get_admin_user_ids(): array {
 
 /**
  * Returns true if plugin is running on production
+ * We are not using wp_get_environment_type() because Pressable sandboxes use 'sandbox' as the environment type.
+ * However, because 'sandbox' is not a valid environment type, we need to check for it directly.
  *
  * @return boolean
  */
 function is_production() {
-	// If we're not on staging, development, or a local environment, return true.
-	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
+
+	$current_env = '';
+	// Fetch the environment from a global system variable.
+	if ( function_exists( 'getenv' ) ) {
+		$has_env = getenv( 'WP_ENVIRONMENT_TYPE' );
+		if ( false !== $has_env ) {
+			$current_env = $has_env;
+		}
+	}
+
+	// Fetch the environment from a constant, this overrides the global system variable.
+	if ( defined( 'WP_ENVIRONMENT_TYPE' ) && WP_ENVIRONMENT_TYPE ) {
+		$current_env = WP_ENVIRONMENT_TYPE;
+	}
+
+	// If we're not on staging, development, local, or sandbox, return true.
+	if ( ! in_array( $current_env, array( 'staging', 'development', 'local', 'sandbox' ), true ) ) {
 		return true;
 	}
 }
