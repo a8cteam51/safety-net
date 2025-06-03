@@ -29,7 +29,7 @@ function is_production() {
 
     if ( 'production' === $current_env ) { // Either true production or fallback production due to an unsupported environment type.
         $other_supported_envs = array( 'sandbox', 'dev', 'develop' );
-        if ( defined( 'WP_ENVIRONMENT_TYPE' ) && WP_ENVIRONMENT_TYPE && in_array( WP_ENVIRONMENT_TYPE, $other_supported_envs, true ) ) {
+        if ( defined( 'WP_ENVIRONMENT_TYPE' ) && in_array( WP_ENVIRONMENT_TYPE, $other_supported_envs, true ) ) {
             $current_env = WP_ENVIRONMENT_TYPE;
         }
     }
