@@ -14,15 +14,27 @@ function get_admin_user_ids(): array {
 }
 
 /**
- * Returns true if plugin is running on production
+ * Returns true if plugin is running on production.
+ *
+ * The function @{wp_get_environment_type()} from WP Core will default to 'production' if the environment type is set
+ * to anything other than 'staging', 'development', or 'local'. However, some hosts like Pressable and tools like
+ * WPCOM Studio set an unsupported environment type via the constant `WP_ENVIRONMENT_TYPE` (in both cases, `sandbox`).
+ *
+ * This function tries to reconcile that.
  *
  * @return boolean
  */
 function is_production() {
-	// If we're not on staging, development, or a local environment, return true.
-	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
-		return true;
-	}
+    $current_env = wp_get_environment_type();
+
+    if ( 'production' === $current_env ) { // Either true production or fallback production due to an unsupported environment type.
+        $other_supported_envs = array( 'sandbox', 'dev', 'develop' );
+        if ( defined( 'WP_ENVIRONMENT_TYPE' ) && WP_ENVIRONMENT_TYPE && in_array( WP_ENVIRONMENT_TYPE, $other_supported_envs, true ) ) {
+            $current_env = WP_ENVIRONMENT_TYPE;
+        }
+    }
+
+    return 'production' === $current_env;
 }
 
 /**
