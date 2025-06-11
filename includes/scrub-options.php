@@ -100,6 +100,21 @@ function scrub_options() {
 				}
 
 				safety_net_update_option_direct( $option, $option_array );
+			} elseif ( 'apple_news_settings' === $option ) {
+				$keys_to_scrub = array( 'api_key', 'api_secret', 'api_channel' );
+
+				$option_array = $option_value;
+				foreach ( $keys_to_scrub as $key ) {
+					if ( array_key_exists( $key, $option_array ) ) {
+						$option_array[ $key ] = '';
+					}
+				}
+
+				$option_array['api_autosync'] = 'no';
+				$option_array['api_autosync_update']  = 'no';
+				$option_array['api_autosync_delete']  = 'no';
+
+				safety_net_update_option_direct( $option, $option_array );
 			} else {
 				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
 				if ( is_array( get_option( $option ) ) ) {

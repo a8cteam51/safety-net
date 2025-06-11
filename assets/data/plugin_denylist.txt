@@ -45,3 +45,4 @@ wpmandrill
 yotpo
 zapier
 zoho-mail
+publish-to-apple-news

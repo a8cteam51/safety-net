@@ -70,3 +70,4 @@ zmail_integ_client_secret
 zmail_refresh_token
 passport_api_key
 passport_api_secret
+apple_news_settings
