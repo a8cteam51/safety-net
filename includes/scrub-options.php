@@ -90,6 +90,8 @@ function scrub_options() {
 					pmpro_clear_crons();
 				}
 			} else if ( '_wp_convertkit_settings' === $option ) {
+				$option_array  = $option_value;
+
 				$keys_to_scrub = array( 'access_token', 'refresh_token', 'token_expires', 'api_key', 'api_secret' );
 				foreach ( $keys_to_scrub as $key ) {
 					if ( array_key_exists( $key, $option_array ) ) {
