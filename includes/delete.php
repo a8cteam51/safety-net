@@ -123,6 +123,20 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_payment'" );
 	}
 
+	// Delete PMPro data
+	$table_name = $wpdb->prefix . 'pmpro_membership_orders';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_membership_orders" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_membership_ordermeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_subscriptions" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_subscriptionmeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_memberships_users" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_discount_codes_uses" );
+
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'pmpro_stripe_customerid'" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key LIKE 'pmpro_b%'" );
+	}
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
