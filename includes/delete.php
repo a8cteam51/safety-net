@@ -137,6 +137,32 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key LIKE 'pmpro_b%'" );
 	}
 
+	// Delete BuddyPress data
+	$table_name = $wpdb->prefix . 'bp_xprofile_data';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_xprofile_data" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}signups" );
+
+		$table_name = $wpdb->prefix . 'bp_friends';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_friends" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'total_friend_count'" );
+		}
+
+		$table_name = $wpdb->prefix . 'bp_messages_messages';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_messages" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_threads" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_recipients" );
+		}
+
+		$table_name = $wpdb->prefix . 'bp_notifications';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications_meta" );
+		}
+	}
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
