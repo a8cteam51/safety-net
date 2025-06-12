@@ -82,11 +82,13 @@ function scrub_options() {
 				safety_net_update_option_direct( $option, $option_array );
 			} elseif ( 'pmpro_gateway' === $option ) {
 				safety_net_update_option_direct( $option, '' );
-			} elseif ( 'pmpro_gateway_environment' == $option ) {
+			} elseif ( 'pmpro_gateway_environment' === $option ) {
 				safety_net_update_option_direct( $option, 'sandbox' );
 			} elseif ( 'pmpro_last_known_url' === $option ) {
 				safety_net_update_option_direct( $option, 'https://safetynetscrubbedthis.com' );
-				function_exists( 'pmpro_clear_crons' ) && pmpro_clear_crons();
+				if ( function_exists( 'pmpro_clear_crons' ) ) {
+					pmpro_clear_crons();
+				}
 			} else {
 				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
 				if ( is_array( get_option( $option ) ) ) {
