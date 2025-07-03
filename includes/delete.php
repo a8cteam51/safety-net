@@ -118,8 +118,6 @@ function delete_users_and_orders() {
 	}
 
 	// Delete Give payment and donation posts
-	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_forms' )" );
-	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_forms'" );
 	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_payment' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_payment'" );
 
