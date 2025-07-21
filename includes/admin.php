@@ -10,6 +10,22 @@ use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
 
+// Register the custom store class filter IMMEDIATELY when this file loads.
+if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+    add_filter(
+        'action_scheduler_store_class',
+        function ( $class ) {
+            // Load the custom class file only when Action Scheduler requests it.
+            if ( ! class_exists( 'SafetyNet\ActionScheduler_Custom_DBStore' ) ) {
+                require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
+            }
+            return 'SafetyNet\ActionScheduler_Custom_DBStore';
+        },
+        101,
+        1
+    );
+}
+
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
 /**
@@ -31,7 +47,6 @@ function add_admin_hooks() {
 		add_action( 'wp_ajax_safety_net_disable_webhooks', __NAMESPACE__ . '\handle_ajax_disable_webhooks' );
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
-	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 	add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
 }
@@ -466,24 +481,6 @@ function add_action_links( $actions ) {
 	);
 
 	return array_merge( $actions, $links );
-}
-
-/**
- * Pause WooCommerce Subscriptions renewal and failed payment retry scheduled actions
- *
- */
-function pause_renewal_actions() {
-	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
-		require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
-		add_filter(
-			'action_scheduler_store_class',
-			function ( $class ) {
-				return 'SafetyNet\ActionScheduler_Custom_DBStore';
-			},
-			101,
-			1
-		);
-	}
 }
 
 /**

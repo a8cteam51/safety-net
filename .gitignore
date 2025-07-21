@@ -3,3 +3,6 @@ vendor/
 .DS_Store
 node_modules/
 .idea
+
+# Local History for Visual Studio Code
+.history/
