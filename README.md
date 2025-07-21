@@ -24,6 +24,16 @@ This public plugin is provided as an example of how such a plugin could be imple
 #### Advanced features
 - **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
 
+### Skipping GiveWP Data Deletion
+
+By default, Safety Net will delete GiveWP donor data, payment records, and subscriptions when running the data deletion process. If you want to **preserve GiveWP data on a staging site**, you can define the following constant in your `wp-config.php` file:
+
+```php
+define( 'SAFETY_NET_SKIP_GIVEWP', true );
+```
+
+When this constant is set to `true`, all GiveWP-specific data will be excluded from the deletion process. This includes donor records, donation posts, subscription data, and related metadata.
+
 ## Planned Features
 - Multi-site (WordPress network) compatibility
 - Do you have a suggestion for the next great feature to add? Please create an issue or submit a PR!
