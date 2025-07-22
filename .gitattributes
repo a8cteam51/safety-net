@@ -1,0 +1,7 @@
+# Directories
+/.git export-ignore
+/.github export-ignore
+
+# Files
+/.* export-ignore
+/README.md export-ignore
