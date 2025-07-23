@@ -1,4 +1,5 @@
 apple_news_settings
+default_pingback_flag
 jetpack_active_modules
 jetpack_private_options
 jetpack_secrets
