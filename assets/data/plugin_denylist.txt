@@ -34,7 +34,9 @@ socketlabs
 sparkpost
 stripe
 webgility
+wc-cashapp
 woocommerce-zapier
+woocommerce-square
 wp-remote-users-sync
 wp-ses
 wp-to-buffer-pro
