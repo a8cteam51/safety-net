@@ -87,3 +87,17 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 ```
+
+
+## Explanations
+
+### PMPro
+
+* Scrubs all database keys containing API keys for payment gateways.
+* Deletes user meta related to PMPro billing, like the billing address or Stripe customer ID.
+* Deletes all database entries related to membership orders & subscriptions, including coupon usage.
+* Disables all cron jobs related to PMPro.
+
+### BuddyPress
+
+* Deletes user profiles, friends, messages, and notifications.
