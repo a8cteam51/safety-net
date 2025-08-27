@@ -112,7 +112,9 @@ function scrub_options() {
 
 				$option_array['api_autosync'] = 'no';
 				$option_array['api_autosync_update']  = 'no';
+				$option_array['api_autosync_trash'] = 'no';
 				$option_array['api_autosync_delete']  = 'no';
+				$option_array['api_autosync_unpublish'] = 'no';
 
 				safety_net_update_option_direct( $option, $option_array );
 			} else {

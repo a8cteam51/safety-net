@@ -106,3 +106,9 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 * Deletes user meta related to PMPro billing, like the billing address or Stripe customer ID.
 * Deletes all database entries related to membership orders & subscriptions, including coupon usage.
 * Disables all cron jobs related to PMPro.
+
+### Publish to Apple News
+
+* Scrubs the API access settings.
+* Disables API sync on WP post status updates.
+
