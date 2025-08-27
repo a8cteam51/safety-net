@@ -101,7 +101,7 @@ function scrub_options() {
 
 				safety_net_update_option_direct( $option, $option_array );
 			} elseif ( 'apple_news_settings' === $option ) {
-				$keys_to_scrub = array( 'api_key', 'api_secret', 'api_channel' );
+				$keys_to_scrub = array( 'api_key', 'api_secret', 'api_channel', 'apple_news_admin_email' );
 
 				$option_array = $option_value;
 				foreach ( $keys_to_scrub as $key ) {
@@ -115,6 +115,8 @@ function scrub_options() {
 				$option_array['api_autosync_trash'] = 'no';
 				$option_array['api_autosync_delete']  = 'no';
 				$option_array['api_autosync_unpublish'] = 'no';
+
+				$option_array['apple_news_enable_debugging'] = 'no';
 
 				safety_net_update_option_direct( $option, $option_array );
 			} else {

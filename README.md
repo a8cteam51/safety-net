@@ -111,4 +111,5 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 
 * Scrubs the API access settings.
 * Disables API sync on WP post status updates.
+* Disables the outgoing debugging email.
 
