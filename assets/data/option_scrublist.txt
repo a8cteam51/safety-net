@@ -60,6 +60,7 @@ woocommerce_stripe_account_settings
 woocommerce_stripe_api_settings
 woocommerce_stripe_settings
 woocommerce_woocommerce_payments_settings
+_wp_convertkit_settings
 wpmandrill
 wprus
 yotpo_settings

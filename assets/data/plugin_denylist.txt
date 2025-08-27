@@ -5,6 +5,7 @@ automatewoo
 automator
 avatax
 console
+convertkit
 distributor
 hubspot
 in-stock-mailer-for-wc

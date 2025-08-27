@@ -89,6 +89,17 @@ function scrub_options() {
 				if ( function_exists( 'pmpro_clear_crons' ) ) {
 					pmpro_clear_crons();
 				}
+			} else if ( '_wp_convertkit_settings' === $option ) {
+				$option_array  = $option_value;
+
+				$keys_to_scrub = array( 'access_token', 'refresh_token', 'token_expires', 'api_key', 'api_secret' );
+				foreach ( $keys_to_scrub as $key ) {
+					if ( array_key_exists( $key, $option_array ) ) {
+						$option_array[ $key ] = '';
+					}
+				}
+
+				safety_net_update_option_direct( $option, $option_array );
 			} else {
 				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
 				if ( is_array( get_option( $option ) ) ) {
