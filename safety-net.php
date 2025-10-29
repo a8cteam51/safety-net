@@ -1,10 +1,11 @@
 <?php
 /*
  * Plugin Name: Safety Net
+ * Plugin URI: https://specialprojects.automattic.com/tools/safety-net/
  * Description: For Team51 Development Sites. Deletes user data and more!
  * Version: 1.5.5
  * Author: WordPress.com Special Projects
- * Author URI: https://wpspecialprojects.wordpress.com
+ * Author URI: https://specialprojects.automattic.com
  * Text Domain: safety-net
  * License: GPLv3
 */
