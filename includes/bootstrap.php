@@ -14,6 +14,8 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_transients' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_disable_webhooks' );
+add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_caches' );
+
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
  *
@@ -126,4 +128,29 @@ function maybe_disable_webhooks() {
 	}
 
 	do_action( 'safety_net_disable_webhooks' );
+}
+
+/**
+ * Determines if caches should be deleted.
+ *
+ * Caches will be deleted if we're on staging, development, or local AND they haven't already been deleted.
+ *
+ * This is related to WooCommerce Subscriptions caches.
+ *
+ * @link https://woocommerce.com/document/subscriptions/develop/cache/
+ * 
+ * @return void
+ */
+function maybe_delete_caches() {
+	// If caches have already been deleted, skip.
+	if ( get_option( 'safety_net_caches_deleted' ) ) {
+		return;
+	}
+
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
+	do_action( 'safety_net_delete_caches' );
 }
