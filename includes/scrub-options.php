@@ -119,6 +119,14 @@ function scrub_options() {
 				$option_array['apple_news_enable_debugging'] = 'no';
 
 				safety_net_update_option_direct( $option, $option_array );
+			} elseif ( 'default_pingback_flag' === $option ) {
+				// Delete all _pingme postmeta to prevent pingbacks from being sent.
+				$wpdb->delete(
+					$wpdb->postmeta,
+					array( 'meta_key' => '_pingme' )
+				);
+
+				safety_net_update_option_direct( $option, '' );
 			} else {
 				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
 				if ( is_array( get_option( $option ) ) ) {
