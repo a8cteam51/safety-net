@@ -1,67 +1,64 @@
 .loading-overlay {
-	display:    none;
-	position:   fixed;
-	z-index:    1000;
-	top:        0;
-	left:       0;
-	height:     100%;
-	width:      100%;
-	background: rgba( 255, 255, 255, .8 )
-	url('/wp-includes/images/spinner-2x.gif')
-	50% 50%
-	no-repeat;
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: rgba( 255, 255, 255, .8) url('/wp-includes/images/spinner-2x.gif') 50% 50% no-repeat;
 }
 
 body.loading .loading-overlay {
-	overflow: hidden;
+    overflow: hidden;
 }
 
 body.loading .loading-overlay {
-	display: block;
+    display: block;
 }
 
 table {
-	border: 1px solid #c3c4c7;
-	box-shadow: 0 1px 1px rgba(0,0,0,.04);
-	background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+    background: #fff;
 }
 
 .form-table td,
 .form-table th {
-	padding: 2em;
-	color: #3c434a;
-	font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
-	font-size: 13px;
-	line-height: 1.4em;
-	min-height:252px;
+    padding: 2em;
+    color: #3c434a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    line-height: 1.4em;
+    min-height: 252px;
 }
 
 .form-table td p.description {
-	font-size: 13px;
-	margin: 2px 0 5px;
-	color: #646970;
-	max-width: 650px;
+    font-size: 13px;
+    margin: 2px 0 5px;
+    color: #646970;
+    max-width: 650px;
 }
 
 .form-table tr:nth-child(2n) th,
 .form-table tr:nth-child(2n) td {
-  background: #fcfcfc;
+    background: #fcfcfc;
 }
 
 .button.button-large {
-	float:right;
+    float: right;
 }
 
 p {
-	max-width: 650px;
-	color: #3c434a;
+    max-width: 650px;
+    color: #3c434a;
 }
 
 p.info {
-	padding: 25px;
-	border: 1px solid #ccc;
-	box-shadow: 0 1px 1px rgba(0,0,0,.04);
-	background: white;
+    padding: 25px;
+    border: 1px solid #ccc;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+    background: white;
 }
 
 input[type="checkbox"].safety-net-pause-renewal-actions-toggle {
@@ -134,4 +131,34 @@ input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:after {
 
 button.safety-net-save {
     margin-top: 10px;
+}
+
+.plugins_card {
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+    background: #fcfcfc;
+    margin-top: 25px;
+}
+
+.plugins_card .plugins_card_header {
+    background: #fcfcfc;
+    padding: 10px;
+}
+
+.plugins_card .plugins_card_header h3 {
+    margin: 0;
+}
+
+.plugins_card .plugins_card_body {
+    padding: 10px;
+}
+
+.plugins_card .plugins_card_body .plugin-item.inactive {
+    opacity: 0.5;
+}
+
+.plugins_card .plugins_card_footer p {
+    max-width: fit-content;
+    padding: 0 15px;
+    font-size: larger;
 }

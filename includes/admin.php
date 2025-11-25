@@ -12,18 +12,18 @@ use function SafetyNet\DisableWebhooks\disable_webhooks;
 
 // Register the custom store class filter IMMEDIATELY when this file loads.
 if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
-    add_filter(
-        'action_scheduler_store_class',
-        function ( $class ) {
-            // Load the custom class file only when Action Scheduler requests it.
-            if ( ! class_exists( 'SafetyNet\ActionScheduler_Custom_DBStore' ) ) {
-                require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
-            }
-            return 'SafetyNet\ActionScheduler_Custom_DBStore';
-        },
-        101,
-        1
-    );
+	add_filter(
+		'action_scheduler_store_class',
+		function ( $class ) {
+			// Load the custom class file only when Action Scheduler requests it.
+			if ( ! class_exists( 'SafetyNet\ActionScheduler_Custom_DBStore' ) ) {
+				require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
+			}
+			return 'SafetyNet\ActionScheduler_Custom_DBStore';
+		},
+		101,
+		1
+	);
 }
 
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
@@ -237,6 +237,113 @@ function render_field( array $args = array() ) {
 }
 
 /**
+ * Checks if a given plugin is in the denylist.
+ *
+ * @param string $plugin_file The plugin file to check.
+ *
+ * @return boolean True if the plugin is in the denylist, false otherwise.
+ */
+function is_plugin_in_denylist( string $plugin_file ): bool {
+	static $denylisted_plugins = null;
+	if ( null === $denylisted_plugins ) {
+		$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', \SafetyNet\Utilities\get_denylist_array( 'plugins' ) );
+	}
+
+	foreach ( $denylisted_plugins as $denylisted_plugin ) {
+		// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
+		if ( stristr( $plugin_file, $denylisted_plugin ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Renders the plugins table.
+ *
+ * @return void
+ */
+function render_plugins_table() {
+	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', \SafetyNet\Utilities\get_denylist_array( 'plugins' ) );
+
+	// let's tack on all the Woo payment methods, in case we can deactivate any of those too
+	if ( class_exists( 'woocommerce' ) ) {
+		$installed_payment_methods = array_keys( WC()->payment_gateways->payment_gateways() );
+		foreach ( $installed_payment_methods as $installed_payment_method ) {
+			$denylisted_plugins[] = str_replace( '_', '-', $installed_payment_method );
+		}
+	}
+
+	?>
+
+		<div class="plugins_card">
+			<div class="plugins_card_header">
+				<h3><?php esc_html_e( 'Installed Plugins', 'safety-net' ); ?></h3>
+			</div>
+			<div class="plugins_card_body">
+				<table class="wp-list-table widefat fixed striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Plugin', 'safety-net' ); ?></th>
+							<th><?php esc_html_e( 'Status', 'safety-net' ); ?></th>
+							<th><?php esc_html_e( 'On Deny List?', 'safety-net' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						foreach ( get_plugins() as $plugin_file => $plugin_data ) {
+							$plugin_status = is_plugin_active( $plugin_file );
+							?>
+							<tr class="plugin-item<?php echo $plugin_status ? '' : ' inactive'; ?>">
+								<td><?php echo esc_html( $plugin_data['Name'] ); ?></td>
+								<td><?php $plugin_status ? esc_html_e( 'Active', 'safety-net' ) : esc_html_e( 'Inactive', 'safety-net' ); ?></td>
+								<td><?php echo is_plugin_in_denylist( $plugin_file ) ? '<span class="dashicons dashicons-yes-alt" style="color:green"></span>' : '<span class="dashicons dashicons-dismiss" style="color:#c30000"></span>'; ?></td>
+							</tr>
+							<?php
+						}
+						?>
+					</tbody>
+				</table>
+			</div>
+			<div class="plugins_card_footer">
+				<p>
+					<?php
+					$message = sprintf(
+					/* translators: %s: link to plugin repo*/
+						__(
+							'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, please consider opening an issue on the <a href="%s" target="_blank">Safety Net repository</a>. Include the plugin name and any relevant details. Remember, you can also extend the deny list using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.',
+							'safety-net'
+						),
+						'https://github.com/a8cteam51/safety-net'
+					);
+
+					echo wp_kses( $message, get_footer_links_format() );
+					?>
+				</p>
+
+			</div>
+		</div>
+
+	<?php
+}
+
+/**
+ * Get the WPKSES format for the footer links.
+ *
+ * @return array
+ */
+function get_footer_links_format() {
+	return array(
+		'a'      => array(
+			'href'   => array(),
+			'target' => array(),
+		),
+		'em'     => array(),
+		'strong' => array(),
+	);
+}
+
+/**
  * Renders the HTML for the options page.
  *
  * @return void
@@ -263,6 +370,7 @@ function render_options_html() {
 			<?php
 			settings_fields( 'safety-net' );
 			do_settings_sections( 'safety_net_options' );
+			render_plugins_table();
 			?>
 			<p><input name="Submit" type="submit" class="button button-primary safety-net-save" value="<?php esc_attr_e( 'Save Changes' ); ?>"/></p>
 		</form>
@@ -404,7 +512,7 @@ function handle_ajax_delete_transients() {
 	);
 
 	die();
-	}
+}
 
 /**
  * Handles the AJAX request for disabling webhooks.
@@ -451,7 +559,7 @@ function check_the_permissions() {
 /**
  * Checks if the nonce passed is correct, and sends the AJAX response if it doesn't.
  *
- * @param string $nonce The nonce to check.
+ * @param string $nonce  The nonce to check.
  * @param string $action The action the nonce was created from.
  *
  * @return void
@@ -474,7 +582,6 @@ function check_the_nonce( string $nonce, $action ) {
  *
  * @return array
  */
-
 function add_action_links( $actions ) {
 	$links = array(
 		'<a href="' . admin_url( 'tools.php?page=safety_net_options' ) . '">Tools</a>',
@@ -484,8 +591,26 @@ function add_action_links( $actions ) {
 }
 
 /**
- * Display Warning that Safety Net is activated.
+ * Pause WooCommerce Subscriptions renewal and failed payment retry scheduled actions
  *
+ * @return void
+ */
+function pause_renewal_actions() {
+	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+		require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
+		add_filter(
+			'action_scheduler_store_class',
+			function ( $class ) {
+				return 'SafetyNet\ActionScheduler_Custom_DBStore';
+			},
+			101,
+			1
+		);
+	}
+}
+
+/**
+ * Display Warning that Safety Net is activated.
  */
 function show_warning() {
 	// If we're not on staging, development, or a local environment, return.
@@ -510,6 +635,10 @@ function show_warning() {
 /**
  * Stop all emails except password resets
  *
+ * @param boolean|null $return WP_Mail short-circuit return value.
+ * @param array        $args   The wp_mail() arguments.
+ *
+ * @return boolean|null
  */
 function stop_emails( $return, $args ) {
 	if ( ! strstr( $args['subject'], 'Password Reset' ) ) {
