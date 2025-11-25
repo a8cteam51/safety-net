@@ -69,7 +69,7 @@ add_filter( 'safety_net_show_production_notice', '__return_false' );
 ## Adding plugins to the Deny list.
 You can add a plugin to the deny list for a single site using the following filter.
 ```php
-add_filter( 'safety_net_denylist_plugins', function( $denylist ) {
+add_filter( 'safety_net_denylisted_plugins', function( $denylist ) {
     // Add the full path to the plugin file here you wish to deny.
 	$denylist[] = 'plugin-folder/plugin-file.php';
 
