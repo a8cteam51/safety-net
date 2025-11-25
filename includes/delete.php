@@ -9,7 +9,7 @@ add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders'
 /**
  * Deletes all users and their data, except administrators.
  *
- * Also deletes WooCommerce data, such as orders and subscriptions.
+ * Also deletes WooCommerce and GiveWP data, such as orders and subscriptions.
  *
  * @return void
  */
@@ -104,7 +104,64 @@ function delete_users_and_orders() {
         $wpdb->query( "DELETE FROM {$wpdb->prefix}newsletter" );
     }
 
+	// Delete Give plugin data
+	if ( ! defined( 'SAFETY_NET_SKIP_GIVEWP' ) || SAFETY_NET_SKIP_GIVEWP !== true ) {
+		$table_name = $wpdb->prefix . 'give_donors';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_donors" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_donormeta" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_donationmeta" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_comments" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_commentmeta" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_sessions" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_subscriptions" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}give_subscriptionmeta" );
+		}
 
+		// Delete Give payment and donation posts
+		$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'give_payment' )" );
+		$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'give_payment'" );
+	}
+
+	// Delete PMPro data
+	$table_name = $wpdb->prefix . 'pmpro_membership_orders';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_membership_orders" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_membership_ordermeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_subscriptions" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_subscriptionmeta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_memberships_users" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_discount_codes_uses" );
+
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'pmpro_stripe_customerid'" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key LIKE 'pmpro_b%'" );
+	}
+
+	// Delete BuddyPress data
+	$table_name = $wpdb->prefix . 'bp_xprofile_data';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_xprofile_data" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}signups" );
+
+		$table_name = $wpdb->prefix . 'bp_friends';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_friends" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'total_friend_count'" );
+		}
+
+		$table_name = $wpdb->prefix . 'bp_messages_messages';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_messages" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_threads" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_recipients" );
+		}
+
+		$table_name = $wpdb->prefix . 'bp_notifications';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications" );
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications_meta" );
+		}
+	}
 
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();

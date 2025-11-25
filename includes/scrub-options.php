@@ -80,6 +80,53 @@ function scrub_options() {
 					}
 				}
 				safety_net_update_option_direct( $option, $option_array );
+			} elseif ( 'pmpro_gateway' === $option ) {
+				safety_net_update_option_direct( $option, '' );
+			} elseif ( 'pmpro_gateway_environment' === $option ) {
+				safety_net_update_option_direct( $option, 'sandbox' );
+			} elseif ( 'pmpro_last_known_url' === $option ) {
+				safety_net_update_option_direct( $option, 'https://safetynetscrubbedthis.com' );
+				if ( function_exists( 'pmpro_clear_crons' ) ) {
+					pmpro_clear_crons();
+				}
+			} else if ( '_wp_convertkit_settings' === $option ) {
+				$option_array  = $option_value;
+
+				$keys_to_scrub = array( 'access_token', 'refresh_token', 'token_expires', 'api_key', 'api_secret' );
+				foreach ( $keys_to_scrub as $key ) {
+					if ( array_key_exists( $key, $option_array ) ) {
+						$option_array[ $key ] = '';
+					}
+				}
+
+				safety_net_update_option_direct( $option, $option_array );
+			} elseif ( 'apple_news_settings' === $option ) {
+				$keys_to_scrub = array( 'api_key', 'api_secret', 'api_channel', 'apple_news_admin_email' );
+
+				$option_array = $option_value;
+				foreach ( $keys_to_scrub as $key ) {
+					if ( array_key_exists( $key, $option_array ) ) {
+						$option_array[ $key ] = '';
+					}
+				}
+
+				$option_array['api_autosync'] = 'no';
+				$option_array['api_autosync_update']  = 'no';
+				$option_array['api_autosync_trash'] = 'no';
+				$option_array['api_autosync_delete']  = 'no';
+				$option_array['api_autosync_unpublish'] = 'no';
+
+				$option_array['apple_news_enable_debugging'] = 'no';
+
+				safety_net_update_option_direct( $option, $option_array );
+			} elseif ( 'default_pingback_flag' === $option ) {
+				// Delete all _pingme postmeta to prevent pingbacks from being sent.
+				$wpdb->delete(
+					$wpdb->postmeta,
+					array( 'meta_key' => '_pingme' )
+				);
+
+				safety_net_update_option_direct( $option, '' );
 			} else {
 				// Some plugins don't like it when options are deleted, so we will save their value as either an empty string or array, depending on which it already is.
 				if ( is_array( get_option( $option ) ) ) {

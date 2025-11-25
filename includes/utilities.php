@@ -14,15 +14,42 @@ function get_admin_user_ids(): array {
 }
 
 /**
- * Returns true if plugin is running on production
+ * The function @{wp_get_environment_type()} from WP Core will default to 'production' if the environment type is set
+ * to anything other than 'staging', 'development', or 'local'. However, some hosts like Pressable and tools like
+ * WPCOM Studio set an unsupported environment type via the constant `WP_ENVIRONMENT_TYPE` (in both cases, `sandbox`).
+ *
+ * This function tries to reconcile that.
+ *
+ * @return string
+ */
+function get_environment_type(): string {
+	$current_env = wp_get_environment_type();
+
+	if ( 'production' === $current_env ) { // Either true production or fallback production due to an unsupported environment type.
+		$other_supported_envs = array( 'sandbox', 'dev', 'develop' );
+
+		if ( function_exists( 'getenv' ) ) {
+			$env = getenv( 'WP_ENVIRONMENT_TYPE' );
+			if ( in_array( $env, $other_supported_envs, true ) ) {
+				$current_env = $env;
+			}
+		}
+
+		if ( defined( 'WP_ENVIRONMENT_TYPE' ) && in_array( WP_ENVIRONMENT_TYPE, $other_supported_envs, true ) ) {
+			$current_env = WP_ENVIRONMENT_TYPE;
+		}
+	}
+
+	return $current_env;
+}
+
+/**
+ * Returns true if plugin is running on production.
  *
  * @return boolean
  */
 function is_production() {
-	// If we're not on staging, development, or a local environment, return true.
-	if ( ! in_array( wp_get_environment_type(), array( 'staging', 'development', 'local' ), true ) ) {
-		return true;
-	}
+	return 'production' === get_environment_type();
 }
 
 /**
@@ -63,4 +90,45 @@ function get_denylist_array( $denylist_type ): array {
 	}
 
 	return array_filter( $denylist_array );
+}
+
+/**
+ * Renders an admin notice, if the plugin is running on production
+ *
+ * @filter safety_net_show_production_notice
+ *
+ * @return void
+ */
+function show_production_notice() {
+	// If not production, return.
+	if ( ! is_production() ) {
+		return;
+	}
+
+	// Check the if the user has the capability to manage options.
+	$allowed = current_user_can( 'manage_options' );
+	// Filter for third-party plugins to add their own capability check.
+	$allowed = apply_filters( 'safety_net_show_production_notice', $allowed );
+
+	if ( ! $allowed ) {
+		return;
+	}
+
+	// Check if the constant starts as an mu plugin.
+	$is_mu = defined( 'WPMU_PLUGIN_DIR' ) && \str_starts_with( SAFETY_NET_PATH, WPMU_PLUGIN_DIR );
+	?>
+		<div class="notice notice-warning">
+			<p>
+				<?php
+				echo esc_html(
+					sprintf(
+						// translators: %s: Is plugin or mu-plugin.
+						__( 'Safety Net is active on a production site, which restricts certain processes from running. To proceed, either remove the %s or switch the site to a staging or development environment.', 'safety-net' ),
+						$is_mu ? __( 'mu-plugin', 'safety-net' ) : __( 'plugin', 'safety-net' )
+					)
+				);
+				?>
+			</p>
+		</div>
+		<?php
 }

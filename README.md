@@ -24,6 +24,16 @@ This public plugin is provided as an example of how such a plugin could be imple
 #### Advanced features
 - **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
 
+### Skipping GiveWP Data Deletion
+
+By default, Safety Net will delete GiveWP donor data, payment records, and subscriptions when running the data deletion process. If you want to **preserve GiveWP data on a staging site**, you can define the following constant in your `wp-config.php` file:
+
+```php
+define( 'SAFETY_NET_SKIP_GIVEWP', true );
+```
+
+When this constant is set to `true`, all GiveWP-specific data will be excluded from the deletion process. This includes donor records, donation posts, subscription data, and related metadata.
+
 ## Planned Features
 - Multi-site (WordPress network) compatibility
 - Do you have a suggestion for the next great feature to add? Please create an issue or submit a PR!
@@ -49,6 +59,27 @@ You may also:
 - Create a new issue or dev request to have a plugin or option added to the denylists, or
 - Submit a PR to add something yourself, and let us know so we can merge it
 
+## Blocking Use in Production
+Safety Net will not run on production sites. It will check the `WP_ENVIRONMENT_TYPE` global system variable, or a constant of the same name. If it is set to `production`, the plugin will not run. You can manually trigger this using the `safety_net_show_production_notice` filter (just pass back false to disable safety net). 
+
+```php
+add_filter( 'safety_net_show_production_notice', '__return_false' );
+```
+
+## Adding plugins to the Deny list.
+You can add a plugin to the deny list for a single site using the following filter.
+```php
+add_filter( 'safety_net_denylist_plugins', function( $denylist ) {
+    // Add the full path to the plugin file here.
+	$denylist[] = 'plugin-folder/plugin-file.php'; 
+
+	// You can use partial names as well.
+	$denylist[] = 'paypal'; // this would match any plugin with 'paypal' in the name.
+    return $denylist;
+} );
+```
+> Please ensure the correct path is given for the plugin.
+
 ## Troubleshooting
 
 ### Plugin not running
@@ -70,12 +101,28 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 ```
-### Adding plugins to the Deny list.
-You can add a plugin to the deny list for a single site using the following filter.
-```php
-add_filter( 'safety_net_denylist_plugins', function( $denylist ) {
-    $denylist[] = 'plugin-folder/plugin-file.php'; 
-    return $denylist;
-} );
-```
-> Please ensure the correct path is given for the plugin.
+
+## Explanations
+
+### BuddyPress
+
+* Deletes user profiles, friends, messages, and notifications.
+
+### Kit (formerly ConvertKit)
+
+* Scrubs the API access settings.
+* Disables the plugin.
+
+### PMPro
+
+* Scrubs all database keys containing API keys for payment gateways.
+* Deletes user meta related to PMPro billing, like the billing address or Stripe customer ID.
+* Deletes all database entries related to membership orders & subscriptions, including coupon usage.
+* Disables all cron jobs related to PMPro.
+
+### Publish to Apple News
+
+* Scrubs the API access settings.
+* Disables API sync on WP post status updates.
+* Disables the outgoing debugging email.
+

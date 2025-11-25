@@ -5,9 +5,27 @@ namespace SafetyNet\Admin;
 use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\Utilities\get_environment_type;
 use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
+
+// Register the custom store class filter IMMEDIATELY when this file loads.
+if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+	add_filter(
+		'action_scheduler_store_class',
+		function ( $class ) {
+			// Load the custom class file only when Action Scheduler requests it.
+			if ( ! class_exists( 'SafetyNet\ActionScheduler_Custom_DBStore' ) ) {
+				require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
+			}
+			return 'SafetyNet\ActionScheduler_Custom_DBStore';
+		},
+		101,
+		1
+	);
+}
+
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
 /**
@@ -29,7 +47,6 @@ function add_admin_hooks() {
 		add_action( 'wp_ajax_safety_net_disable_webhooks', __NAMESPACE__ . '\handle_ajax_disable_webhooks' );
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
-	add_action( 'action_scheduler_pre_init', __NAMESPACE__ . '\pause_renewal_actions' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
 	add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
 }
@@ -291,32 +308,19 @@ function render_plugins_table() {
 			<div class="plugins_card_footer">
 				<p>
 					<?php
-					$repo_url     = 'https://github.com/a8cteam51/safety-net';
-					$allowed_html = array(
-						'a'      => array(
-							'href'   => array(),
-							'target' => array(),
-						),
-						'em'     => array(),
-						'strong' => array(),
-					);
-
 					$message = sprintf(
 					/* translators: %s: link to plugin repo*/
 						__(
-							'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, ' .
-							'please consider opening an issue on the <a href="%s" target="_blank">Safety Net repository</a>. ' .
-							'Include the plugin name and any relevant details. Remember, you can also extend the deny list ' .
-							'using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.',
+							'If you have other plugins that handle recurring payments, trigger batch email sends, or sync data, please consider opening an issue on the <a href="%s" target="_blank">Safety Net repository</a>. Include the plugin name and any relevant details. Remember, you can also extend the deny list using the <strong><em>safety_net_denylisted_plugins</em></strong> filter.',
 							'safety-net'
 						),
-						$repo_url
+						'https://github.com/a8cteam51/safety-net'
 					);
 
-					echo wp_kses( $message, $allowed_html );
+					echo wp_kses( $message, get_footer_links_format() );
 					?>
 				</p>
-					
+
 			</div>
 		</div>
 
@@ -578,7 +582,6 @@ function check_the_nonce( string $nonce, $action ) {
  *
  * @return array
  */
-
 function add_action_links( $actions ) {
 	$links = array(
 		'<a href="' . admin_url( 'tools.php?page=safety_net_options' ) . '">Tools</a>',
@@ -589,6 +592,8 @@ function add_action_links( $actions ) {
 
 /**
  * Pause WooCommerce Subscriptions renewal and failed payment retry scheduled actions
+ *
+ * @return void
  */
 function pause_renewal_actions() {
 	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
@@ -623,12 +628,17 @@ function show_warning() {
 		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );
 		echo '<br>';
 	}
-	echo 'This site\'s environment type is set to "' . esc_html( wp_get_environment_type() ) . '".';
+	echo 'This site\'s environment type is set to "' . esc_html( get_environment_type() ) . '".';
 	echo '</p></div>';
 }
 
 /**
  * Stop all emails except password resets
+ *
+ * @param boolean|null $return WP_Mail short-circuit return value.
+ * @param array        $args   The wp_mail() arguments.
+ *
+ * @return boolean|null
  */
 function stop_emails( $return, $args ) {
 	if ( ! strstr( $args['subject'], 'Password Reset' ) ) {
