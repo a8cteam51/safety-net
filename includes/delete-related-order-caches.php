@@ -27,6 +27,10 @@ function delete_all_subscription_caches() {
 	// Delete from wp_usermeta
 	delete_metadata( 'user', null, $customer_cache_key, '', true );
 
+	// Check if HPOS tables exists
+	$table_name   = $wpdb->prefix . 'wc_orders_meta';
+	$hpos_exists  = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+
 	// 2. Delete related order caches
 	$related_order_cache_keys = array(
 		'_subscription_renewal_order_ids_cache',
@@ -34,20 +38,22 @@ function delete_all_subscription_caches() {
 		'_subscription_resubscribe_order_ids_cache',
 	);
 
-	// Delete data from the High Performance Order Tables
-	$table_name   = $wpdb->prefix . 'wc_orders_meta';
-	$hpos_enabled = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+	$placeholders = implode( ', ', array_fill( 0, count( $related_order_cache_keys ), '%s' ) );
 
-	foreach ( $related_order_cache_keys as $cache_key ) {
-		if ( $hpos_enabled ) {
-			$wpdb->delete(
-				$table_name,
-				array( 'meta_key' => $cache_key ),
-				array( '%s' )
-			);
-		} else {
-			delete_metadata( 'post', null, $cache_key, '', true );
-		}
+	$wpdb->query(
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ($placeholders)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			...$related_order_cache_keys
+		)
+	);
+
+	if ( $hpos_exists ) {
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table_name} WHERE meta_key IN ($placeholders)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				...$related_order_cache_keys
+			)
+		);
 	}
 
 	// Set option so this function doesn't run again.
