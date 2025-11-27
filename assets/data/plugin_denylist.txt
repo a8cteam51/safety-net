@@ -34,6 +34,7 @@ smtp
 socketlabs
 sparkpost
 stripe
+tiktok-for-business
 webgility
 wc-cashapp
 woocommerce-zapier
