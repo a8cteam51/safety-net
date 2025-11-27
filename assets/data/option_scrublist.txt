@@ -52,6 +52,14 @@ pmpro_twocheckout_apiusername
 passport_api_key
 passport_api_secret
 shareasale_wc_tracker_options
+tt4b_access_token
+tt4b_advertiser_id
+tt4b_app_id
+tt4b_bc_id
+tt4b_catalog_id
+tt4b_external_business_id
+tt4b_external_data
+tt4b_secret
 woocommerce-ppcp-settings
 woocommerce_afterpay_settings
 woocommerce_braintree_credit_card_settings
