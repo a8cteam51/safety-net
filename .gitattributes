@@ -5,3 +5,5 @@
 # Files
 /.* export-ignore
 /README.md export-ignore
+/CLAUDE.md export-ignore
+/AGENTS.md export-ignore
