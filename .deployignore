@@ -1,0 +1,5 @@
+# Agent context — keep in repo only, do not deploy
+CLAUDE.md
+AGENTS.md
+.agents/
+.cursor/
