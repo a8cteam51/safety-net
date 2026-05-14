@@ -15,9 +15,8 @@ add_filter(
 
 // Discourage search engines from indexing the site and disallow the entire site in robots.txt.
 add_filter( 'option_blog_public', '__return_zero' );
-add_action( 'robots_txt', __NAMESPACE__ . '\disallow_all_user_agents' );
+add_filter( 'robots_txt', __NAMESPACE__ . '\disallow_all_user_agents' );
 
-function disallow_all_user_agents() {
-	echo 'User-agent: *' . PHP_EOL;
-	echo 'Disallow: /' . PHP_EOL;
+function disallow_all_user_agents( $output ) {
+	return "User-agent: *\nDisallow: /\n";
 }
