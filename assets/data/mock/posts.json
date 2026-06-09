@@ -1,0 +1,77 @@
+[
+	{
+		"title": "Welcome to Foggy Harbor Coffee & Tea",
+		"excerpt": "A little about who we are, why we roast in small batches, and what you can expect from our shop.",
+		"content": "We started Foggy Harbor with a simple idea: great coffee and tea should be approachable, honest, and a little bit joyful. Every bag of coffee is roasted in small batches just down by the water, and every tea is sourced from growers we trust. Pull up a chair, grab a cup, and stay a while."
+	},
+	{
+		"title": "Pour-Over 101: A Beginner's Guide",
+		"excerpt": "Everything you need to brew a clean, bright cup of pour-over coffee at home.",
+		"content": "Pour-over is one of the most rewarding ways to brew coffee, and it's easier than it looks. Start with a medium grind, water just off the boil (around 200F), and a 1:16 coffee-to-water ratio. Bloom your grounds with a splash of water for thirty seconds, then pour in slow, steady spirals. The result is a clean, layered cup that lets the bean's character shine."
+	},
+	{
+		"title": "From Cherry to Cup: How Coffee Is Processed",
+		"excerpt": "Washed, natural, honey — a quick tour of the processing methods that shape flavor.",
+		"content": "Before coffee ever reaches your grinder, it goes through processing that profoundly shapes its flavor. Washed coffees tend to be clean and bright; natural-process beans are fruity and wild; honey-process sits somewhere in between, with rounded sweetness. Knowing the process on the bag is a great shortcut to finding cups you'll love."
+	},
+	{
+		"title": "Understanding Tea Grades and Leaf Sizes",
+		"excerpt": "What 'first flush', 'orange pekoe', and 'gunpowder' actually mean.",
+		"content": "Tea terminology can feel like a secret language. 'First flush' refers to the prized early-season harvest. 'Orange pekoe' describes a leaf grade, not a flavor. 'Gunpowder' green tea is rolled into tight pellets that unfurl as they steep. Once you learn the vocabulary, shopping for loose-leaf tea becomes a lot more fun."
+	},
+	{
+		"title": "The Right Water Temperature for Every Tea",
+		"excerpt": "Green, white, oolong, black — each has a sweet spot.",
+		"content": "Using boiling water for every tea is the most common mistake we see. Delicate green and white teas prefer cooler water, around 175F, to avoid bitterness. Oolongs are happy around 195F, while robust black teas and herbal tisanes can take a full boil. A variable kettle is a small investment that transforms your cup."
+	},
+	{
+		"title": "Single Origin vs. Blends: Which Should You Choose?",
+		"excerpt": "There's no wrong answer, but here's how to think about it.",
+		"content": "Single-origin coffees showcase the unique character of one place and one harvest, making them exciting and ever-changing. Blends are crafted for balance and consistency, so your favorite cup tastes the same every morning. We love both, and we think a well-stocked shelf has room for each."
+	},
+	{
+		"title": "How to Store Coffee So It Stays Fresh",
+		"excerpt": "Spoiler: the freezer isn't always your friend.",
+		"content": "Coffee's biggest enemies are air, light, heat, and moisture. Keep your beans in an opaque, airtight container at room temperature, away from the stove and the window. Buy what you'll use in two to three weeks, and grind just before brewing. Freezing can work for long-term storage, but only if the beans are sealed airtight and thawed fully before opening."
+	},
+	{
+		"title": "Cold Brew, Step by Step",
+		"excerpt": "Smooth, low-acid coffee with almost no effort.",
+		"content": "Cold brew is forgiving and delicious. Combine coarsely ground coffee with cold water at a 1:8 ratio, steep in the fridge for 12 to 18 hours, then strain. You'll get a smooth, naturally sweet concentrate you can dilute to taste over ice or with milk. Our Sumatra dark roast makes a particularly rich batch."
+	},
+	{
+		"title": "Behind the Roast: A Day at the Roastery",
+		"excerpt": "What actually happens between green beans and the bag on our shelf.",
+		"content": "Roasting day starts early. We cup samples, profile each lot, and chase that perfect moment when sugars caramelize and aromatics bloom. Every batch is logged, tasted, and adjusted. It's part science, part craft, and entirely the heart of what we do at Foggy Harbor."
+	},
+	{
+		"title": "Five Teas to Help You Wind Down at Night",
+		"excerpt": "Caffeine-free blends for a calmer evening routine.",
+		"content": "When the day is done, a warm cup can be the gentlest way to signal rest. Chamomile, peppermint, rooibos, lemon balm, and our Moroccan Mint (steeped lightly) are all soothing, caffeine-free choices. Brew a pot, dim the lights, and let the evening slow down."
+	},
+	{
+		"title": "Espresso at Home: Getting Started",
+		"excerpt": "What you really need to pull your first decent shot.",
+		"content": "You don't need a commercial machine to enjoy espresso at home. A consistent grinder, fresh beans, and patience matter more than the price of your gear. Aim for a 1:2 ratio in 25 to 30 seconds, taste, and adjust your grind. Our Lighthouse espresso blend is a forgiving place to begin."
+	},
+	{
+		"title": "A Field Guide to Tasting Notes",
+		"excerpt": "What we mean when we say a coffee tastes like 'stone fruit'.",
+		"content": "Tasting notes aren't added flavors; they're impressions that naturally occur in the bean. 'Stone fruit' might mean a peach-like sweetness; 'bright' usually points to lively acidity; 'chocolatey' describes a rich, rounded body. Trust your own palate, and use our notes as a starting map, not a rulebook."
+	},
+	{
+		"title": "Gift Guide: Coffee and Tea for Every Person on Your List",
+		"excerpt": "From the espresso fanatic to the herbal-tea devotee.",
+		"content": "Stuck on what to give? For the espresso fanatic, pair our Lighthouse blend with a quality grinder. For the tea lover, our sampler set is a guaranteed hit. And for the home barista who has everything, a digital brewing masterclass adds something new to the routine. Our gift boxes take the guesswork out entirely."
+	},
+	{
+		"title": "Sustainability at Foggy Harbor",
+		"excerpt": "How we source, package, and give back.",
+		"content": "We believe good coffee and tea shouldn't cost the earth. We work directly with growers wherever we can, use recyclable and compostable packaging, and donate a share of every gift-box sale to clean-water projects in coffee-growing regions. There's always more to do, and we're committed to doing it."
+	},
+	{
+		"title": "Now Open: Weekend Tasting Flights",
+		"excerpt": "Join us Saturdays and Sundays for a guided tour of the cup.",
+		"content": "Starting this month, we're hosting weekend tasting flights at the shop. Sample three rotating single-origin coffees or a curated tea flight, guided by our staff, and discover something new about your palate. Seats are limited, so reserve ahead and bring a friend who loves a good cup."
+	}
+]

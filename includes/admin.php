@@ -9,6 +9,7 @@ use function SafetyNet\Utilities\get_environment_type;
 use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
+use function SafetyNet\GenerateMockData\generate_mock_data;
 
 // Register the custom store class filter IMMEDIATELY when this file loads.
 if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
@@ -45,6 +46,7 @@ function add_admin_hooks() {
 		add_action( 'wp_ajax_safety_net_delete_users', __NAMESPACE__ . '\handle_ajax_delete_users' );
 		add_action( 'wp_ajax_safety_net_delete_transients', __NAMESPACE__ . '\handle_ajax_delete_transients' );
 		add_action( 'wp_ajax_safety_net_disable_webhooks', __NAMESPACE__ . '\handle_ajax_disable_webhooks' );
+		add_action( 'wp_ajax_safety_net_generate_mock_data', __NAMESPACE__ . '\handle_ajax_generate_mock_data' );
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
@@ -183,6 +185,17 @@ function settings_init() {
 	);
 
 	add_settings_field(
+		'safety_net_generate_mock_data',
+		esc_html__( 'Generate Mock Data', 'safety-net' ),
+		__NAMESPACE__ . '\render_mock_data_field',
+		'safety_net_options',
+		'safety_net_option',
+		array(
+			'description' => esc_html__( 'Populates the site with sample content for a fictional coffee & tea shop: blog posts, plus products, customers, and orders when WooCommerce is active. Handy for re-stocking a site after a wipe. Safe to run multiple times; each run adds another batch.', 'safety-net' ),
+		)
+	);
+
+	add_settings_field(
 		'safety_net_pause_renewal_actions_toggle',
 		esc_html__( 'Pause renewal actions', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
@@ -231,6 +244,63 @@ function render_field( array $args = array() ) {
 	if ( isset( $args['description'] ) ) {
 		printf(
 			'<p class="description" id="tagline-description">%s</p>',
+			esc_html( $args['description'] )
+		);
+	}
+}
+
+/**
+ * Renders the Generate Mock Data control: data-type checkboxes plus the Generate button.
+ *
+ * @param array $args Arguments passed to the field.
+ *
+ * @return void
+ */
+function render_mock_data_field( array $args = array() ) {
+	$woo_active = class_exists( 'WooCommerce' );
+	$types      = array(
+		'posts'     => array(
+			'label' => esc_html__( 'Posts', 'safety-net' ),
+			'woo'   => false,
+		),
+		'products'  => array(
+			'label' => esc_html__( 'Products', 'safety-net' ),
+			'woo'   => true,
+		),
+		'customers' => array(
+			'label' => esc_html__( 'Customers', 'safety-net' ),
+			'woo'   => true,
+		),
+		'orders'    => array(
+			'label' => esc_html__( 'Orders', 'safety-net' ),
+			'woo'   => true,
+		),
+	);
+
+	echo '<fieldset class="safety-net-mock-data-types">';
+	foreach ( $types as $type => $info ) {
+		$disabled = $info['woo'] && ! $woo_active;
+		$checked  = ! $disabled;
+		printf(
+			'<label class="safety-net-mock-type-label"><input type="checkbox" class="safety-net-mock-type" value="%1$s"%2$s%3$s /> %4$s%5$s</label>',
+			esc_attr( $type ),
+			checked( $checked, true, false ),
+			disabled( $disabled, true, false ),
+			esc_html( $info['label'] ),
+			$disabled ? ' <em>' . esc_html__( '(requires WooCommerce)', 'safety-net' ) . '</em>' : ''
+		);
+	}
+	echo '</fieldset>';
+
+	printf(
+		'<button type="button" id="safety-net-generate-mock-data" class="button button-large" data-nonce="%s">%s</button>',
+		esc_attr( wp_create_nonce( 'safety-net-generate-mock-data' ) ),
+		esc_html__( 'Generate', 'safety-net' )
+	);
+
+	if ( isset( $args['description'] ) ) {
+		printf(
+			'<p class="description">%s</p>',
 			esc_html( $args['description'] )
 		);
 	}
@@ -536,6 +606,82 @@ function handle_ajax_disable_webhooks() {
 	);
 
 	die();
+}
+
+/**
+ * Handles the AJAX request for generating mock data.
+ *
+ * @return void
+ */
+function handle_ajax_generate_mock_data() {
+
+	// If we're not on staging, development, or a local environment, die with a warning.
+	if ( is_production() ) {
+		echo wp_json_encode(
+			array(
+				'warning' => true,
+				'message' => esc_html__( 'You can not run these tools on a production site. Please set the environment type correctly.' ),
+			)
+		);
+		die();
+	}
+
+	// Permissions and security checks.
+	check_the_permissions();
+	$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+	check_the_nonce( $nonce, 'safety-net-generate-mock-data' );
+
+	// Sanitize the requested types against the allowed list.
+	$allowed = array( 'posts', 'products', 'customers', 'orders' );
+	$types   = array();
+	if ( isset( $_POST['types'] ) && is_array( $_POST['types'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$types = array_values( array_intersect( array_map( 'sanitize_key', wp_unslash( $_POST['types'] ) ), $allowed ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+	}
+
+	$counts = generate_mock_data( $types );
+
+	echo wp_json_encode(
+		array(
+			'success' => true,
+			'message' => build_mock_data_message( $counts ),
+		)
+	);
+
+	die();
+}
+
+/**
+ * Builds a human-readable summary of the generated mock data counts.
+ *
+ * @param array $counts Map of data type => number of records created.
+ *
+ * @return string
+ */
+function build_mock_data_message( array $counts ): string {
+	$counts = array_filter( $counts );
+
+	if ( empty( $counts ) ) {
+		return esc_html__( 'No mock data was generated. Select at least one data type and try again.', 'safety-net' );
+	}
+
+	$labels = array(
+		'posts'     => esc_html__( 'posts', 'safety-net' ),
+		'products'  => esc_html__( 'products', 'safety-net' ),
+		'customers' => esc_html__( 'customers', 'safety-net' ),
+		'orders'    => esc_html__( 'orders', 'safety-net' ),
+	);
+
+	$parts = array();
+	foreach ( $counts as $type => $count ) {
+		$label   = isset( $labels[ $type ] ) ? $labels[ $type ] : $type;
+		$parts[] = (int) $count . ' ' . $label;
+	}
+
+	return sprintf(
+		/* translators: %s: comma-separated list of generated record counts, e.g. "15 posts, 20 products". */
+		esc_html__( 'Mock data generated: %s.', 'safety-net' ),
+		implode( ', ', $parts )
+	);
 }
 
 /**

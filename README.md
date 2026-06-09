@@ -20,9 +20,10 @@ This public plugin is provided as an example of how such a plugin could be imple
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
 - **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
+- **Generate Mock Data** (optional): Repopulates the site with sample content for a fictional coffee & tea shop — blog posts, and (when WooCommerce is active) products, customers, and orders. Triggered manually from the Tools → Safety Net page or via WP-CLI; never runs automatically and is safe to run more than once. Handy for re-stocking a site after wiping it.
 
 #### Advanced features
-- **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
+- **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, `wp safety-net delete`, and `wp safety-net generate-mock-data`
 
 ### Skipping GiveWP Data Deletion
 
@@ -33,6 +34,30 @@ define( 'SAFETY_NET_SKIP_GIVEWP', true );
 ```
 
 When this constant is set to `true`, all GiveWP-specific data will be excluded from the deletion process. This includes donor records, donation posts, subscription data, and related metadata.
+
+## Generating Mock Data
+
+After wiping a site, you can optionally repopulate it with realistic sample content so layouts, templates, and WooCommerce flows are easy to demo and test. The content is themed around a fictional specialty coffee & tea shop.
+
+This is **always opt-in** — it never runs automatically, only when you click **Generate** on the Tools → Safety Net page or run the CLI command.
+
+What it creates (fixed, sensible volumes):
+
+- **Posts** — ~15 blog posts (always available)
+- **Products** — ~20 WooCommerce products (roasted coffee, loose-leaf teas, brewing gear, gift boxes, and digital downloads)
+- **Customers** — ~12 WooCommerce customers
+- **Orders** — ~25 WooCommerce orders linking the generated customers and products
+
+WooCommerce types only appear (and are only generated) when WooCommerce is active; otherwise those checkboxes are disabled and only posts are created. On the settings page you can tick exactly which types to generate (all are on by default). Every generated record is tagged with a `_safety_net_mock` (or `safety_net_mock`) meta flag, and running **Delete** afterward removes it like any other content.
+
+Via WP-CLI:
+
+```bash
+wp safety-net generate-mock-data                       # all applicable types
+wp safety-net generate-mock-data --types=posts,products
+```
+
+The content comes from JSON fixtures in `assets/data/mock/` (`posts.json`, `products.json`, `customers.json`) — edit those to change the sample content. To adjust how many records are created, use the `safety_net_mock_data_counts` filter.
 
 ## Planned Features
 - Multi-site (WordPress network) compatibility

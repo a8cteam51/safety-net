@@ -1,0 +1,191 @@
+[
+	{
+		"name": "Foggy Harbor House Blend",
+		"short_description": "Our signature medium roast: balanced, smooth, and dependable.",
+		"description": "A crowd-pleasing house blend of Central and South American beans, roasted to a medium profile with notes of milk chocolate, toasted almond, and a clean citrus finish. Roasted in small batches every week at our harbor-side roastery.",
+		"price_min": 14,
+		"price_max": 19,
+		"category": "Roasted Coffee",
+		"downloadable": false
+	},
+	{
+		"name": "Sumatra Mandheling Dark Roast",
+		"short_description": "Bold, earthy, and full-bodied with a syrupy mouthfeel.",
+		"description": "Wet-hulled beans from the highlands of Sumatra, roasted dark to bring out deep notes of cedar, dark cocoa, and a whisper of pipe tobacco. Low acidity and a heavy body make this a favorite for espresso and cold brew alike.",
+		"price_min": 16,
+		"price_max": 22,
+		"category": "Roasted Coffee",
+		"downloadable": false
+	},
+	{
+		"name": "Ethiopia Yirgacheffe Single Origin",
+		"short_description": "Bright and floral with jasmine and stone-fruit notes.",
+		"description": "A washed single-origin from the Yirgacheffe region, prized for its delicate florals, bergamot aromatics, and a juicy peach sweetness. Light-medium roast to preserve the lot's natural character.",
+		"price_min": 18,
+		"price_max": 24,
+		"category": "Roasted Coffee",
+		"downloadable": false
+	},
+	{
+		"name": "Costa Rican Medium Roast",
+		"short_description": "Classic, well-rounded, and endlessly drinkable.",
+		"description": "Supremo-grade beans from the Tarrazú region with caramel sweetness, red-apple acidity, and a nutty finish. A reliable everyday cup that shines in any brew method.",
+		"price_min": 15,
+		"price_max": 20,
+		"category": "Roasted Coffee",
+		"downloadable": false
+	},
+	{
+		"name": "Decaf Midnight Harbor",
+		"short_description": "All the flavor, none of the buzz. Swiss Water decaf.",
+		"description": "A Swiss Water Process decaf blend roasted medium-dark for a rich, comforting cup with notes of brown sugar and roasted hazelnut. Perfect for an evening pour without the caffeine.",
+		"price_min": 16,
+		"price_max": 21,
+		"category": "Roasted Coffee",
+		"downloadable": false
+	},
+	{
+		"name": "Espresso Lighthouse Blend",
+		"short_description": "Engineered for espresso: sweet crema, chocolatey depth.",
+		"description": "A purpose-built espresso blend that pulls thick, sweet shots with notes of dark chocolate, dried cherry, and toasted hazelnut. Holds up beautifully under milk for lattes and cappuccinos.",
+		"price_min": 17,
+		"price_max": 23,
+		"category": "Roasted Coffee",
+		"downloadable": false
+	},
+	{
+		"name": "Earl Grey Supreme",
+		"short_description": "Black tea with bergamot and a touch of blue cornflower.",
+		"description": "A refined take on the classic: full-leaf Ceylon black tea scented with natural bergamot oil and finished with blue cornflower petals. Aromatic, citrusy, and brisk.",
+		"price_min": 11,
+		"price_max": 16,
+		"category": "Loose-Leaf Tea",
+		"downloadable": false
+	},
+	{
+		"name": "Jasmine Pearl Green Tea",
+		"short_description": "Hand-rolled green tea pearls scented with jasmine blossoms.",
+		"description": "Tender green tea leaves hand-rolled into pearls and layered with fresh jasmine blossoms over several nights. Unfurls into a fragrant, silky cup with a lingering floral sweetness.",
+		"price_min": 14,
+		"price_max": 20,
+		"category": "Loose-Leaf Tea",
+		"downloadable": false
+	},
+	{
+		"name": "Himalayan Spring Darjeeling",
+		"short_description": "First-flush Darjeeling with muscatel character.",
+		"description": "A first-flush harvest from high-altitude Darjeeling gardens, light and lively with the signature muscatel grape note, delicate astringency, and a golden cup.",
+		"price_min": 15,
+		"price_max": 22,
+		"category": "Loose-Leaf Tea",
+		"downloadable": false
+	},
+	{
+		"name": "Moroccan Mint Herbal",
+		"short_description": "Spearmint and green tea — refreshing hot or iced.",
+		"description": "A traditional blend of gunpowder green tea and bright spearmint leaves. Cooling, sweet, and invigorating; serve it strong with a little sugar in the Moroccan style.",
+		"price_min": 10,
+		"price_max": 15,
+		"category": "Loose-Leaf Tea",
+		"downloadable": false
+	},
+	{
+		"name": "Masala Chai Spice Blend",
+		"short_description": "Assam black tea with cardamom, ginger, and cinnamon.",
+		"description": "A warming chai built on malty Assam black tea and a hand-ground spice mix of cardamom, ginger, cinnamon, clove, and black pepper. Made for a rich, milky, stovetop brew.",
+		"price_min": 12,
+		"price_max": 17,
+		"category": "Loose-Leaf Tea",
+		"downloadable": false
+	},
+	{
+		"name": "Pour-Over Glass Dripper",
+		"short_description": "Borosilicate glass cone for clean, bright pour-over coffee.",
+		"description": "A heat-resistant borosilicate glass dripper with a spiral-ribbed cone for even extraction and a clean cup. Pairs with standard #2 cone filters and sits neatly on most mugs and carafes.",
+		"price_min": 22,
+		"price_max": 34,
+		"category": "Brewing Gear",
+		"downloadable": false
+	},
+	{
+		"name": "Stainless Gooseneck Kettle",
+		"short_description": "Precision pour spout for total control over your brew.",
+		"description": "A 1L stainless-steel stovetop kettle with a slender gooseneck spout for a slow, accurate pour. The counterbalanced handle and built-in thermometer make dialing in pour-over a breeze.",
+		"price_min": 39,
+		"price_max": 59,
+		"category": "Brewing Gear",
+		"downloadable": false
+	},
+	{
+		"name": "French Press 8-Cup",
+		"short_description": "Classic full-immersion brewer in heat-resistant glass.",
+		"description": "A 34oz French press with a durable borosilicate carafe, stainless frame, and fine three-part filter for a rich, full-bodied cup. Dishwasher safe and built to last.",
+		"price_min": 28,
+		"price_max": 42,
+		"category": "Brewing Gear",
+		"downloadable": false
+	},
+	{
+		"name": "Cast Iron Tetsubin Teapot",
+		"short_description": "Japanese-style cast iron pot with enamel-lined interior.",
+		"description": "A 600ml tetsubin-style cast iron teapot with an enamel-lined interior and removable stainless infuser. Retains heat beautifully and makes a striking centerpiece for tea service.",
+		"price_min": 44,
+		"price_max": 68,
+		"category": "Brewing Gear",
+		"downloadable": false
+	},
+	{
+		"name": "Conical Burr Coffee Grinder",
+		"short_description": "Adjustable burr grinder for consistent grounds.",
+		"description": "A manual conical burr grinder with 18 click-adjustable settings, from fine espresso to coarse French press. Ceramic burrs keep grounds uniform and your beans cool.",
+		"price_min": 35,
+		"price_max": 55,
+		"category": "Brewing Gear",
+		"downloadable": false
+	},
+	{
+		"name": "Reusable Tea Infuser Basket",
+		"short_description": "Fine-mesh stainless basket for loose-leaf tea.",
+		"description": "An extra-fine stainless-steel mesh infuser basket that gives leaves room to expand for a fuller-flavored steep. Fits most mugs and teapots; rinse-and-reuse, no paper waste.",
+		"price_min": 9,
+		"price_max": 14,
+		"category": "Brewing Gear",
+		"downloadable": false
+	},
+	{
+		"name": "Coffee Lover's Gift Box",
+		"short_description": "Two house roasts, a glass dripper, and filters in a keepsake box.",
+		"description": "A curated gift set with two of our most popular roasts, a borosilicate pour-over dripper, a pack of filters, and brewing notes — all packed in a reusable keepsake box. Ready to gift.",
+		"price_min": 48,
+		"price_max": 72,
+		"category": "Gift Boxes",
+		"downloadable": false
+	},
+	{
+		"name": "Tea Sampler Gift Set",
+		"short_description": "Five signature loose-leaf teas with a reusable infuser.",
+		"description": "A tasting journey through five of our signature loose-leaf teas in resealable tins, paired with a stainless infuser and steeping guide. The perfect introduction for any tea curious friend.",
+		"price_min": 38,
+		"price_max": 58,
+		"category": "Gift Boxes",
+		"downloadable": false
+	},
+	{
+		"name": "The Art of Pour-Over (E-Book)",
+		"short_description": "Digital guide to dialing in cafe-quality pour-over at home.",
+		"description": "A downloadable PDF guide covering grind size, water temperature, ratios, and pour technique, with recipes for each of our single-origin coffees. Yours to download instantly after purchase.",
+		"price_min": 7,
+		"price_max": 12,
+		"category": "Digital Downloads",
+		"downloadable": true
+	},
+	{
+		"name": "Online Brewing Masterclass",
+		"short_description": "Digital video course: espresso, pour-over, and tea steeping.",
+		"description": "A self-paced digital course with downloadable lessons walking you through espresso extraction, pour-over technique, and proper tea steeping. Includes printable recipe cards and a tasting journal.",
+		"price_min": 19,
+		"price_max": 39,
+		"category": "Digital Downloads",
+		"downloadable": true
+	}
+]

@@ -162,3 +162,17 @@ button.safety-net-save {
     padding: 0 15px;
     font-size: larger;
 }
+
+.safety-net-mock-data-types {
+    margin-bottom: 12px;
+}
+
+.safety-net-mock-data-types .safety-net-mock-type-label {
+    display: inline-block;
+    margin: 0 18px 6px 0;
+}
+
+.safety-net-mock-data-types .safety-net-mock-type-label em {
+    color: #a7aaad;
+    font-size: 12px;
+}

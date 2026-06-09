@@ -83,6 +83,44 @@ class SafetyNet_CLI extends WP_CLI_Command {
 
 		WP_CLI::success( __( 'All WooCommerce webhooks have been disabled.' ) );
 	}
+
+	/**
+	 * Generate mock data (blog posts, and WooCommerce products, customers, and orders) from JSON fixtures
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--types=<types>]
+	 * : Comma-separated list of data types to generate. Defaults to all applicable types. WooCommerce types are skipped when WooCommerce is inactive.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp safety-net generate-mock-data
+	 *     wp safety-net generate-mock-data --types=posts,products
+	 *
+	 * @subcommand generate-mock-data
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 */
+	public function generate_mock_data( $args, $assoc_args ) {
+		$types = array();
+		if ( ! empty( $assoc_args['types'] ) ) {
+			$types = array_map( 'trim', explode( ',', $assoc_args['types'] ) );
+		}
+
+		$counts = \SafetyNet\GenerateMockData\generate_mock_data( $types );
+
+		if ( empty( array_filter( $counts ) ) ) {
+			WP_CLI::warning( __( 'No mock data was generated. WooCommerce may be inactive, or no valid types were selected.' ) );
+			return;
+		}
+
+		foreach ( $counts as $type => $count ) {
+			WP_CLI::log( sprintf( '%d %s created.', (int) $count, $type ) );
+		}
+
+		WP_CLI::success( __( 'Mock data generation complete.' ) );
+	}
 }
 
 $instance = new SafetyNet_CLI();

@@ -3,7 +3,7 @@
  * Plugin Name: Safety Net
  * Plugin URI: https://specialprojects.automattic.com/tools/safety-net/
  * Description: For Team51 Development Sites. Deletes user data and more!
- * Version: 1.5.8
+ * Version: 1.6.0
  * Author: WordPress.com Special Projects
  * Author URI: https://specialprojects.automattic.com
  * Text Domain: safety-net
@@ -40,6 +40,7 @@ require_once __DIR__ . '/includes/delete-transients.php';
 require_once __DIR__ . '/includes/deactivate-plugins.php';
 require_once __DIR__ . '/includes/scrub-options.php';
 require_once __DIR__ . '/includes/disable-webhooks.php';
+require_once __DIR__ . '/includes/generate-mock-data.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/includes/classes/cli/class-safetynet-cli.php';

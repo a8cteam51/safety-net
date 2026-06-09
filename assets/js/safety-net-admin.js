@@ -7,6 +7,7 @@
 	const settingsTitle = document.getElementById( 'safety-net-settings-title' );
 	const deleteTransientsButton = document.getElementById( 'safety-net-delete-transients' );
 	const disableWebhooksButton = document.getElementById( 'safety-net-disable-webhooks' );
+	const generateMockDataButton = document.getElementById( 'safety-net-generate-mock-data' );
 
 	function deleteTransients() {
 		if ( ! confirm( 'Are you sure you want to delete transients? This cannot be undone!') ) {
@@ -64,6 +65,27 @@
 		});
 	}
 
+	function generateMockData() {
+		const types = Array.from( document.querySelectorAll( '.safety-net-mock-type:checked' ) ).map( function ( checkbox ) {
+			return checkbox.value;
+		} );
+
+		if ( 0 === types.length ) {
+			alert( 'Please select at least one data type to generate.' );
+			return;
+		}
+
+		if ( ! confirm( 'Generate mock data for the selected types? This will create new content on the site.' ) ) {
+			return;
+		}
+
+		ajax({
+			action: 'safety_net_generate_mock_data',
+			nonce: generateMockDataButton.dataset.nonce,
+			types: types,
+		});
+	}
+
 	function ajax(data) {
 		$.ajax(
 			{
@@ -89,6 +111,11 @@
 						deleteUsersButton.disabled = true;
 					}
 
+					// If the generate mock data button exists, disable it.
+					if (generateMockDataButton) {
+						generateMockDataButton.disabled = true;
+					}
+
 					toggleLoadingOverlay();
 				},
 				error : function(request, status, error) {
@@ -112,6 +139,11 @@
 					// If the delete users button exists, enable it.
 					if (deleteUsersButton) {
 						deleteUsersButton.disabled = false;
+					}
+
+					// If the generate mock data button exists, enable it.
+					if (generateMockDataButton) {
+						generateMockDataButton.disabled = false;
 					}
 
 					toggleLoadingOverlay();
@@ -181,5 +213,10 @@
 	// If the disable webhooks button exists, add a click event listener.
 	if (disableWebhooksButton) {
 		disableWebhooksButton.addEventListener('click', disableWebhooks);
+	}
+
+	// If the generate mock data button exists, add a click event listener.
+	if (generateMockDataButton) {
+		generateMockDataButton.addEventListener('click', generateMockData);
 	}
 })(window, document, jQuery);

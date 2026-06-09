@@ -13,6 +13,7 @@ Safety Net is a WordPress plugin by WordPress.com Special Projects (Team 51) tha
 - Pauses WooCommerce Subscriptions renewal actions (toggleable)
 - Discourages search engines and disallows all user agents in `robots.txt`
 - Disables WooCommerce webhooks
+- Optionally generates themed mock data (blog posts, and WooCommerce products/customers/orders) from JSON fixtures — opt-in only, never automatic
 
 **CRITICAL**: The plugin MUST NOT run on production. It checks `WP_ENVIRONMENT_TYPE`; if set to `production`, it shows a notice and does nothing else. It only runs when the environment is `staging`, `development`, or `local`.
 
@@ -46,6 +47,7 @@ safety-net/
 │   ├── delete.php          # delete_users_and_orders
 │   ├── delete-transients.php
 │   ├── disable-webhooks.php
+│   ├── generate-mock-data.php  # Generates mock data from JSON fixtures (opt-in)
 │   └── classes/
 │       ├── cli/class-safetynet-cli.php
 │       └── class-actionscheduler-custom-dbstore.php
@@ -54,7 +56,8 @@ safety-net/
 │   ├── js/safety-net-admin.js
 │   └── data/
 │       ├── option_scrublist.txt   # Options to scrub (one per line)
-│       └── plugin_denylist.txt    # Plugin slugs/partials to deactivate (one per line)
+│       ├── plugin_denylist.txt    # Plugin slugs/partials to deactivate (one per line)
+│       └── mock/                  # Mock data fixtures (posts.json, products.json, customers.json)
 └── .github/workflows/release.yml   # Creates zip on release
 ```
 
@@ -163,6 +166,8 @@ Key filters and hooks:
 | `safety_net_delete_data` | Fired to delete users and orders |
 | `safety_net_delete_transients` | Fired to delete transients |
 | `safety_net_disable_webhooks` | Fired to disable webhooks |
+| `safety_net_generate_mock_data` | Fired to generate mock data (optional arg: array of types) |
+| `safety_net_mock_data_counts` | Filter the number of records generated per type |
 
 Constant:
 
@@ -206,6 +211,7 @@ wp safety-net deactivate-plugins # Deactivate denylisted plugins
 wp safety-net delete             # Delete users and orders
 wp safety-net delete-transients  # Delete transients
 wp safety-net disable-webhooks   # Disable WooCommerce webhooks
+wp safety-net generate-mock-data # Generate mock data (optional: --types=posts,products,customers,orders)
 ```
 
 ---
