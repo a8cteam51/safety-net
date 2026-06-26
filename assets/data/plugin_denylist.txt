@@ -97,7 +97,7 @@ woocommerce-amazon-fulfillment
 woocommerce-google-adwords-conversion
 woocommerce-payments
 woocommerce-services
-woocommerce-shipping
+woocommerce-shipping/
 woocommerce-square
 woocommerce-zapier
 wp-remote-users-sync
