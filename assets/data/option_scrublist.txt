@@ -14,6 +14,8 @@ mailchimp-woocommerce
 mailchimp-woocommerce-cached-api-account-name
 mailster_options
 mc4wp
+mwai_options
+mwai_v2_options
 nelio-content_settings
 northbeam_api_key
 northbeam_client_id

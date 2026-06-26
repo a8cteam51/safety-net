@@ -163,6 +163,47 @@ function delete_users_and_orders() {
 		}
 	}
 
+	// Delete Jetpack CRM (Zero BS CRM) contacts and related PII
+	$table_name = $wpdb->prefix . 'zbs_contacts';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$zbs_tables = array(
+			'zbs_contacts',
+			'zbs_contactmeta',
+			'zbs_companies',
+			'zbs_companymeta',
+			'zbs_quotes',
+			'zbs_quotemeta',
+			'zbs_invoices',
+			'zbs_invoicemeta',
+			'zbs_transactions',
+			'zbs_transactionmeta',
+			'zbs_lineitems',
+			'zbs_events',
+			'zbs_eventmeta',
+			'zbs_logs',
+			'zbs_mail',
+			'zbs_lists',
+			'zbs_tags',
+			'zbs_tagmeta',
+			'zbs_aliases',
+			'zbs_objlinks',
+		);
+		foreach ( $zbs_tables as $zbs_table ) {
+			$zbs_full_table = $wpdb->prefix . $zbs_table;
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $zbs_full_table ) ) === $zbs_full_table ) {
+				$wpdb->query( "DELETE FROM {$wpdb->prefix}{$zbs_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from hardcoded allow-list above.
+			}
+		}
+	}
+
+	// Delete WPForms entries (may contain submitted PII)
+	$table_name = $wpdb->prefix . 'wpforms_entries';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpforms_entries" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpforms_entry_meta" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpforms_entry_fields" );
+	}
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
