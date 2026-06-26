@@ -33,6 +33,7 @@ pmpro_cybersource_merchantid
 pmpro_cybersource_securitykey
 pmpro_gateway
 pmpro_gateway_environment
+pmpro_last_known_url
 pmpro_live_stripe_connect_publishablekey
 pmpro_live_stripe_connect_secretkey
 pmpro_live_stripe_connect_user_id
