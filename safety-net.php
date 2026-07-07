@@ -18,6 +18,10 @@ if ( defined( 'SAFETY_NET_PATH' ) ) {
 	return; // Return if another copy of the plugin is activated
 }
 
+if ( wp_installing() && ! is_blog_installed() ) {
+	return; // Bail during core installation — the database isn't ready yet.
+}
+
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
 define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
