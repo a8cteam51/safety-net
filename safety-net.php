@@ -18,7 +18,7 @@ if ( defined( 'SAFETY_NET_PATH' ) ) {
 	return; // Return if another copy of the plugin is activated
 }
 
-if ( wp_installing() ) {
+if ( wp_installing() && ! is_blog_installed() ) {
 	return; // Return if WordPress is installing
 }
 
