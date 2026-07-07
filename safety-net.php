@@ -19,7 +19,7 @@ if ( defined( 'SAFETY_NET_PATH' ) ) {
 }
 
 if ( wp_installing() && ! is_blog_installed() ) {
-	return; // Return if WordPress is installing
+	return; // Bail during core installation — the database isn't ready yet.
 }
 
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
