@@ -83,9 +83,9 @@ function get_denylist_array( $denylist_type ): array {
 	$rows = explode( "\n", $file_contents );
 
 	foreach ( $rows as $row ) {
-		$data = str_getcsv( $row );
+		$data = str_getcsv( $row, ',', '"', '\\' );
 		foreach ( $data as $item ) {
-			$denylist_array[] = trim( $item );
+			$denylist_array[] = trim( (string) $item );
 		}
 	}
 

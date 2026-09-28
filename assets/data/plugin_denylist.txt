@@ -2,7 +2,9 @@ activecampaign
 advanced-ads
 affirm
 afterpay
+ai/ai.php
 ai-engine
+ai-provider-for-
 algolia
 amazon-payments
 asendia-shipping
