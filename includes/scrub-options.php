@@ -208,20 +208,10 @@ function scrub_ai_credential_option( string $option ): void {
 		array( 'option_name' => $option . '_sn_backup' )
 	);
 
-	if ( str_starts_with( $option, '_secret_ai/' ) ) {
-		$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct access intentionally bypasses option hooks.
-			$wpdb->options,
-			array( 'option_name' => $option )
-		);
-		return;
-	}
-
-	if ( 'wp_ai_client_provider_credentials' === $option ) {
-		safety_net_update_option_direct( $option, array() );
-		return;
-	}
-
-	safety_net_update_option_direct( $option, '' );
+	$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct access intentionally bypasses option hooks.
+		$wpdb->options,
+		array( 'option_name' => $option )
+	);
 }
 
 /**
