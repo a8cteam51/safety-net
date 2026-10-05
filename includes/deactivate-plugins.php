@@ -65,6 +65,14 @@ function deactivate_plugins() {
 	}
 
 	update_option( 'safety_net_plugins_deactivated', true );
+
+	// Gateways can't be traced until WooCommerce has loaded, so leave them for the wp_loaded pass.
+	if ( class_exists( 'WooCommerce' ) && did_action( 'plugins_loaded' ) ) {
+		delete_option( 'safety_net_gateway_plugins_pending' );
+		update_option( 'safety_net_gateway_plugins_deactivated', true );
+	} else {
+		update_option( 'safety_net_gateway_plugins_pending', true );
+	}
 }
 
 /**
@@ -80,5 +88,6 @@ function deactivate_gateway_plugins() {
 		update_option( 'active_plugins', array_values( array_diff( $active_plugins, $gateway_plugins ) ) );
 	}
 
+	delete_option( 'safety_net_gateway_plugins_pending' );
 	update_option( 'safety_net_gateway_plugins_deactivated', true );
 }

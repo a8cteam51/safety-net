@@ -134,7 +134,8 @@ function maybe_disable_webhooks() {
  * Determines if plugins that register a WooCommerce payment gateway should be deactivated.
  */
 function maybe_deactivate_gateway_plugins() {
-	if ( get_option( 'safety_net_gateway_plugins_deactivated' ) || ! get_option( 'safety_net_plugins_deactivated' ) ) {
+	// Only set by the plugin step itself, so sites processed before this pass existed aren't touched retroactively.
+	if ( ! get_option( 'safety_net_gateway_plugins_pending' ) ) {
 		return;
 	}
 
