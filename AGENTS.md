@@ -4,7 +4,7 @@ This document helps coding agents work autonomously on the Safety Net WordPress 
 
 ## Project Overview
 
-Safety Net is a WordPress plugin by WordPress.com Special Projects (Team 51) that secures sensitive data on development, staging, and local sites. It:
+Safety Net is a WordPress plugin by WordPress.com Special Projects that secures sensitive data on development, staging, and local sites. It:
 
 - Deletes non-admin users, WooCommerce orders, subscriptions, and related data
 - Scrubs denylisted options (API keys, secrets)

@@ -3,12 +3,12 @@
 
 # Safety Net
 
-**for Team51 Development Sites**
+**for development, staging, and local WordPress sites**
 
 **[Download the latest release](https://github.com/a8cteam51/safety-net/releases/latest/download/safety-net.zip)**
 
 ## What's this?
-This is a WordPress plugin developed by WordPress.com Special Projects (Team 51) that secures sensitive data on development, staging, and local sites. It deletes users and WooCommerce orders and subscriptions, as well as prevents sites from acting on user data (e.g. sending emails, processing renewals, etc.)
+This is a WordPress plugin developed by WordPress.com Special Projects that secures sensitive data on development, staging, and local sites. It deletes users and WooCommerce orders and subscriptions, as well as prevents sites from acting on user data (e.g. sending emails, processing renewals, etc.)
 
 ## Disclaimer
 This public plugin is provided as an example of how such a plugin could be implemented, and is provided without any support or guarantees. Please use at your own discretion. Incorrect usage could result in data deletion.

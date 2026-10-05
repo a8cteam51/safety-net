@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Safety Net
  * Plugin URI: https://specialprojects.automattic.com/tools/safety-net/
- * Description: For Team51 Development Sites. Deletes user data and more!
+ * Description: Secures sensitive data on development, staging, and local sites by deleting user data, scrubbing API keys, deactivating risky plugins, and blocking emails.
  * Version: 1.6.1
  * Author: WordPress.com Special Projects
  * Author URI: https://specialprojects.automattic.com
