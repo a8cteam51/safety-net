@@ -7,6 +7,7 @@
  * Author: WordPress.com Special Projects
  * Author URI: https://specialprojects.automattic.com
  * Text Domain: safety-net
+ * Update URI: https://github.com/a8cteam51/safety-net
  * License: GPLv3
 */
 
@@ -28,6 +29,9 @@ define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
 
 // Allow access to the basic utility functions.
 require_once __DIR__ . '/includes/utilities.php';
+
+// Loaded before the production check so dormant production installs still receive updates.
+require_once __DIR__ . '/includes/self-update.php';
 
 // If the site is production, bail.
 if ( SafetyNet\Utilities\is_production() ) {
