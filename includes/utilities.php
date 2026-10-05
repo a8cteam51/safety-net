@@ -93,6 +93,86 @@ function get_denylist_array( $denylist_type ): array {
 }
 
 /**
+ * Returns the active plugins that register a WooCommerce payment gateway, other than WooCommerce itself.
+ *
+ * @return string[] Plugin basenames, e.g. 'woocommerce-gateway-dummy/woocommerce-gateway-dummy.php'.
+ */
+function get_payment_gateway_plugins(): array {
+	// Third-party gateways register on plugins_loaded, and WooCommerce caches the gateway list on first use.
+	if ( ! class_exists( 'WooCommerce' ) || ! did_action( 'plugins_loaded' ) ) {
+		return array();
+	}
+
+	// These gateways (and their subclasses) never contact a payment processor, so they shouldn't take the rest of their plugin down with them.
+	$offline_gateway_classes = array(
+		'WC_Gateway_BACS',
+		'WC_Gateway_Cheque',
+		'WC_Gateway_COD',
+		'WC_Pre_Orders_Gateway_Pay_Later',
+		'WC_Bookings_Gateway',
+		'WC_Gateway_Account_Funds',
+		'Kestrel\\Account_Funds\\Gateway',
+		'WC_GZD_Gateway_Invoice',
+		'WC_GZD_Gateway_Direct_Debit',
+		'WCPOS\\WooCommercePOS\\Gateways\\Card',
+		'WCPOS\\WooCommercePOS\\Gateways\\Cash',
+	);
+
+	$woocommerce_path = wp_normalize_path( dirname( WC_PLUGIN_FILE ) );
+
+	$gateway_files = array();
+	foreach ( WC()->payment_gateways->payment_gateways() as $gateway ) {
+		$files = array();
+
+		// Concrete parents count too, since a subclass can replace a processor's gateway; abstract bases may come from another plugin's bundled framework.
+		for ( $class = new \ReflectionClass( $gateway ); $class; $class = $class->getParentClass() ) {
+			if ( in_array( $class->getName(), $offline_gateway_classes, true ) ) {
+				$files = array();
+				break;
+			}
+
+			$file = $class->getFileName();
+			if ( ! $file || 0 === strpos( wp_normalize_path( $file ), $woocommerce_path . '/' ) ) {
+				break;
+			}
+
+			if ( ! $class->isAbstract() ) {
+				$files[] = wp_normalize_path( $file );
+			}
+		}
+
+		$gateway_files = array_merge( $gateway_files, $files );
+	}
+
+	$skipped_paths = array(
+		$woocommerce_path,
+		untrailingslashit( wp_normalize_path( SAFETY_NET_PATH ) ),
+	);
+
+	$gateway_plugins = array();
+	foreach ( (array) get_option( 'active_plugins', array() ) as $plugin ) {
+		$plugin_path = realpath( WP_PLUGIN_DIR . '/' . ( '.' === dirname( $plugin ) ? $plugin : dirname( $plugin ) ) );
+		if ( false === $plugin_path ) {
+			continue;
+		}
+
+		$plugin_path = wp_normalize_path( $plugin_path );
+		if ( in_array( $plugin_path, $skipped_paths, true ) ) {
+			continue;
+		}
+
+		foreach ( $gateway_files as $file ) {
+			if ( $file === $plugin_path || 0 === strpos( $file, $plugin_path . '/' ) ) {
+				$gateway_plugins[] = $plugin;
+				break;
+			}
+		}
+	}
+
+	return (array) apply_filters( 'safety_net_payment_gateway_plugins', $gateway_plugins );
+}
+
+/**
  * Renders an admin notice, if the plugin is running on production
  *
  * @filter safety_net_show_production_notice
