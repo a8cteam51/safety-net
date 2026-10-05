@@ -214,6 +214,9 @@ function delete_users_and_orders() {
 	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
 	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
 
+	// Admins keep their user meta, so their cached subscription IDs would point at deleted subscriptions.
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE %s", $wpdb->esc_like( '_wcs_subscription_ids_cache' ) . '%' ) );
+
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
 
