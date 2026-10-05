@@ -25,6 +25,11 @@ function check_for_update( $update, array $plugin_data, string $plugin_file ) {
 		return $update;
 	}
 
+	// The release zip unpacks to safety-net/, so updating any other folder would leave the active plugin entry pointing at a deleted path.
+	if ( 'safety-net' !== dirname( $plugin_file ) ) {
+		return $update;
+	}
+
 	$release = get_latest_release();
 	if ( empty( $release ) ) {
 		return $update;
@@ -45,8 +50,11 @@ function check_for_update( $update, array $plugin_data, string $plugin_file ) {
  * @return array Empty if the release could not be fetched.
  */
 function get_latest_release(): array {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only flag, checked the same way by core's update-core.php.
+	$force_check = ! empty( $_GET['force-check'] );
+
 	$release = get_transient( RELEASE_TRANSIENT );
-	if ( is_array( $release ) ) {
+	if ( is_array( $release ) && ! $force_check ) {
 		return $release;
 	}
 
