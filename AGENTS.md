@@ -42,6 +42,7 @@ safety-net/
 │   ├── common.php          # Filters: disable emails, Jetpack, robots.txt
 │   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production
 │   ├── scrub-options.php   # Scrubs options from option_scrublist.txt
+│   ├── self-update.php     # Offers GitHub releases as plugin updates (loads on production too)
 │   ├── deactivate-plugins.php
 │   ├── delete.php          # delete_users_and_orders
 │   ├── delete-transients.php
@@ -176,7 +177,7 @@ Constant:
    Only modify plugin files. Never change core WordPress or WooCommerce files.
 
 2. **Do not run on production**  
-   The plugin intentionally does nothing on production. Do not add behavior that bypasses `is_production()`.
+   The plugin intentionally does nothing on production. Do not add behavior that bypasses `is_production()`. The only exception is `self-update.php`, which loads first so production installs keep receiving updates.
 
 3. **Do not change execution order**  
    Scrubbing → deactivating plugins → deleting data must stay in that order. The code enforces this with option checks.
