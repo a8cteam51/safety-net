@@ -18,7 +18,7 @@ This public plugin is provided as an example of how such a plugin could be imple
 - **Pause Renewal Actions**: When Safety Net is activated, Action Scheduler will not claim renewal actions or payment retry actions from WooCommerce Subscriptions, effectively pausing them. Other scheduled actions will continue to run. This is toggleable in wp-admin.
 - **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
-- **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
+- **Deactivate Plugins**: Deactivates denylisted plugins. Also deactivates any plugin that registers a WooCommerce payment gateway (deactivates the actual plugin, not from the checkout settings). WooCommerce's built-in gateways and a few offline ones (such as Pre-Orders' "Pay Later" and Bookings' availability check) are left alone. To exclude a plugin from this step, use the `safety_net_payment_gateway_plugins` filter; plugins that also match the denylist (Stripe, PayPal, etc.) additionally need `safety_net_denylisted_plugins`.
 - **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
 
 #### Advanced features

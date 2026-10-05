@@ -157,6 +157,7 @@ Key filters and hooks:
 | `safety_net_show_production_notice` | Return `false` to hide the production notice (use with care) |
 | `safety_net_denylisted_plugins` | Add plugins to the denylist for the current site |
 | `safety_net_options_to_clear` | Modify options to scrub |
+| `safety_net_payment_gateway_plugins` | Modify the plugins deactivated because they register a WooCommerce payment gateway |
 | `safety_net_hide_admin` | Return `true` to hide the Tools > Safety Net admin page |
 | `safety_net_loaded` | Fired when the plugin is ready |
 | `safety_net_scrub_options` | Fired to scrub options |
