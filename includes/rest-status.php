@@ -36,13 +36,14 @@ function get_status() {
 
 	$response = new \WP_REST_Response(
 		array(
-			'active'              => true,
-			'environment'         => get_environment_type(),
-			'options_scrubbed'    => (bool) get_option( 'safety_net_options_scrubbed' ),
-			'plugins_deactivated' => (bool) get_option( 'safety_net_plugins_deactivated' ),
-			'data_deleted'        => (bool) get_option( 'safety_net_data_deleted' ),
-			'transients_deleted'  => (bool) get_option( 'safety_net_transients_deleted' ),
-			'webhooks_disabled'   => (bool) get_option( 'safety_net_webhooks_disabled' ),
+			'active'                      => true,
+			'environment'                 => get_environment_type(),
+			'options_scrubbed'            => (bool) get_option( 'safety_net_options_scrubbed' ),
+			'plugins_deactivated'         => (bool) get_option( 'safety_net_plugins_deactivated' ),
+			'gateway_plugins_deactivated' => (bool) get_option( 'safety_net_gateway_plugins_deactivated' ),
+			'data_deleted'                => (bool) get_option( 'safety_net_data_deleted' ),
+			'transients_deleted'          => (bool) get_option( 'safety_net_transients_deleted' ),
+			'webhooks_disabled'           => (bool) get_option( 'safety_net_webhooks_disabled' ),
 		)
 	);
 

@@ -6,6 +6,7 @@ use function SafetyNet\Utilities\get_denylist_array;
 use function SafetyNet\Utilities\get_payment_gateway_plugins;
 
 add_action( 'safety_net_deactivate_plugins', __NAMESPACE__ . '\deactivate_plugins' );
+add_action( 'safety_net_deactivate_gateway_plugins', __NAMESPACE__ . '\deactivate_gateway_plugins' );
 
 /*
 * Deactivate plugins from a denylist
@@ -64,4 +65,20 @@ function deactivate_plugins() {
 	}
 
 	update_option( 'safety_net_plugins_deactivated', true );
+}
+
+/**
+ * Deactivates plugins that register a WooCommerce payment gateway, without triggering deactivation hooks.
+ *
+ * @return void
+ */
+function deactivate_gateway_plugins() {
+	$gateway_plugins = get_payment_gateway_plugins();
+
+	if ( $gateway_plugins ) {
+		$active_plugins = (array) get_option( 'active_plugins', array() );
+		update_option( 'active_plugins', array_values( array_diff( $active_plugins, $gateway_plugins ) ) );
+	}
+
+	update_option( 'safety_net_gateway_plugins_deactivated', true );
 }
