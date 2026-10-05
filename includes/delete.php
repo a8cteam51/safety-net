@@ -209,10 +209,14 @@ function delete_users_and_orders() {
 
 	$admins = get_admin_user_ids(); // returns an array of ids
 
-	// Delete all non-admin users and their user meta
-	$placeholders = implode( ',', array_fill( 0, count( $admins ), '%d' ) );
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+	// Delete all non-admin users and their user meta, but never every user when no admin can be found.
+	if ( $admins ) {
+		$placeholders = implode( ',', array_fill( 0, count( $admins ), '%d' ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+		$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+	} else {
+		error_log( 'Safety Net: no administrators found, so users were not deleted.' ); // phpcs:ignore -- Logging is okay here.
+	}
 
 	// Admins keep their user meta, so their cached subscription IDs would point at deleted subscriptions.
 	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE %s", $wpdb->esc_like( '_wcs_subscription_ids_cache' ) . '%' ) );
@@ -231,15 +235,20 @@ function delete_users_and_orders() {
 function reassign_all_posts() {
 	global $wpdb;
 
-	$wpdb->get_results( $wpdb->prepare( "UPDATE $wpdb->posts SET post_author = %d", get_admin_id() ) );
+	$admin_id = get_admin_id();
+	if ( ! $admin_id ) {
+		return;
+	}
+
+	$wpdb->get_results( $wpdb->prepare( "UPDATE $wpdb->posts SET post_author = %d", $admin_id ) );
 
 	wp_cache_flush();
 }
 
 /**
- * Returns an admin ID that posts can be reassigned to.
+ * Returns an admin ID that posts can be reassigned to, or 0 if there is none.
  *
- * @return mixed
+ * @return int|string
  */
 function get_admin_id() {
 	$admin = get_users(
@@ -252,5 +261,10 @@ function get_admin_id() {
 		)
 	);
 
-	return $admin[0];
+	// A network site can have no administrator of its own, only super admins.
+	if ( empty( $admin ) ) {
+		$admin = get_admin_user_ids();
+	}
+
+	return $admin[0] ?? 0;
 }

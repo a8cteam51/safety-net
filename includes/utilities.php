@@ -3,14 +3,53 @@
 namespace SafetyNet\Utilities;
 
 /**
- * Return an array of user IDs of site admins.
+ * Return an array of user IDs of site admins, or on multisite, of every site's admins and the super admins.
  *
  * @return array
  */
 function get_admin_user_ids(): array {
 	global $wpdb;
 
-	return $wpdb->get_col( "SELECT u.ID FROM $wpdb->users u INNER JOIN $wpdb->usermeta m ON m.user_id = u.ID WHERE m.meta_key = '{$wpdb->prefix}capabilities' AND m.meta_value LIKE '%administrator%' ORDER BY u.user_registered" );
+	$capability_keys = array( $wpdb->prefix . 'capabilities' );
+
+	// The users table is shared by the whole network, so a run on one site must keep every site's admins.
+	if ( is_multisite() ) {
+		$site_ids = get_sites(
+			array(
+				'fields' => 'ids',
+				'number' => 0,
+			)
+		);
+		foreach ( $site_ids as $site_id ) {
+			$capability_keys[] = $wpdb->get_blog_prefix( $site_id ) . 'capabilities';
+		}
+		$capability_keys = array_values( array_unique( $capability_keys ) );
+	}
+
+	$placeholders = implode( ',', array_fill( 0, count( $capability_keys ), '%s' ) );
+	$admin_ids    = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT u.ID FROM $wpdb->users u INNER JOIN $wpdb->usermeta m ON m.user_id = u.ID WHERE m.meta_key IN ($placeholders) AND m.meta_value LIKE %s ORDER BY u.ID", ...array_merge( $capability_keys, array( '%administrator%' ) ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+	$super_admins = array();
+	if ( is_multisite() ) {
+		// get_super_admins() only covers the current network, but the users table is shared by every network.
+		$super_admins = get_super_admins();
+		foreach ( $wpdb->get_col( "SELECT meta_value FROM $wpdb->sitemeta WHERE meta_key = 'site_admins'" ) as $network_super_admins ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$super_admins = array_merge( $super_admins, (array) maybe_unserialize( $network_super_admins ) );
+		}
+		$super_admins = array_values( array_unique( array_filter( $super_admins, 'is_string' ) ) );
+	}
+
+	if ( $super_admins ) {
+		// Not get_user_by(): pluggable functions aren't loaded yet when the automatic run fires.
+		$placeholders = implode( ',', array_fill( 0, count( $super_admins ), '%s' ) );
+		$super_ids    = $wpdb->get_results( $wpdb->prepare( "SELECT ID, user_login FROM $wpdb->users WHERE user_login IN ($placeholders)", ...$super_admins ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$ids_by_login = array_column( $super_ids, 'ID', 'user_login' );
+
+		// Super admins first, current network's first, so get_admin_id() prefers them when a site has no administrator of its own.
+		$admin_ids = array_merge( array_values( array_intersect_key( array_replace( array_flip( $super_admins ), $ids_by_login ), $ids_by_login ) ), $admin_ids );
+	}
+
+	return array_values( array_unique( array_map( 'intval', $admin_ids ) ) );
 }
 
 /**
