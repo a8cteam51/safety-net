@@ -42,7 +42,11 @@ function get_admin_user_ids(): array {
 	if ( $super_admins ) {
 		// Not get_user_by(): pluggable functions aren't loaded yet when the automatic run fires.
 		$placeholders = implode( ',', array_fill( 0, count( $super_admins ), '%s' ) );
-		$admin_ids    = array_merge( $admin_ids, $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE user_login IN ($placeholders)", ...$super_admins ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$super_ids    = $wpdb->get_results( $wpdb->prepare( "SELECT ID, user_login FROM $wpdb->users WHERE user_login IN ($placeholders)", ...$super_admins ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$ids_by_login = array_column( $super_ids, 'ID', 'user_login' );
+
+		// Super admins first, current network's first, so get_admin_id() prefers them when a site has no administrator of its own.
+		$admin_ids = array_merge( array_values( array_intersect_key( array_replace( array_flip( $super_admins ), $ids_by_login ), $ids_by_login ) ), $admin_ids );
 	}
 
 	return array_values( array_unique( array_map( 'intval', $admin_ids ) ) );

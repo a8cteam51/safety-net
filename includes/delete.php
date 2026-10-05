@@ -214,6 +214,8 @@ function delete_users_and_orders() {
 		$placeholders = implode( ',', array_fill( 0, count( $admins ), '%d' ) );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
 		$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+	} else {
+		error_log( 'Safety Net: no administrators found, so users were not deleted.' ); // phpcs:ignore -- Logging is okay here.
 	}
 
 	// Admins keep their user meta, so their cached subscription IDs would point at deleted subscriptions.
