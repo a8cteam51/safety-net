@@ -162,6 +162,7 @@ Key filters and hooks:
 | `safety_net_loaded` | Fired when the plugin is ready |
 | `safety_net_scrub_options` | Fired to scrub options |
 | `safety_net_deactivate_plugins` | Fired to deactivate plugins |
+| `safety_net_deactivate_gateway_plugins` | Fired on `wp_loaded` (once WooCommerce has loaded) to deactivate plugins that register a payment gateway |
 | `safety_net_delete_data` | Fired to delete users and orders |
 | `safety_net_delete_transients` | Fired to delete transients |
 | `safety_net_disable_webhooks` | Fired to disable webhooks |
