@@ -443,7 +443,7 @@ return true;`,
 			await site.php(
 				`
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
-$result = activate_plugin( 'mailpoet/mailpoet.php' );
+$result = activate_plugin( 'mailpoet/mailpoet.php', '', ${ mailpoet === 'network' ? 'true' : 'false' } );
 if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); }
 return true;`,
 				{ label: 'activating MailPoet' }

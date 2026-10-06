@@ -139,9 +139,7 @@ function deactivate_network_plugins( array $plugins, string $automatic_hook, str
 function keep_in_jetpack_autoloader( string $plugin ) {
 	global $jetpack_autoloader_activating_plugins_paths;
 
-	// A later plugin's autoloader would rebuild its class map without it while the plugin, already loaded, still runs.
-	// Before muplugins_loaded, regular plugins are not included yet, so the deactivated plugin never loads.
-	if ( ! did_action( 'muplugins_loaded' ) || did_action( 'plugins_loaded' ) || '.' === dirname( $plugin ) ) {
+	if ( did_action( 'plugins_loaded' ) || '.' === dirname( $plugin ) ) {
 		return;
 	}
 
@@ -151,6 +149,12 @@ function keep_in_jetpack_autoloader( string $plugin ) {
 	if ( false !== $real_path && $real_path !== $file ) {
 		$file = wp_normalize_path( $real_path );
 	}
+
+	// A later plugin's autoloader would rebuild its class map without a plugin that is already running; one not loaded yet never runs.
+	if ( ! in_array( $file, array_map( 'wp_normalize_path', get_included_files() ), true ) ) {
+		return;
+	}
+
 	$directory = dirname( $file );
 	if ( ! is_file( $directory . '/vendor/composer/jetpack_autoload_classmap.php' ) ) {
 		return;
