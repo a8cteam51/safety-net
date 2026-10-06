@@ -162,6 +162,17 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 		assert.deepEqual( await site.php( NETWORK_EMAILS ), { current: 'safetynet@scrubbedthis.option', other: 'network2@example.com' } );
 	} );
 
+	test( 'K5/K11: a network the main site processed before network flags existed is not changed retroactively by a new site', async () => {
+		const network = await site.php( `delete_site_option( 'safety_net_network_admin_email_scrubbed' ); delete_site_option( 'safety_net_network_plugins_deactivated' ); ${ SET_NETWORK }`, { label: 'simulating a network processed by an older version' } );
+		assertNetworkUntouched( network, 'Simulating an older version' );
+		assert.deepEqual( network.flags, {} );
+		await site.php( `$blog = wpmu_create_blog( DOMAIN_CURRENT_SITE, PATH_CURRENT_SITE . 'legacy/', 'Legacy', ${ seed.users.shopowner } ); if ( is_wp_error( $blog ) ) { throw new RuntimeException( $blog->get_error_message() ); } return $blog;`, { label: 'creating a site' } );
+		await firstLoad( site, '/legacy/' );
+		const after = await site.php( 'return sn_test_network_state();' );
+		assertNetworkUntouched( after, 'The new site\'s first run on an already processed network' );
+		assert.deepEqual( after.flags, NETWORK_FLAGS, 'The network flags were not recorded for the already processed network' );
+	} );
+
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
 		site.assertCleanLog();
 	} );

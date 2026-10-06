@@ -121,6 +121,17 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 		assert.equal( await site.php( `return ${ PMPRO_META };` ), 0, 'PMPro user meta is left in the usermeta table' );
 	} );
 
+	test( 'K5/K11: a network the main site processed before network flags existed keeps its network-active gateway plugins when a new site loads', async () => {
+		const network = await site.php( `foreach ( array( 'safety_net_network_admin_email_scrubbed', 'safety_net_network_plugins_deactivated', 'safety_net_network_gateway_plugins_deactivated' ) as $flag ) { delete_site_option( $flag ); } delete_blog_option( 1, 'safety_net_gateway_plugins_deactivated' ); delete_blog_option( 1, 'safety_net_gateway_plugins_pending' ); return sn_test_set_network( array( '${ NETWORK_DENIED.join( "', '" ) }' ), '${ OWNER_EMAIL }' );`, { label: 'simulating a network processed by an older version' } );
+		assertNetworkUntouched( network, 'Simulating an older version' );
+		assert.deepEqual( network.flags, {} );
+		await site.php( "$blog = wpmu_create_blog( DOMAIN_CURRENT_SITE, PATH_CURRENT_SITE . 'legacy/', 'Legacy', 1 ); if ( is_wp_error( $blog ) ) { throw new RuntimeException( $blog->get_error_message() ); } return $blog;", { label: 'creating a site' } );
+		await firstLoad( site, '/legacy/' );
+		const after = await site.php( 'return sn_test_network_state();' );
+		assertNetworkUntouched( after, 'The new site\'s first run, gateway pass included, on an already processed network' );
+		assert.deepEqual( after.flags, NETWORK_FLAGS, 'The network flags were not recorded for the already processed network' );
+	} );
+
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
 		site.assertCleanLog();
 	} );
