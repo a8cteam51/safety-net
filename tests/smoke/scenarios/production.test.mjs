@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { assertNoFlags, FILTER_PROBE, GITHUB_RELEASE_URL, githubRelease, robotsLines } from '../lib/checks.mjs';
+import { assertNoFlags, FILTER_PROBE, GITHUB_RELEASE_URL, githubRelease, releaseHeader, releaseHeaderUrl, robotsLines } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite } from '../lib/site.mjs';
 
@@ -87,7 +87,7 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 	} );
 
 	test( 'U1: a newer GitHub release is offered on the plugins screen', async () => {
-		site.setHttpMocks( { [ GITHUB_RELEASE_URL ]: githubRelease( 'v99.0.0' ) } );
+		site.setHttpMocks( { [ GITHUB_RELEASE_URL ]: githubRelease( 'v99.0.0' ), [ releaseHeaderUrl( 'v99.0.0' ) ]: releaseHeader( '8.1' ) } );
 		await site.php( "delete_transient( 'safety_net_github_latest_release' ); delete_site_transient( 'update_plugins' ); return true;" );
 		const page = await site.get( '/wp-admin/plugins.php', { jar: site.adminJar } );
 		assert.match( page.text, /There is a new version of Safety Net available/ );
@@ -97,6 +97,26 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 		assert.equal( offer.package, 'https://github.com/a8cteam51/safety-net/releases/download/v99.0.0/safety-net.zip' );
 		assert.equal( offer.url, 'https://github.com/a8cteam51/safety-net/releases/tag/v99.0.0' );
 		assert.equal( offer.id, 'https://github.com/a8cteam51/safety-net' );
+		assert.equal( offer.requires_php, '8.1', 'The offer must carry the release\'s Requires PHP, which core does not read from the package' );
+	} );
+
+	test( 'U9: a release that needs a newer PHP is offered as incompatible and never auto-updated', async () => {
+		site.setHttpMocks( { [ GITHUB_RELEASE_URL ]: githubRelease( 'v99.0.0' ), [ releaseHeaderUrl( 'v99.0.0' ) ]: releaseHeader( '99.0' ) } );
+		const s = await site.php( `delete_transient( 'safety_net_github_latest_release' ); ${ UPDATE_CHECK }` );
+		assert.equal( s.offer?.requires_php, '99.0' );
+		assert.equal( await site.php( "return is_php_version_compatible( '99.0' );" ), false );
+		const page = await site.get( '/wp-admin/plugins.php', { jar: site.adminJar } );
+		assert.match( page.text, /available, but it does not work with your version of PHP/ );
+		// The control item proves auto-updates would otherwise run here, so only the PHP requirement can block it.
+		const auto = await site.php( "require_once ABSPATH . 'wp-admin/includes/admin.php'; require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php'; add_filter( 'auto_update_plugin', '__return_true' ); $item = (object) get_site_transient( 'update_plugins' )->response['safety-net/safety-net.php']; $control = clone $item; $control->requires_php = ''; $updater = new WP_Automatic_Updater(); return array( 'incompatible' => $updater->should_update( 'plugin', $item, WP_PLUGIN_DIR ), 'control' => $updater->should_update( 'plugin', $control, WP_PLUGIN_DIR ) );" );
+		assert.deepEqual( auto, { incompatible: false, control: true }, 'The automatic updater must skip only the release that needs a newer PHP' );
+	} );
+
+	test( 'U10: when the release header cannot be read, the offer falls back to the installed Requires PHP', async () => {
+		site.setHttpMocks( { [ GITHUB_RELEASE_URL ]: githubRelease( 'v99.0.0' ), [ releaseHeaderUrl( 'v99.0.0' ) ]: { code: 404, body: '404: Not Found' } } );
+		const s = await site.php( `delete_transient( 'safety_net_github_latest_release' ); ${ UPDATE_CHECK }` );
+		assert.equal( s.offer?.new_version, '99.0.0' );
+		assert.equal( s.offer?.requires_php, '8.1' );
 	} );
 
 	test( 'U2: the current release is listed as up to date', async () => {

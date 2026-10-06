@@ -19,6 +19,12 @@ export const BAD_NONCE = { success: false, message: 'Security check failed. Refr
 
 export const GITHUB_RELEASE_URL = 'https://api.github.com/repos/a8cteam51/safety-net/releases/latest';
 
+export const releaseHeaderUrl = ( tag ) => `https://raw.githubusercontent.com/a8cteam51/safety-net/${ tag }/safety-net.php`;
+
+export function releaseHeader( requiresPhp ) {
+	return { body: `<?php\n/*\n * Plugin Name: Safety Net\n * Version: 99.0.0\n${ requiresPhp ? ` * Requires PHP: ${ requiresPhp }\n` : '' }*/\n` };
+}
+
 export function githubRelease( tag, { asset = true } = {} ) {
 	return {
 		body: {

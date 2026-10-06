@@ -36,11 +36,13 @@ function check_for_update( $update, array $plugin_data, string $plugin_file ) {
 	}
 
 	// Core compares versions itself; returning the current release too lists the plugin under no_update, which enables the auto-updates toggle.
+	// Core doesn't read Requires PHP from a package before updating, so the offer has to carry it.
 	return array(
-		'slug'    => 'safety-net',
-		'version' => $release['version'],
-		'url'     => $release['url'],
-		'package' => $release['package'],
+		'slug'         => 'safety-net',
+		'version'      => $release['version'],
+		'url'          => $release['url'],
+		'package'      => $release['package'],
+		'requires_php' => ! empty( $release['requires_php'] ) ? $release['requires_php'] : ( $plugin_data['RequiresPHP'] ?? '' ),
 	);
 }
 
@@ -66,9 +68,10 @@ function get_latest_release(): array {
 		foreach ( $body['assets'] ?? array() as $asset ) {
 			if ( 'safety-net.zip' === ( $asset['name'] ?? '' ) ) {
 				$release = array(
-					'version' => ltrim( $body['tag_name'], 'v' ),
-					'url'     => $body['html_url'],
-					'package' => $asset['browser_download_url'],
+					'version'      => ltrim( $body['tag_name'], 'v' ),
+					'url'          => $body['html_url'],
+					'package'      => $asset['browser_download_url'],
+					'requires_php' => get_release_requires_php( $body['tag_name'] ),
 				);
 				break;
 			}
@@ -78,4 +81,24 @@ function get_latest_release(): array {
 	set_transient( RELEASE_TRANSIENT, $release, empty( $release ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS );
 
 	return $release;
+}
+
+/**
+ * Returns the Requires PHP header of a release's main plugin file, or '' if it can't be read.
+ *
+ * @param string $tag The release tag.
+ *
+ * @return string
+ */
+function get_release_requires_php( string $tag ): string {
+	$response = wp_remote_get( 'https://raw.githubusercontent.com/a8cteam51/safety-net/' . rawurlencode( $tag ) . '/safety-net.php' );
+	if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+		return '';
+	}
+
+	if ( ! preg_match( '/^[ \t\/*#@]*Requires PHP:(.*)$/mi', wp_remote_retrieve_body( $response ), $match ) ) {
+		return '';
+	}
+
+	return trim( $match[1] );
 }
