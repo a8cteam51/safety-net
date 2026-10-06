@@ -5,18 +5,30 @@ on:
     types:
       - created
 
+permissions: {}
+
 jobs:
+  tests:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Zip folder
         run: git archive --prefix=${{ github.event.repository.name }}/ HEAD -o ${{ github.event.repository.name }}.zip
 
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: ${{ github.event.repository.name }}.zip

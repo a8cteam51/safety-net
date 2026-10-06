@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<ruleset name="Safety Net">
+	<description>WordPress Coding Standards for the code Safety Net ships.</description>
+
+	<file>safety-net.php</file>
+	<file>includes</file>
+	<file>assets</file>
+
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/tests/_*</exclude-pattern>
+
+	<arg name="basepath" value="."/>
+	<arg value="sp"/>
+
+	<rule ref="WordPress"/>
+</ruleset>

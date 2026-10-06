@@ -1,0 +1,193 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [trunk]
+  schedule:
+    # Weekly, so a WordPress or WooCommerce release that breaks Safety Net shows up without a code change.
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      wp-version:
+        description: 'WordPress version for the smoke tests: latest, beta, nightly, or a release such as 7.0'
+        type: string
+        default: latest
+  workflow_call:
+
+# Only pull requests share a group, so a trunk push or a release run is never cancelled by a newer one.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  php-syntax:
+    name: PHP syntax (${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.1', '8.3', '8.4', '8.5']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+
+      - name: Lint every PHP file
+        run: git ls-files -z '*.php' | xargs -0 -n1 -P4 php -l
+
+  archive:
+    name: Release archive contents
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          check-latest: true
+          package-manager-cache: false
+
+      - name: Build the zip the way release.yml does and check what ships
+        run: npm run test:archive
+
+      - name: Check that the smoke matrix runs every scenario group
+        run: |
+          groups=$(sed -n 's/^ *group: \[\(.*\)\]$/\1/p' .github/workflows/tests.yml | tr -d ' ')
+          if [ -z "$groups" ]; then
+            echo "::error::Could not read the group list from the smoke job's matrix."
+            exit 1
+          fi
+          node tests/smoke/run.mjs --check-groups "$groups"
+
+  smoke:
+    name: Smoke (PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, ${{ matrix.group }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.1', '8.3', '8.4', '8.5']
+        # Nightly only runs on the schedule, where a failure notifies maintainers without blocking a pull request or a release.
+        wp: ${{ fromJSON(github.event_name == 'schedule' && '["latest","nightly"]' || github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.wp-version) || '["latest"]') }}
+        group: [single-site, woocommerce, multisite]
+    env:
+      # Playground never re-downloads a zip that exists, so a cached trunk.zip would pin nightly runs to a stale trunk.
+      DOWNLOAD_CACHE_PATHS: |
+        ~/.wordpress-playground/*.zip
+        !~/.wordpress-playground/trunk.zip
+        ~/.cache/safety-net-tests
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # @php-wasm/node requires node >=24.18 and npm >=11.16.
+          node-version: '24'
+          check-latest: true
+          # Release runs skip caches so nothing restored from another ref can influence the release gate.
+          cache: ${{ github.event_name != 'release' && 'npm' || '' }}
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compute the download cache week
+        id: week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore WordPress, WooCommerce and WP-CLI downloads
+        id: downloads
+        if: github.event_name != 'release'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DOWNLOAD_CACHE_PATHS }}
+          key: playground-downloads-${{ runner.os }}-${{ matrix.wp }}-${{ matrix.group }}-${{ steps.week.outputs.week }}
+
+      - name: Unpack the tree release.yml would zip
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          git archive --prefix=safety-net/ HEAD | tar -x -C "$RUNNER_TEMP/dist"
+
+      - name: Run the smoke tests
+        timeout-minutes: 20
+        env:
+          SAFETY_NET_PATH: ${{ runner.temp }}/dist/safety-net
+          SN_TEST_PHP: ${{ matrix.php }}
+          SN_TEST_WP: ${{ matrix.wp }}
+          SN_TEST_GROUP: ${{ matrix.group }}
+          # Scheduled runs also try the newest WooCommerce; everything else uses the version pinned in tests/smoke/lib/config.mjs.
+          SN_TEST_WC_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '' }}
+          SN_TEST_OUTPUT: ${{ github.workspace }}/tests/_output
+        run: |
+          export SN_TEST_CACHE="$HOME/.cache/safety-net-tests"
+          npm test
+
+      # Every leg of a group downloads the same files, so one leg saves them and the others never race it for the key.
+      - name: Save WordPress, WooCommerce and WP-CLI downloads
+        if: github.event_name != 'release' && matrix.php == '8.3' && steps.downloads.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DOWNLOAD_CACHE_PATHS }}
+          key: playground-downloads-${{ runner.os }}-${{ matrix.wp }}-${{ matrix.group }}-${{ steps.week.outputs.week }}
+
+      - name: Upload test output
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smoke-php${{ matrix.php }}-wp-${{ matrix.wp }}-${{ matrix.group }}
+          path: tests/_output/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # One stable check name for branch protection, whatever the matrix becomes.
+  result:
+    name: Tests result
+    if: always()
+    needs: [php-syntax, archive, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Require every job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "::error::A required test job finished with '$result'."
+              exit 1
+            fi
+          done
