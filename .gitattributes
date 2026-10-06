@@ -7,3 +7,10 @@
 /README.md export-ignore
 /CLAUDE.md export-ignore
 /AGENTS.md export-ignore
+/phpcs.xml.dist export-ignore
+
+# Test suite
+/tests export-ignore
+/package.json export-ignore
+/package-lock.json export-ignore
+/node_modules export-ignore

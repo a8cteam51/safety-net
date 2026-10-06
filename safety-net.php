@@ -3,7 +3,8 @@
  * Plugin Name: Safety Net
  * Plugin URI: https://specialprojects.automattic.com/tools/safety-net/
  * Description: Secures sensitive data on development, staging, and local sites by deleting user data, scrubbing API keys, deactivating risky plugins, and blocking emails.
- * Version: 1.6.1
+ * Version: 1.7.0
+ * Requires PHP: 8.1
  * Author: WordPress.com Special Projects
  * Author URI: https://specialprojects.automattic.com
  * Text Domain: safety-net

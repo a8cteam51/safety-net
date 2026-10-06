@@ -3,3 +3,12 @@ CLAUDE.md
 AGENTS.md
 .agents/
 .cursor/
+
+# Test suite — keep in repo only, do not deploy
+tests/
+package.json
+package-lock.json
+node_modules/
+
+# Dev tooling — keep in repo only, do not deploy
+phpcs.xml.dist

@@ -35,7 +35,6 @@ define( 'SAFETY_NET_SKIP_GIVEWP', true );
 When this constant is set to `true`, all GiveWP-specific data will be excluded from the deletion process. This includes donor records, donation posts, subscription data, and related metadata.
 
 ## Planned Features
-- Multi-site (WordPress network) compatibility
 - Do you have a suggestion for the next great feature to add? Please create an issue or submit a PR!
 
 ## How to use?
@@ -51,6 +50,8 @@ Activating the plugin on a non-production site will:
 6. Discourage search engines.
 
 *Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If you have access to WP-CLI, you can SSH in and run `wp config set WP_ENVIRONMENT_TYPE staging --type=constant`
+
+On a multisite network, each site runs these steps on its own first load. Network-activated plugins and the network admin email are handled once per network, by the first site that runs (for payment gateway plugins, the first one with WooCommerce active), so later sites don't undo what a super admin changes afterwards. On the Tools > Safety Net page, only super admins re-apply those network-wide changes; a site administrator's buttons only change their own site. `wp safety-net scrub-options` and `wp safety-net deactivate-plugins` always apply them.
 
 ## How to add plugins or options to the denylists
 These denylists are `txt` files that live in the `assets/data/` folder. Each plugin or option is on its own line. 
@@ -78,6 +79,19 @@ add_filter( 'safety_net_denylisted_plugins', function( $denylist ) {
     return $denylist;
 } );
 ```
+
+## Running the tests
+The smoke tests boot real WordPress sites in [WordPress Playground](https://wordpress.github.io/wordpress-playground/), so you don't need PHP, MySQL or Docker. You need Node.js 24.18 or later (older 24.x releases work, with `EBADENGINE` warnings from `npm ci`), `unzip` and `git` on your `PATH`, and network access on every run:
+
+```bash
+npm ci
+npm test                       # every scenario: single site, mu-plugin, production, WooCommerce, multisite, WP-CLI
+npm test -- woocommerce        # one group (single-site, woocommerce or multisite)
+npm test -- woocommerce-hpos   # one scenario; --list shows them all
+SN_TEST_PHP=8.1 npm test       # another PHP version
+```
+
+They check that no request fails with a PHP fatal error or a 500, and that Safety Net does what this README says on each kind of site. Logs go to `tests/_output/`; downloads are cached in `~/.cache/safety-net-tests`. See the Tests section of `AGENTS.md` for the details. Releases are only built once the same tests pass, so the release zip appears about 10 minutes after a release is created.
 
 ## Troubleshooting
 
