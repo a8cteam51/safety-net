@@ -153,6 +153,8 @@ function scrub_options() {
 		}
 	}
 
+	scrub_mailpoet_settings();
+
 	// Disable all Woo Webhooks
 	if ( class_exists( 'WooCommerce' ) ) {
 		$data_store = WC_Data_Store::load( 'webhook' );
@@ -185,6 +187,78 @@ function scrub_options() {
 
 	// Clear object cache since the updates happen directly in the database.
 	wp_cache_flush();
+}
+
+/**
+ * Scrubs MailPoet's service keys, mail credentials and email addresses, including each email's sender, keeping each setting's structure.
+ *
+ * @return void
+ */
+function scrub_mailpoet_settings() {
+	global $wpdb;
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct access bypasses MailPoet; the table name comes from $wpdb.
+	$table_name = $wpdb->prefix . 'mailpoet_settings';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) !== $table_name ) {
+		return;
+	}
+
+	$keys_to_scrub = array(
+		// MailPoet trusts a stored "valid" key state without rechecking, so states go back to a fresh install's null.
+		'mta'                           => array(
+			'mailpoet_api_key'       => '',
+			'mailpoet_api_key_state' => null,
+			'login'                  => '',
+			'password'               => '',
+			'api_key'                => '',
+			'access_key'             => '',
+			'secret_key'             => '',
+		),
+		'premium'                       => array(
+			'premium_key'       => '',
+			'premium_key_state' => null,
+		),
+		'captcha'                       => array(
+			'recaptcha_secret_token'           => '',
+			'recaptcha_invisible_secret_token' => '',
+			'turnstile_secret_token'           => '',
+		),
+		're_captcha'                    => array( 'secret_token' => '' ),
+		// MailPoet sends without wp_mail(), so without these it cannot send as the live site or notify its owner.
+		'sender'                        => array( 'address' => '' ),
+		'reply_to'                      => array( 'address' => '' ),
+		'bounce'                        => array( 'address' => '' ),
+		'stats_notifications'           => array( 'address' => '' ),
+		'subscriber_email_notification' => array( 'address' => '' ),
+		// The last sending error, whose message can name a subscriber.
+		'mta_log'                       => array( 'error' => null ),
+	);
+
+	foreach ( $keys_to_scrub as $name => $keys ) {
+		$setting = maybe_unserialize( $wpdb->get_var( $wpdb->prepare( "SELECT value FROM {$table_name} WHERE name = %s", $name ) ) );
+		if ( ! is_array( $setting ) ) {
+			continue;
+		}
+
+		$scrubbed = array_replace( $setting, array_intersect_key( $keys, $setting ) );
+		// Without their secret keys, reCAPTCHA and Turnstile would reject every signup, so forms use MailPoet's own captcha.
+		if ( 'captcha' === $name && in_array( $setting['type'] ?? null, array( 'recaptcha', 'recaptcha-invisible', 'turnstile' ), true ) ) {
+			$scrubbed['type'] = 'built-in';
+		}
+		if ( $scrubbed !== $setting ) {
+			$wpdb->update( $table_name, array( 'value' => maybe_serialize( $scrubbed ) ), array( 'name' => $name ) );
+		}
+	}
+
+	// The Sending Service's last check of the scrubbed sender addresses; MailPoet clears it with null.
+	$wpdb->update( $table_name, array( 'value' => null ), array( 'name' => 'authorized_emails_addresses_check' ) );
+
+	// Each email has its own sender, which MailPoet uses instead of the default one.
+	$table_name = $wpdb->prefix . 'mailpoet_newsletters';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+		$wpdb->query( "UPDATE {$table_name} SET sender_address = '', reply_to_address = '' WHERE sender_address != '' OR reply_to_address != ''" );
+	}
+	// phpcs:enable
 }
 
 /**

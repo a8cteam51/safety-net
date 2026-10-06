@@ -63,6 +63,7 @@ function deactivate_plugins() {
 		$key = array_search( $installed_plugin, $current );
 		if ( false !== $key ) {
 			array_splice( $current, $key, 1 );
+			keep_in_jetpack_autoloader( $installed_plugin );
 		}
 		update_option( 'active_plugins', $current );
 	}
@@ -121,8 +122,48 @@ function deactivate_network_plugins( array $plugins, string $automatic_hook, str
 	$remaining       = array_diff_key( $network_plugins, array_flip( $plugins ) );
 
 	if ( count( $remaining ) !== count( $network_plugins ) ) {
+		array_map( __NAMESPACE__ . '\keep_in_jetpack_autoloader', array_keys( array_diff_key( $network_plugins, $remaining ) ) );
 		update_site_option( 'active_sitewide_plugins', $remaining );
 	}
 
 	update_site_option( $flag, true );
+}
+
+/**
+ * Keeps a plugin deactivated while plugins are loading in the Jetpack Autoloader's class map until the request ends.
+ *
+ * @param string $plugin Plugin basename.
+ *
+ * @return void
+ */
+function keep_in_jetpack_autoloader( string $plugin ) {
+	global $jetpack_autoloader_activating_plugins_paths;
+
+	if ( did_action( 'plugins_loaded' ) || '.' === dirname( $plugin ) ) {
+		return;
+	}
+
+	// The same path the autoloader derives from active_plugins, so its list does not change.
+	$file      = wp_normalize_path( WP_PLUGIN_DIR . '/' . $plugin );
+	$real_path = realpath( $file );
+	if ( false !== $real_path && $real_path !== $file ) {
+		$file = wp_normalize_path( $real_path );
+	}
+
+	// A later plugin's autoloader would rebuild its class map without a plugin that is already running; one not loaded yet never runs.
+	if ( ! in_array( $file, array_map( 'wp_normalize_path', get_included_files() ), true ) ) {
+		return;
+	}
+
+	$directory = dirname( $file );
+	if ( ! is_file( $directory . '/vendor/composer/jetpack_autoload_classmap.php' ) ) {
+		return;
+	}
+
+	if ( ! is_array( $jetpack_autoloader_activating_plugins_paths ) ) {
+		$jetpack_autoloader_activating_plugins_paths = array(); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	}
+	if ( ! in_array( $directory, $jetpack_autoloader_activating_plugins_paths, true ) ) {
+		$jetpack_autoloader_activating_plugins_paths[] = $directory; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	}
 }

@@ -9,6 +9,7 @@ describe( 'multisite-subsite-first: a subsite is the first site loaded after ena
 	let site;
 	let seed;
 	let network;
+	let mailpoet;
 
 	before( async () => {
 		site = await bootSite( { name: 'multisite-subsite-first', env: 'staging', mode: 'mu', multisite: true } );
@@ -17,6 +18,9 @@ describe( 'multisite-subsite-first: a subsite is the first site loaded after ena
 		assert.deepEqual( Object.entries( buddypress ).filter( ( [ , count ] ) => count !== 1 ), [], 'Seeding the BuddyPress tables failed' );
 		network = await site.php( 'return sn_test_network_state();', { label: 'reading the network state' } );
 		assert.ok( network.admin_email && network.admin_email !== 'safetynet@scrubbedthis.option', `The network admin email was not seeded: ${ network.admin_email }` );
+		mailpoet = await site.php( `return sn_test_mailpoet_tables_on_sites( array( 'main' => 1, 'shop' => ${ seed.sites.shop } ), true );`, { label: 'creating MailPoet tables on the main site and /shop/' } );
+		const seededTables = ( key ) => ( { subscribers: 1, statistics_opens: 1, forms: 1, mta: { method: 'MailPoet', mailpoet_api_key: `sn-key-${ key }` } } );
+		assert.deepEqual( mailpoet, { main: seededTables( 'main' ), shop: seededTables( 'shop' ) }, 'Creating the MailPoet tables failed' );
 		await site.enableSafetyNet();
 	} );
 
@@ -43,6 +47,12 @@ describe( 'multisite-subsite-first: a subsite is the first site loaded after ena
 	test( 'K12: a subsite\'s first run empties the BuddyPress tables at the network prefix', async () => {
 		const counts = await site.php( 'return sn_test_network_buddypress_counts();', { path: '/shop/' } );
 		assert.deepEqual( Object.entries( counts ).filter( ( [ , count ] ) => count !== 0 ), [] );
+	} );
+
+	test( 'K13: MailPoet\'s tables are per site, so a subsite\'s run clears its own and leaves the main site\'s alone', async () => {
+		const s = await site.php( `return sn_test_mailpoet_tables_on_sites( array( 'main' => 1, 'shop' => ${ seed.sites.shop } ) );`, { path: '/shop/' } );
+		assert.deepEqual( s.shop, { subscribers: 0, statistics_opens: 0, forms: 1, mta: { method: 'MailPoet', mailpoet_api_key: '' } } );
+		assert.deepEqual( s.main, mailpoet.main );
 	} );
 
 	test( 'M3: without the main admin among super admins, posts on an admin-less site go to a remaining super admin', async () => {

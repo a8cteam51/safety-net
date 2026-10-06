@@ -19,7 +19,7 @@ This public plugin is provided as an example of how such a plugin could be imple
 - **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also deactivates any plugin that registers a WooCommerce payment gateway (deactivates the actual plugin, not from the checkout settings). WooCommerce's built-in gateways and a few offline ones (such as Pre-Orders' "Pay Later" and Bookings' availability check) are left alone. To exclude a plugin from this step, use the `safety_net_payment_gateway_plugins` filter; plugins that also match the denylist (Stripe, PayPal, etc.) additionally need `safety_net_denylisted_plugins`.
-- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
+- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions, and the personal data some plugins keep in their own tables (see [Explanations](#explanations)).
 
 #### Advanced features
 - **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
@@ -125,6 +125,18 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 
 * Scrubs the API access settings.
 * Disables the plugin.
+
+### MailPoet
+
+Safety Net keeps MailPoet's configuration and deletes its people, so a staging site keeps its forms and can be connected to its own accounts.
+
+* Deactivates MailPoet and MailPoet Premium (they are on the plugin denylist).
+* Deletes subscribers and everything recorded about them: list and tag memberships, custom field values, sending, open, click, bounce, unsubscribe, form and WooCommerce purchase statistics, sending queues and tasks, automation runs and their scheduled steps, the MailPoet log, the last sending error, and subscriber and statistics export files in `uploads/mailpoet`.
+* Scrubs the MailPoet Sending Service and Premium keys and their cached key checks, the SMTP, Amazon SES and SendGrid credentials, and the reCAPTCHA and Turnstile secret keys. Forms that used reCAPTCHA or Turnstile switch to MailPoet's built-in captcha.
+* Blanks the default sender, reply-to, bounce and notification email addresses, and each email's own sender and reply-to addresses. Emails without a sender use the default one, which a reactivated MailPoet fills in from the scrubbed admin email. Saving an automation copies the sender stored in its email step back to that email.
+* Keeps forms, lists (now empty), segments, custom fields, tags, emails, templates, automations and the other settings. Scheduled and sending newsletters become drafts.
+
+MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email blocking does not cover a reactivated MailPoet.
 
 ### PMPro
 
