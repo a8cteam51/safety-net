@@ -6,8 +6,8 @@ This document helps coding agents work autonomously on the Safety Net WordPress 
 
 Safety Net is a WordPress plugin by WordPress.com Special Projects that secures sensitive data on development, staging, and local sites. It:
 
-- Deletes non-admin users, WooCommerce orders, subscriptions, and related data
-- Scrubs denylisted options (API keys, secrets)
+- Deletes non-admin users, WooCommerce orders, subscriptions, and related data, plus the personal data some plugins keep in their own tables (e.g. MailPoet subscribers and their activity)
+- Scrubs denylisted options (API keys, secrets) and MailPoet's service keys, mail credentials and sender addresses
 - Deactivates denylisted plugins and WooCommerce payment gateways
 - Blocks outgoing emails
 - Pauses WooCommerce Subscriptions renewal actions (toggleable)
@@ -100,8 +100,8 @@ Use `phpcs:ignore` comments sparingly; they exist in the codebase for cases wher
 Smoke tests boot real WordPress sites in [WordPress Playground](https://wordpress.github.io/wordpress-playground/) (PHP compiled to WebAssembly, SQLite database) and drive them over HTTP, in-process PHP and WP-CLI. PHP, MySQL and Docker are not needed. They need:
 
 - Node.js 24.18 or later (`@php-wasm/node` declares it; older 24.x releases work but `npm ci` prints `EBADENGINE` warnings).
-- `unzip` and `git` on `PATH` (unpacking WooCommerce, and building the release zip in `npm run test:archive`).
-- Network access on every run, not just the first: Playground looks up the WordPress version on api.wordpress.org at every boot that installs WordPress, even when the zip is cached, and `SN_TEST_WC_VERSION=latest` is looked up too. Downloads are retried with backoff.
+- `unzip` and `git` on `PATH` (unpacking WooCommerce and MailPoet, and building the release zip in `npm run test:archive`).
+- Network access on every run, not just the first: Playground looks up the WordPress version on api.wordpress.org at every boot that installs WordPress, even when the zip is cached, and `SN_TEST_WC_VERSION=latest` or `SN_TEST_MAILPOET_VERSION=latest` is looked up too. Downloads are retried with backoff.
 
 ```bash
 npm ci                                  # once: installs the pinned @wp-playground packages
@@ -116,7 +116,7 @@ npm run test:archive                    # check what the release zip would conta
 
 `package.json` pins `@wp-playground/blueprints`, whose `enableMultisite` step the multisite boots call directly, to the same version as `@wp-playground/cli`. Update both together: `npm test` stops with an error when the installed versions differ, since a mismatch breaks every boot.
 
-More settings: `SN_TEST_WP` (WordPress version, default `latest`), `SN_TEST_WC_VERSION` (default: the version pinned in `tests/smoke/lib/config.mjs`, or `latest`), `SN_TEST_CONCURRENCY`, `SN_TEST_OUTPUT` (default `tests/_output`), `SN_TEST_CACHE` (WooCommerce and WP-CLI downloads; default `~/.cache/safety-net-tests`, or `$XDG_CACHE_HOME/safety-net-tests`, or the system temp directory; kept outside the repo so nothing downloaded sits next to the plugin), `SN_TEST_BOOT_TIMEOUT` (milliseconds per Playground boot, default 240000), `SN_TEST_GROUP` / `SN_TEST_ONLY` (same as passing a group or scenario name), `SN_TEST_WORKERS` (PHP workers per site, default 2), `SN_TEST_PAGE_CONCURRENCY` (how many independent pages a test loads at once; default `SN_TEST_WORKERS` on Linux and 1 elsewhere, because on macOS concurrent PHP workers overwrite each other's lines in `debug.log` and `probe.jsonl`) and `SN_TEST_VERBOSE=1`.
+More settings: `SN_TEST_WP` (WordPress version, default `latest`), `SN_TEST_WC_VERSION` and `SN_TEST_MAILPOET_VERSION` (default: the versions pinned in `tests/smoke/lib/config.mjs`, or `latest`), `SN_TEST_CONCURRENCY`, `SN_TEST_OUTPUT` (default `tests/_output`), `SN_TEST_CACHE` (WooCommerce, MailPoet and WP-CLI downloads; default `~/.cache/safety-net-tests`, or `$XDG_CACHE_HOME/safety-net-tests`, or the system temp directory; kept outside the repo so nothing downloaded sits next to the plugin), `SN_TEST_BOOT_TIMEOUT` (milliseconds per Playground boot, default 240000), `SN_TEST_GROUP` / `SN_TEST_ONLY` (same as passing a group or scenario name), `SN_TEST_WORKERS` (PHP workers per site, default 2), `SN_TEST_PAGE_CONCURRENCY` (how many independent pages a test loads at once; default `SN_TEST_WORKERS` on Linux and 1 elsewhere, because on macOS concurrent PHP workers overwrite each other's lines in `debug.log` and `probe.jsonl`) and `SN_TEST_VERBOSE=1`.
 
 Layout:
 
@@ -138,7 +138,7 @@ The reporter prints one line per test (`✔` passed, `✖` failed, `-` known iss
 - `_woocommerce-site/`: replaces the warm-up when two or more selected scenarios need `woocommerce-site`. It installs WordPress, activates WooCommerce and checks that WooCommerce installed cleanly, without Safety Net and without a wp-admin request. Each of those scenarios then boots from its own copy of that site, so it skips installing WordPress and activating WooCommerce but still starts where Safety Net never ran. The site and its copies live in a temporary directory outside the output (each is over 100 MB) that is deleted when the run ends, also when it is interrupted with Ctrl-C, `SIGTERM` or `SIGHUP` (closing the terminal); a `SIGKILL` or a crash can still leave an `sn-smoke-*` directory in the system temp directory. A scenario run on its own, or with no other such scenario, installs and activates as usual, and so does every scenario when building the site fails (the run prints why).
 - `summary.json`: the counts, failures and known issues of the last run (also used to fail CI on fixed known issues).
 
-CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on PHP 8.1, 8.3, 8.4 and 8.5, the release-zip check plus a check that the smoke matrix runs every group in `scenarios.mjs` (add a new group to the matrix, or that check fails), and the smoke tests on PHP 8.1, 8.3, 8.4 and 8.5 for each group, against the tree `release.yml` would zip. Pull requests, trunk and releases always use the latest WordPress. The weekly scheduled run adds WordPress nightly and the latest WooCommerce; a failure there fails that run, which notifies maintainers, but never blocks a pull request or a release. Every leg restores the weekly download cache; only the PHP 8.3 leg of each group saves it. Make the "Tests result" check required in branch protection.
+CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on PHP 8.1, 8.3, 8.4 and 8.5, the release-zip check plus a check that the smoke matrix runs every group in `scenarios.mjs` (add a new group to the matrix, or that check fails), and the smoke tests on PHP 8.1, 8.3, 8.4 and 8.5 for each group, against the tree `release.yml` would zip. Pull requests, trunk and releases always use the latest WordPress. The weekly scheduled run adds WordPress nightly and the latest WooCommerce and MailPoet; a failure there fails that run, which notifies maintainers, but never blocks a pull request or a release. Every leg restores the weekly download cache; only the PHP 8.3 leg of each group saves it. Make the "Tests result" check required in branch protection.
 
 ### Release
 
@@ -247,6 +247,12 @@ Constant:
 
 7. **Duplicate plugin**  
    If activation fails, check for another copy in `mu-plugins`; the plugin exits when `SAFETY_NET_PATH` is already defined.
+
+8. **MailPoet settings**  
+   MailPoet keeps its settings in `{prefix}mailpoet_settings`, one serialized array per top-level key, not in `wp_options`, so `option_scrublist.txt` and `safety_net_options_to_clear` don't reach them. `scrub_mailpoet_settings()` only blanks keys that exist inside those arrays: never replace a whole row with a string, because MailPoet writes into rows such as `reply_to` as arrays and fatals on PHP 8. The automatic run can't rely on MailPoet's classes (MailPoet is usually deactivated, and in mu-plugin mode not loaded yet), so both MailPoet passes are plain SQL.
+
+9. **Deactivating plugins mid-load**  
+   The automatic run deactivates plugins while WordPress is still including them, so plugins earlier in the list (such as MailPoet) are already running. Plugins that use the Jetpack Autoloader (MailPoet, WooCommerce, Jetpack) share one class map, which a later plugin rebuilds from `active_plugins` and the `jetpack_autoloader_plugin_paths` transient. `keep_in_jetpack_autoloader()` adds each deactivated plugin to the autoloader's list for the rest of the request; without it the deactivated plugin fatals (`woocommerce-mailpoet` scenario).
 
 ---
 

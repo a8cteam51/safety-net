@@ -12,7 +12,7 @@ function env( name, fallback ) {
 	return value === undefined || value === '' ? fallback : value;
 }
 
-// Outside the repo, so tools that scan the repo, like phpcs, never pick up the downloaded WooCommerce.
+// Outside the repo, so tools that scan the repo, like phpcs, never pick up the downloaded plugins.
 function defaultCacheDir() {
 	try {
 		const home = env( 'XDG_CACHE_HOME', path.join( os.homedir(), '.cache' ) );
@@ -28,6 +28,7 @@ export const config = {
 	php: env( 'SN_TEST_PHP', '8.3' ),
 	wp: env( 'SN_TEST_WP', 'latest' ),
 	wooVersion: env( 'SN_TEST_WC_VERSION', '11.1.2' ),
+	mailpoetVersion: env( 'SN_TEST_MAILPOET_VERSION', '5.41.0' ),
 	outputDir: path.resolve( env( 'SN_TEST_OUTPUT', path.join( REPO_ROOT, 'tests/_output' ) ) ),
 	cacheDir: path.resolve( env( 'SN_TEST_CACHE', defaultCacheDir() ) ),
 	workers: Number( env( 'SN_TEST_WORKERS', '2' ) ),

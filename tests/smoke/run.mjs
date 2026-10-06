@@ -13,7 +13,7 @@ const usage = `Usage: npm test -- [scenario or group ...] [--group=<group>[,...]
        node tests/smoke/run.mjs --check-groups=<group>[,...]   (fails unless the list matches the groups in scenarios.mjs)
 
 Groups: ${ GROUPS.join( ', ' ) }
-Environment: SAFETY_NET_PATH (plugin under test, default: repo root), SN_TEST_PHP, SN_TEST_WP, SN_TEST_WC_VERSION,
+Environment: SAFETY_NET_PATH (plugin under test, default: repo root), SN_TEST_PHP, SN_TEST_WP, SN_TEST_WC_VERSION, SN_TEST_MAILPOET_VERSION,
              SN_TEST_GROUP, SN_TEST_ONLY, SN_TEST_CONCURRENCY, SN_TEST_PAGE_CONCURRENCY, SN_TEST_OUTPUT, SN_TEST_CACHE, SN_TEST_BOOT_TIMEOUT,
              SN_TEST_VERBOSE=1`;
 
@@ -92,7 +92,7 @@ if ( playground.blueprints !== playground.cli ) {
 }
 
 // Loaded only now, so --check-groups and --list work without npm ci.
-const { ensureWooCommerce, ensureWpCli } = await import( './lib/downloads.mjs' );
+const { ensureMailPoet, ensureWooCommerce, ensureWpCli } = await import( './lib/downloads.mjs' );
 const { bootSite, buildWooCommerceSite } = await import( './lib/site.mjs' );
 
 assertPluginDir();
@@ -106,6 +106,11 @@ if ( needs.has( 'woocommerce' ) ) {
 	wooVersion = ( await ensureWooCommerce() ).version;
 	config.wooVersion = wooVersion;
 	console.log( `  WooCommerce ${ wooVersion } ready` );
+}
+let mailpoetVersion = config.mailpoetVersion;
+if ( needs.has( 'mailpoet' ) ) {
+	mailpoetVersion = ( await ensureMailPoet() ).version;
+	console.log( `  MailPoet ${ mailpoetVersion } ready` );
 }
 if ( needs.has( 'wp-cli' ) ) {
 	await ensureWpCli();
@@ -172,6 +177,7 @@ Object.assign( process.env, {
 	SN_TEST_PHP: config.php,
 	SN_TEST_WP: config.wp,
 	SN_TEST_WC_VERSION: wooVersion,
+	SN_TEST_MAILPOET_VERSION: mailpoetVersion,
 	SN_TEST_OUTPUT: config.outputDir,
 	SN_TEST_CACHE: config.cacheDir,
 	SN_TEST_WOO_SITE: wooSite,

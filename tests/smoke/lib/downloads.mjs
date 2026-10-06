@@ -53,26 +53,26 @@ async function download( url, destination ) {
 	renameSync( partial, destination );
 }
 
-async function resolveWooVersion( version ) {
+async function resolvePluginVersion( slug, version ) {
 	if ( version !== 'latest' ) {
 		return version;
 	}
-	const res = await fetchWithRetry( 'https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request[slug]=woocommerce&request[fields][sections]=0', { timeoutMs: 60_000, what: 'Resolving the latest WooCommerce version' } );
+	const res = await fetchWithRetry( `https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request[slug]=${ slug }&request[fields][sections]=0`, { timeoutMs: 60_000, what: `Resolving the latest ${ slug } version` } );
 	return ( await res.json() ).version;
 }
 
-export async function ensureWooCommerce( version = config.wooVersion ) {
-	const resolved = await resolveWooVersion( version );
-	const root = path.join( config.cacheDir, 'woocommerce' );
+async function ensureWordPressOrgPlugin( slug, mainFile, version ) {
+	const resolved = await resolvePluginVersion( slug, version );
+	const root = path.join( config.cacheDir, slug );
 	const dir = path.join( root, resolved );
-	const pluginDir = path.join( dir, 'woocommerce' );
-	if ( existsSync( path.join( pluginDir, 'woocommerce.php' ) ) ) {
+	const pluginDir = path.join( dir, slug );
+	if ( existsSync( path.join( pluginDir, mainFile ) ) ) {
 		return { version: resolved, pluginDir };
 	}
 	mkdirSync( root, { recursive: true } );
-	const zip = path.join( root, `woocommerce.${ resolved }.zip` );
+	const zip = path.join( root, `${ slug }.${ resolved }.zip` );
 	if ( ! existsSync( zip ) ) {
-		await download( `https://downloads.wordpress.org/plugin/woocommerce.${ resolved }.zip`, zip );
+		await download( `https://downloads.wordpress.org/plugin/${ slug }.${ resolved }.zip`, zip );
 	}
 	const staging = `${ dir }.${ process.pid }.tmp`;
 	rmSync( staging, { recursive: true, force: true } );
@@ -86,12 +86,16 @@ export async function ensureWooCommerce( version = config.wooVersion ) {
 	} catch ( error ) {
 		// Another scenario unpacked the same version first.
 		rmSync( staging, { recursive: true, force: true } );
-		if ( ! existsSync( path.join( pluginDir, 'woocommerce.php' ) ) ) {
+		if ( ! existsSync( path.join( pluginDir, mainFile ) ) ) {
 			throw error;
 		}
 	}
 	return { version: resolved, pluginDir };
 }
+
+export const ensureWooCommerce = ( version = config.wooVersion ) => ensureWordPressOrgPlugin( 'woocommerce', 'woocommerce.php', version );
+
+export const ensureMailPoet = ( version = config.mailpoetVersion ) => ensureWordPressOrgPlugin( 'mailpoet', 'mailpoet.php', version );
 
 // The same phar Playground's own wp-cli blueprint step downloads.
 export async function ensureWpCli() {

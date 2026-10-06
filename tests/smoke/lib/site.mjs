@@ -6,7 +6,7 @@ import { runCLI } from '@wp-playground/cli';
 import { SCENARIOS } from '../scenarios.mjs';
 import { assertPluginDir, config, FIXTURES_DIR } from './config.mjs';
 import { CRITICAL_ERROR_PAGE, findLogProblems, LOG_CANARY, readLogEntries } from './debug-log.mjs';
-import { ensureWooCommerce, ensureWpCli } from './downloads.mjs';
+import { ensureMailPoet, ensureWooCommerce, ensureWpCli } from './downloads.mjs';
 import { CookieJar, findFatalSigns, freePort, request } from './http.mjs';
 
 export const MULTISITE_URL = 'http://sn-multisite.test';
@@ -213,6 +213,7 @@ $_SERVER['SN_TEST_PHP_RUN'] = '1';
 ${ load ? "require '/wordpress/wp-load.php';" : '' }
 require_once '/fixtures/php/helpers.php';
 require_once '/fixtures/php/seed.php';
+require_once '/fixtures/php/mailpoet.php';
 $sn_test_result = ( function () {
 ${ body }
 } )();
@@ -288,7 +289,7 @@ echo "\\n@@SN_TEST_RESULT@@" . json_encode( $sn_test_result ) . "@@SN_TEST_END@@
 const setSiteUrl = ( url ) => `global $wpdb; foreach ( array( 'siteurl', 'home' ) as $option ) { $wpdb->update( $wpdb->options, array( 'option_value' => ${ phpString( url ) } ), array( 'option_name' => $option ) ); }`;
 
 // Safety Net is copied in but not enabled, so each scenario decides which request is the first load.
-export async function bootSite( { name, env = 'staging', mode = 'plugin', multisite = false, woocommerce = false, wpCli = false, beforeInstall = false, constants = {}, buildIn = null } ) {
+export async function bootSite( { name, env = 'staging', mode = 'plugin', multisite = false, woocommerce = false, mailpoet = false, wpCli = false, beforeInstall = false, constants = {}, buildIn = null } ) {
 	assertPluginDir();
 	assert.ok( MODES.includes( mode ), `Unknown mode ${ mode }` );
 	assert.ok( ! beforeInstall || mode === 'mu', 'beforeInstall only supports mu mode' );
@@ -309,6 +310,11 @@ export async function bootSite( { name, env = 'staging', mode = 'plugin', multis
 	if ( woocommerce ) {
 		woo = await ensureWooCommerce();
 		mounts.push( { hostPath: woo.pluginDir, vfsPath: '/wordpress/wp-content/plugins/woocommerce' } );
+	}
+	let mailPoet = null;
+	if ( mailpoet ) {
+		mailPoet = await ensureMailPoet();
+		mounts.push( { hostPath: mailPoet.pluginDir, vfsPath: '/wordpress/wp-content/plugins/mailpoet' } );
 	}
 	if ( wpCli ) {
 		mounts.push( { hostPath: await ensureWpCli(), vfsPath: '/sn-wp-cli' } );
@@ -420,7 +426,7 @@ export async function bootSite( { name, env = 'staging', mode = 'plugin', multis
 		if ( /^\d+\.\d+(\.\d+)?$/.test( config.wp ) ) {
 			assert.ok( site.versions.wp === config.wp || site.versions.wp.startsWith( `${ config.wp }.` ), `Requested WordPress ${ config.wp } but the site runs ${ site.versions.wp } (${ site.where() })` );
 		}
-		writeFileSync( path.join( outDir, 'environment.json' ), JSON.stringify( { ...site.versions, woocommerce: site.woocommerce, env, mode, multisite, plugin: buildIn ? null : config.pluginDir, fromWooCommerceSite: fromWooSite, bootMs: site.bootMs }, null, 2 ) );
+		writeFileSync( path.join( outDir, 'environment.json' ), JSON.stringify( { ...site.versions, woocommerce: site.woocommerce, mailpoet: mailPoet?.version ?? null, env, mode, multisite, plugin: buildIn ? null : config.pluginDir, fromWooCommerceSite: fromWooSite, bootMs: site.bootMs }, null, 2 ) );
 
 		const installTo = mode === 'mu' ? 'WPMU_PLUGIN_DIR' : 'WP_PLUGIN_DIR';
 		await ( beforeInstall ? Promise.resolve() : site.php(
@@ -432,6 +438,17 @@ ${ fromWooSite ? `${ setSiteUrl( site.siteUrl ) } if ( ! function_exists( 'WC' )
 return true;`,
 			{ label: buildIn ? 'installing the test helper' : 'installing Safety Net and the test helper' }
 		) );
+
+		if ( mailpoet && mailpoet !== 'inactive' ) {
+			await site.php(
+				`
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+$result = activate_plugin( 'mailpoet/mailpoet.php' );
+if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); }
+return true;`,
+				{ label: 'activating MailPoet' }
+			);
+		}
 
 		if ( woocommerce && woocommerce !== 'inactive' && ! fromWooSite ) {
 			await site.php(

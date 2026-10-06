@@ -127,13 +127,14 @@ jobs:
         id: week
         run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
 
-      - name: Restore WordPress, WooCommerce and WP-CLI downloads
+      # The config hash starts a new cache when a pinned plugin version changes, instead of downloading it on every run until next week.
+      - name: Restore WordPress, WooCommerce, MailPoet and WP-CLI downloads
         id: downloads
         if: github.event_name != 'release'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DOWNLOAD_CACHE_PATHS }}
-          key: playground-downloads-${{ runner.os }}-${{ matrix.wp }}-${{ matrix.group }}-${{ steps.week.outputs.week }}
+          key: playground-downloads-${{ runner.os }}-${{ matrix.wp }}-${{ matrix.group }}-${{ steps.week.outputs.week }}-${{ hashFiles('tests/smoke/lib/config.mjs') }}
 
       - name: Unpack the tree release.yml would zip
         run: |
@@ -147,20 +148,21 @@ jobs:
           SN_TEST_PHP: ${{ matrix.php }}
           SN_TEST_WP: ${{ matrix.wp }}
           SN_TEST_GROUP: ${{ matrix.group }}
-          # Scheduled runs also try the newest WooCommerce; everything else uses the version pinned in tests/smoke/lib/config.mjs.
+          # Scheduled runs also try the newest WooCommerce and MailPoet; everything else uses the versions pinned in tests/smoke/lib/config.mjs.
           SN_TEST_WC_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '' }}
+          SN_TEST_MAILPOET_VERSION: ${{ github.event_name == 'schedule' && 'latest' || '' }}
           SN_TEST_OUTPUT: ${{ github.workspace }}/tests/_output
         run: |
           export SN_TEST_CACHE="$HOME/.cache/safety-net-tests"
           npm test
 
       # Every leg of a group downloads the same files, so one leg saves them and the others never race it for the key.
-      - name: Save WordPress, WooCommerce and WP-CLI downloads
+      - name: Save WordPress, WooCommerce, MailPoet and WP-CLI downloads
         if: github.event_name != 'release' && matrix.php == '8.3' && steps.downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DOWNLOAD_CACHE_PATHS }}
-          key: playground-downloads-${{ runner.os }}-${{ matrix.wp }}-${{ matrix.group }}-${{ steps.week.outputs.week }}
+          key: playground-downloads-${{ runner.os }}-${{ matrix.wp }}-${{ matrix.group }}-${{ steps.week.outputs.week }}-${{ hashFiles('tests/smoke/lib/config.mjs') }}
 
       - name: Upload test output
         if: failure() || cancelled()
