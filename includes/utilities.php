@@ -92,6 +92,70 @@ function is_production() {
 }
 
 /**
+ * Whether this run should change a network-wide setting on multisite, which automatic runs do once per network.
+ *
+ * @param string $automatic_hook The action that fires the automatic run.
+ * @param string $flag           The network option that records the change was made.
+ * @param string $capability     The capability needed to make the change from the Tools page.
+ *
+ * @return bool
+ */
+function should_change_network( string $automatic_hook, string $flag, string $capability ): bool {
+	if ( ! is_multisite() ) {
+		return false;
+	}
+
+	if ( doing_action( $automatic_hook ) ) {
+		if ( get_site_option( $flag ) ) {
+			return false;
+		}
+
+		if ( network_processed_before_flags( $flag ) ) {
+			update_site_option( $flag, true );
+			return false;
+		}
+
+		return true;
+	}
+
+	return ( defined( 'WP_CLI' ) && WP_CLI ) || current_user_can( $capability );
+}
+
+/**
+ * Whether the main site finished this step before network flags existed, so the change isn't applied retroactively.
+ *
+ * @param string $flag The network option that records the change was made.
+ *
+ * @return bool
+ */
+function network_processed_before_flags( string $flag ): bool {
+	global $wpdb;
+
+	// The main site's own first run sets its step flags only after the network check, so it never counts as processed.
+	if ( is_main_site() ) {
+		return false;
+	}
+
+	$options = $wpdb->get_blog_prefix( get_main_site_id() ) . 'options';
+	$flags   = $wpdb->get_results( "SELECT option_name, option_value FROM $options WHERE option_name LIKE 'safety\\_net\\_%'", OBJECT_K ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$is_set  = static function ( string $name ) use ( $flags ): bool {
+		return ! empty( $flags[ $name ]->option_value );
+	};
+
+	switch ( $flag ) {
+		case 'safety_net_network_plugins_deactivated':
+			return $is_set( 'safety_net_plugins_deactivated' );
+		case 'safety_net_network_admin_email_scrubbed':
+			return $is_set( 'safety_net_options_scrubbed' );
+		case 'safety_net_network_gateway_plugins_deactivated':
+			// Current versions leave one of these on the main site, so their absence means an older version ran it.
+			return $is_set( 'safety_net_plugins_deactivated' ) && ! $is_set( 'safety_net_gateway_plugins_pending' ) && ! $is_set( 'safety_net_gateway_plugins_deactivated' );
+	}
+
+	return false;
+}
+
+/**
  * Reads the plugin or options denylist txt files, and returns an array for use
  *
  * @param string $denylist_type Type of denylist. Accepts 'options' or 'plugins'.
@@ -122,9 +186,9 @@ function get_denylist_array( $denylist_type ): array {
 	$rows = explode( "\n", $file_contents );
 
 	foreach ( $rows as $row ) {
-		$data = str_getcsv( $row );
+		$data = str_getcsv( $row, ',', '"', '\\' );
 		foreach ( $data as $item ) {
-			$denylist_array[] = trim( $item );
+			$denylist_array[] = trim( (string) $item );
 		}
 	}
 
@@ -188,8 +252,13 @@ function get_payment_gateway_plugins(): array {
 		untrailingslashit( wp_normalize_path( SAFETY_NET_PATH ) ),
 	);
 
+	$active_plugins = (array) get_option( 'active_plugins', array() );
+	if ( is_multisite() ) {
+		$active_plugins = array_merge( $active_plugins, array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) );
+	}
+
 	$gateway_plugins = array();
-	foreach ( (array) get_option( 'active_plugins', array() ) as $plugin ) {
+	foreach ( array_unique( $active_plugins ) as $plugin ) {
 		$plugin_path = realpath( WP_PLUGIN_DIR . '/' . ( '.' === dirname( $plugin ) ? $plugin : dirname( $plugin ) ) );
 		if ( false === $plugin_path ) {
 			continue;
