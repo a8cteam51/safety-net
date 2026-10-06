@@ -37,8 +37,8 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
 	}
 	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
-	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
-	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type IN ( 'shop_order', 'shop_order_refund', 'shop_order_placehold', 'shop_subscription' ) )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type IN ( 'shop_order', 'shop_order_refund', 'shop_order_placehold' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
 
 	// Delete Woo memberships
@@ -80,6 +80,13 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_product_lookup" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_log" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_stats" );
+	}
+
+	foreach ( array( 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ) as $wc_table ) {
+		$wc_full_table = $wpdb->prefix . $wc_table;
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wc_full_table ) ) === $wc_full_table ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}{$wc_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from hardcoded allow-list above.
+		}
 	}
 
 	// Delete renewal scheduled actions
@@ -133,33 +140,39 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_memberships_users" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_discount_codes_uses" );
 
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'pmpro_stripe_customerid'" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key LIKE 'pmpro_b%'" );
+		$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key = 'pmpro_stripe_customerid'" );
+		$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE 'pmpro_b%'" );
 	}
 
-	// Delete BuddyPress data
-	$table_name = $wpdb->prefix . 'bp_xprofile_data';
+	// Delete BuddyPress data. Its tables are network-wide on multisite; this is bp_core_get_table_prefix(), which may not be loaded yet.
+	$bp_prefix  = apply_filters( 'bp_core_get_table_prefix', $wpdb->base_prefix );
+	$table_name = $bp_prefix . 'bp_xprofile_data';
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_xprofile_data" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}signups" );
+		$wpdb->query( "DELETE FROM {$bp_prefix}bp_xprofile_data" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
 
-		$table_name = $wpdb->prefix . 'bp_friends';
+		// Signups is a network-wide table on multisite, and BuddyPress uses the same name on single sites.
+		$table_name = $wpdb->base_prefix . 'signups';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_friends" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'total_friend_count'" );
+			$wpdb->query( "DELETE FROM {$wpdb->base_prefix}signups" );
 		}
 
-		$table_name = $wpdb->prefix . 'bp_messages_messages';
+		$table_name = $bp_prefix . 'bp_friends';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_messages" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_threads" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_recipients" );
+			$wpdb->query( "DELETE FROM {$bp_prefix}bp_friends" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
+			$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key = 'total_friend_count'" );
 		}
 
-		$table_name = $wpdb->prefix . 'bp_notifications';
+		foreach ( array( 'bp_messages_messages', 'bp_messages_recipients', 'bp_messages_notices', 'bp_messages_meta' ) as $bp_table ) {
+			$bp_full_table = $bp_prefix . $bp_table;
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bp_full_table ) ) === $bp_full_table ) {
+				$wpdb->query( "DELETE FROM {$bp_full_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from hardcoded allow-list above.
+			}
+		}
+
+		$table_name = $bp_prefix . 'bp_notifications';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications_meta" );
+			$wpdb->query( "DELETE FROM {$bp_prefix}bp_notifications" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
+			$wpdb->query( "DELETE FROM {$bp_prefix}bp_notifications_meta" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
 		}
 	}
 
@@ -251,15 +264,10 @@ function reassign_all_posts() {
  * @return int|string
  */
 function get_admin_id() {
-	$admin = get_users(
-		array(
-			'role__in' => array(
-				'administrator',
-			),
-			'fields'   => 'ids',
-			'number'   => 1,
-		)
-	);
+	global $wpdb;
+
+	// Not get_users(): user queries must not run before plugins_loaded, when the automatic run fires.
+	$admin = $wpdb->get_col( $wpdb->prepare( "SELECT u.ID FROM $wpdb->users u INNER JOIN $wpdb->usermeta m ON m.user_id = u.ID WHERE m.meta_key = %s AND m.meta_value LIKE %s ORDER BY u.ID LIMIT 1", $wpdb->prefix . 'capabilities', '%' . $wpdb->esc_like( '"administrator"' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 	// A network site can have no administrator of its own, only super admins.
 	if ( empty( $admin ) ) {

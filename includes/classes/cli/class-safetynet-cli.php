@@ -17,6 +17,10 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	*
 	*/
 	public function delete() {
+		if ( ! get_option( 'safety_net_plugins_deactivated' ) ) {
+			WP_CLI::error( __( 'Plugins need to be deactivated first. Run "wp safety-net deactivate-plugins".', 'safety-net' ) );
+		}
+
 		delete_users_and_orders();
 
 		WP_CLI::success( __( 'Users and their data have been deleted' ) );
@@ -28,6 +32,9 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	 * ## EXAMPLES
 	 *
 	 * wp safety-net delete-transients
+	 *
+	 * @subcommand delete-transients
+	 * @alias delete_transients
 	 *
 	 */
 	public function delete_transients() {
@@ -63,6 +70,10 @@ class SafetyNet_CLI extends WP_CLI_Command {
 	 *
 	 */
 	public function deactivate_plugins() {
+		if ( ! get_option( 'safety_net_options_scrubbed' ) ) {
+			WP_CLI::error( __( 'Options need to be scrubbed first. Run "wp safety-net scrub-options".', 'safety-net' ) );
+		}
+
 		\SafetyNet\DeactivatePlugins\deactivate_plugins();
 
 		WP_CLI::success( __( 'Problematic plugins have been deactivated.' ) );

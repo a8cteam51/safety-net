@@ -4,6 +4,7 @@ namespace SafetyNet\DeactivatePlugins;
 
 use function SafetyNet\Utilities\get_denylist_array;
 use function SafetyNet\Utilities\get_payment_gateway_plugins;
+use function SafetyNet\Utilities\should_change_network;
 
 add_action( 'safety_net_deactivate_plugins', __NAMESPACE__ . '\deactivate_plugins' );
 add_action( 'safety_net_deactivate_gateway_plugins', __NAMESPACE__ . '\deactivate_gateway_plugins' );
@@ -33,6 +34,7 @@ function deactivate_plugins() {
 	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', get_denylist_array( 'plugins' ) );
 	$gateway_plugins    = get_payment_gateway_plugins();
 
+	$denylisted_matches = array();
 	foreach ( $all_installed_plugins as $installed_plugin ) {
 
 		if ( stristr( $installed_plugin, 'safety-net' ) ) {
@@ -45,7 +47,8 @@ function deactivate_plugins() {
 
 			// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
 			if ( stristr( $installed_plugin, $denylisted_plugin ) ) {
-				$should_deactivate = true;
+				$should_deactivate    = true;
+				$denylisted_matches[] = $installed_plugin;
 				break;
 			}
 		}
@@ -64,10 +67,13 @@ function deactivate_plugins() {
 		update_option( 'active_plugins', $current );
 	}
 
+	deactivate_network_plugins( $denylisted_matches, 'safety_net_deactivate_plugins', 'safety_net_network_plugins_deactivated' );
+
 	update_option( 'safety_net_plugins_deactivated', true );
 
 	// Gateways can't be traced until WooCommerce has loaded, so leave them for the wp_loaded pass.
 	if ( class_exists( 'WooCommerce' ) && did_action( 'plugins_loaded' ) ) {
+		deactivate_network_plugins( $gateway_plugins, 'safety_net_deactivate_plugins', 'safety_net_network_gateway_plugins_deactivated' );
 		delete_option( 'safety_net_gateway_plugins_pending' );
 		update_option( 'safety_net_gateway_plugins_deactivated', true );
 	} else {
@@ -88,6 +94,35 @@ function deactivate_gateway_plugins() {
 		update_option( 'active_plugins', array_values( array_diff( $active_plugins, $gateway_plugins ) ) );
 	}
 
+	// Without WooCommerce nothing was traced, so the network's gateway pass is still to come.
+	if ( class_exists( 'WooCommerce' ) && did_action( 'plugins_loaded' ) ) {
+		deactivate_network_plugins( $gateway_plugins, 'safety_net_deactivate_gateway_plugins', 'safety_net_network_gateway_plugins_deactivated' );
+	}
+
 	delete_option( 'safety_net_gateway_plugins_pending' );
 	update_option( 'safety_net_gateway_plugins_deactivated', true );
+}
+
+/**
+ * Removes plugins from the network's active plugins on multisite, without triggering deactivation hooks.
+ *
+ * @param string[] $plugins        Plugin basenames.
+ * @param string   $automatic_hook The action that fires the automatic run, which does this once per network.
+ * @param string   $flag           The network option that records it was done.
+ *
+ * @return void
+ */
+function deactivate_network_plugins( array $plugins, string $automatic_hook, string $flag ) {
+	if ( ! should_change_network( $automatic_hook, $flag, 'manage_network_plugins' ) ) {
+		return;
+	}
+
+	$network_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
+	$remaining       = array_diff_key( $network_plugins, array_flip( $plugins ) );
+
+	if ( count( $remaining ) !== count( $network_plugins ) ) {
+		update_site_option( 'active_sitewide_plugins', $remaining );
+	}
+
+	update_site_option( $flag, true );
 }

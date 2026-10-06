@@ -6,6 +6,7 @@ use WC_Data_Store;
 use WC_Webhook;
 
 use function SafetyNet\Utilities\get_denylist_array;
+use function SafetyNet\Utilities\should_change_network;
 
 add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 
@@ -14,6 +15,19 @@ add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 */
 function scrub_options() {
 	global $wpdb;
+
+	if ( should_change_network( 'safety_net_scrub_options', 'safety_net_network_admin_email_scrubbed', 'manage_network_options' ) ) {
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct access intentionally bypasses option hooks.
+			$wpdb->sitemeta,
+			array( 'meta_value' => 'safetynet@scrubbedthis.option' ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			array(
+				'site_id'  => get_current_network_id(),
+				'meta_key' => 'admin_email', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			)
+		);
+
+		update_site_option( 'safety_net_network_admin_email_scrubbed', true );
+	}
 
 	safety_net_update_option_direct( 'admin_email', 'safetynet@scrubbedthis.option' );
 
@@ -40,7 +54,7 @@ function scrub_options() {
 
 			update_option( $option . '_sn_backup', $option_value );
 
-			if ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) {
+			if ( is_array( $option_value ) && ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
 				$keys_to_scrub = array( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' );
 				$option_array  = $option_value;
@@ -50,7 +64,7 @@ function scrub_options() {
 					}
 				}
 				safety_net_update_option_direct( $option, $option_array );
-			} elseif ( 'jetpack_active_modules' === $option ) {
+			} elseif ( 'jetpack_active_modules' === $option && is_array( $option_value ) ) {
 				// Clear some Jetpack options to disable specific modules.
 				$modules_to_disable = array( 'enhanced-distribution', 'publicize', 'subscriptions' );
 				$modules_array      = array_filter(
@@ -61,7 +75,7 @@ function scrub_options() {
 				);
 
 				safety_net_update_option_direct( $option, $modules_array );
-			} elseif ( 'wprus' === $option ) {
+			} elseif ( 'wprus' === $option && is_array( $option_value ) ) {
 				// Clear some WP Remote Users Sync options to disable only keys needed for remote connections and keep the remaining settings intact.
 				$keys_to_scrub = array(
 					'encryption' => array(
@@ -71,7 +85,7 @@ function scrub_options() {
 				);
 				$option_array  = $option_value;
 				foreach ( $keys_to_scrub as $index => $keys ) {
-					if ( array_key_exists( $index, $option_array ) ) {
+					if ( array_key_exists( $index, $option_array ) && is_array( $option_array[ $index ] ) ) {
 						foreach ( $keys as $key ) {
 							if ( array_key_exists( $key, $option_array[ $index ] ) ) {
 								$option_array[ $index ][ $key ] = '';
@@ -89,7 +103,7 @@ function scrub_options() {
 				if ( function_exists( 'pmpro_clear_crons' ) ) {
 					pmpro_clear_crons();
 				}
-			} else if ( '_wp_convertkit_settings' === $option ) {
+			} else if ( '_wp_convertkit_settings' === $option && is_array( $option_value ) ) {
 				$option_array  = $option_value;
 
 				$keys_to_scrub = array( 'access_token', 'refresh_token', 'token_expires', 'api_key', 'api_secret' );
@@ -100,7 +114,7 @@ function scrub_options() {
 				}
 
 				safety_net_update_option_direct( $option, $option_array );
-			} elseif ( 'apple_news_settings' === $option ) {
+			} elseif ( 'apple_news_settings' === $option && is_array( $option_value ) ) {
 				$keys_to_scrub = array( 'api_key', 'api_secret', 'api_channel', 'apple_news_admin_email' );
 
 				$option_array = $option_value;
@@ -153,7 +167,7 @@ function scrub_options() {
 		}
 	}
 
-	// Disable AutomateWoo workflows, clear the queue, and set scheduled actions to "done"
+	// Disable AutomateWoo workflows, clear the queue, and set scheduled actions to "canceled".
 	$wpdb->query( "UPDATE $wpdb->posts SET post_status = 'aw-disabled' WHERE post_type = 'aw_workflow' AND post_status = 'publish'" );
 
 	$table_name = $wpdb->prefix . 'automatewoo_queue';
@@ -164,7 +178,7 @@ function scrub_options() {
 
 	$table_name = $wpdb->prefix . 'actionscheduler_actions';
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "UPDATE {$wpdb->prefix}actionscheduler_actions SET status = 'done' WHERE status = 'pending' AND hook LIKE '%automatewoo%'" );
+		$wpdb->query( "UPDATE {$wpdb->prefix}actionscheduler_actions SET status = 'canceled' WHERE status = 'pending' AND hook LIKE '%automatewoo%'" );
 	}
 
 	update_option( 'safety_net_options_scrubbed', true );

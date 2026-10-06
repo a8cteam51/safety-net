@@ -92,6 +92,27 @@ function is_production() {
 }
 
 /**
+ * Whether this run should change a network-wide setting on multisite, which automatic runs do once per network.
+ *
+ * @param string $automatic_hook The action that fires the automatic run.
+ * @param string $flag           The network option that records the change was made.
+ * @param string $capability     The capability needed to make the change from the Tools page.
+ *
+ * @return bool
+ */
+function should_change_network( string $automatic_hook, string $flag, string $capability ): bool {
+	if ( ! is_multisite() ) {
+		return false;
+	}
+
+	if ( doing_action( $automatic_hook ) ) {
+		return ! get_site_option( $flag );
+	}
+
+	return ( defined( 'WP_CLI' ) && WP_CLI ) || current_user_can( $capability );
+}
+
+/**
  * Reads the plugin or options denylist txt files, and returns an array for use
  *
  * @param string $denylist_type Type of denylist. Accepts 'options' or 'plugins'.
@@ -122,9 +143,9 @@ function get_denylist_array( $denylist_type ): array {
 	$rows = explode( "\n", $file_contents );
 
 	foreach ( $rows as $row ) {
-		$data = str_getcsv( $row );
+		$data = str_getcsv( $row, ',', '"', '\\' );
 		foreach ( $data as $item ) {
-			$denylist_array[] = trim( $item );
+			$denylist_array[] = trim( (string) $item );
 		}
 	}
 
@@ -188,8 +209,13 @@ function get_payment_gateway_plugins(): array {
 		untrailingslashit( wp_normalize_path( SAFETY_NET_PATH ) ),
 	);
 
+	$active_plugins = (array) get_option( 'active_plugins', array() );
+	if ( is_multisite() ) {
+		$active_plugins = array_merge( $active_plugins, array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) );
+	}
+
 	$gateway_plugins = array();
-	foreach ( (array) get_option( 'active_plugins', array() ) as $plugin ) {
+	foreach ( array_unique( $active_plugins ) as $plugin ) {
 		$plugin_path = realpath( WP_PLUGIN_DIR . '/' . ( '.' === dirname( $plugin ) ? $plugin : dirname( $plugin ) ) );
 		if ( false === $plugin_path ) {
 			continue;

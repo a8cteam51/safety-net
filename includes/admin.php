@@ -397,7 +397,7 @@ function handle_ajax_scrub_options() {
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-scrub-options' ); // phpcs:ignore WordPress.Security.NonceVerification
+	check_the_nonce( isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '', 'safety-net-scrub-options' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Scrub the options.
 	scrub_options();
@@ -434,7 +434,7 @@ function handle_ajax_deactivate_plugins() {
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-deactivate-plugins' ); // phpcs:ignore WordPress.Security.NonceVerification
+	check_the_nonce( isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '', 'safety-net-deactivate-plugins' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Scrub the options.
 	deactivate_plugins();
@@ -471,7 +471,7 @@ function handle_ajax_delete_users() {
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-delete-users' ); // phpcs:ignore WordPress.Security.NonceVerification
+	check_the_nonce( isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '', 'safety-net-delete-users' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Delete the users.
 	delete_users_and_orders();
@@ -495,7 +495,7 @@ function handle_ajax_delete_transients() {
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-delete-transients' ); // phpcs:ignore WordPress.Security.NonceVerification
+	check_the_nonce( isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '', 'safety-net-delete-transients' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Delete the transients.
 	delete_transients();
@@ -519,7 +519,7 @@ function handle_ajax_disable_webhooks() {
 
 	// Permissions and security checks.
 	check_the_permissions();
-	check_the_nonce( $_POST['nonce'], 'safety-net-disable-webhooks' ); // phpcs:ignore WordPress.Security.NonceVerification
+	check_the_nonce( isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '', 'safety-net-disable-webhooks' ); // phpcs:ignore WordPress.Security.NonceVerification
 
 	// Checks passed. Disable the webhooks.
 	disable_webhooks();
