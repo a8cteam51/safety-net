@@ -59,18 +59,18 @@ describe( 'staging-mu: mu-plugin on a development site without WooCommerce, keep
 	} );
 
 	test( 'S3/S9: robots.txt and the REST status route', async () => {
-		assert.equal( ( await site.get( '/robots.txt' ) ).text, 'User-agent: *\nDisallow: /\n' );
-		const status = JSON.parse( ( await site.get( '/wp-json/safety-net/v1/status' ) ).text );
+		const [ robots, rest ] = await site.getAll( [ '/robots.txt', '/wp-json/safety-net/v1/status' ] );
+		assert.equal( robots.text, 'User-agent: *\nDisallow: /\n' );
+		const status = JSON.parse( rest.text );
 		assert.equal( status.environment, 'development' );
 		assert.equal( status.data_deleted, true );
 	} );
 
 	test( 'S5/S6: the dashboard notice and the must-use plugin list', async () => {
-		await site.login();
-		const dashboard = await site.get( '/wp-admin/', { jar: site.adminJar } );
+		const jar = await site.login();
+		const [ dashboard, mustUse ] = await site.getAll( [ '/wp-admin/', '/wp-admin/plugins.php?plugin_status=mustuse' ].map( ( path ) => ( { path, jar } ) ) );
 		assert.match( dashboard.text, /Safety Net Activated/ );
 		assert.match( dashboard.text, /environment type is set to "development"/ );
-		const mustUse = await site.get( '/wp-admin/plugins.php?plugin_status=mustuse', { jar: site.adminJar } );
 		assert.match( mustUse.text, /safety-net-loader\.php/ );
 	} );
 

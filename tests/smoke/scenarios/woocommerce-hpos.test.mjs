@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { assertMailBlocked, assertStepFlags, captureMail, firstLoad, getToolsPage, httpProbeSince, postAjax, robotsLines, runAjaxTools } from '../lib/checks.mjs';
+import { assertMailBlocked, assertStepFlags, assertToolsPage, captureMail, firstLoad, getToolsPage, httpProbeSince, postAjax, robotsLines, runAjaxTools, toolsPagePath } from '../lib/checks.mjs';
 import { HPOS_TABLES, seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { bootSite } from '../lib/site.mjs';
 
@@ -109,10 +109,7 @@ return array(
 
 	test( 'S8/S16: the storefront, cart, checkout, account and Store API work', async () => {
 		const pages = await site.php( `return array( wc_get_page_permalink( 'shop' ), wc_get_page_permalink( 'cart' ), wc_get_page_permalink( 'checkout' ), wc_get_page_permalink( 'myaccount' ), get_permalink( ${ seed.woo.product } ) );` );
-		for ( const page of pages ) {
-			await site.get( page );
-		}
-		await site.get( '/wp-json/wc/store/v1/cart' );
+		await site.getAll( [ ...pages, '/wp-json/wc/store/v1/cart' ] );
 		await site.get( `/?add-to-cart=${ seed.woo.product }`, { follow: false, expect: [ 200, 302 ] } );
 	} );
 
@@ -126,13 +123,11 @@ return array(
 	} );
 
 	test( 'S5/S7/S13: the dashboard, Tools page and WooCommerce screens load', async () => {
-		await site.login();
-		assert.match( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, /WooCommerce Subscriptions scheduled actions are currently paused\./ );
-		const { res } = await getToolsPage( site );
+		const jar = await site.login();
+		const [ dashboard, tools ] = await site.getAll( [ '/wp-admin/', toolsPagePath(), '/wp-admin/admin.php?page=wc-orders', '/wp-admin/admin.php?page=wc-settings&tab=checkout', '/wp-admin/admin.php?page=wc-admin', '/wp-admin/edit.php?post_type=product', '/wp-admin/admin.php?page=wc-status' ].map( ( path ) => ( { path, jar } ) ) );
+		assert.match( dashboard.text, /WooCommerce Subscriptions scheduled actions are currently paused\./ );
+		const { res } = assertToolsPage( tools );
 		assert.match( res.text, /ZZ Checkout \(fixture\)/ );
-		for ( const page of [ '/wp-admin/admin.php?page=wc-orders', '/wp-admin/admin.php?page=wc-settings&tab=checkout', '/wp-admin/admin.php?page=wc-admin', '/wp-admin/edit.php?post_type=product', '/wp-admin/admin.php?page=wc-status' ] ) {
-			await site.get( page, { jar: site.adminJar } );
-		}
 	} );
 
 	test( 'W4: webhooks added later are disabled by the Disable Webhooks and Scrub Options tools', async () => {

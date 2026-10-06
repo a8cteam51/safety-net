@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { defaultWpCliPath, enableMultisite } from '@wp-playground/blueprints';
 import { runCLI } from '@wp-playground/cli';
+import { SCENARIOS } from '../scenarios.mjs';
 import { assertPluginDir, config, FIXTURES_DIR } from './config.mjs';
 import { CRITICAL_ERROR_PAGE, findLogProblems, LOG_CANARY, readLogEntries } from './debug-log.mjs';
 import { ensureWooCommerce, ensureWpCli } from './downloads.mjs';
@@ -90,13 +92,24 @@ export class Site {
 		assert.deepEqual( fatals, [], `${ context } logged a PHP fatal error (${ this.where() }):\n${ fatals.join( '\n' ) }` );
 	}
 
-	async http( pathOrUrl, { expect = 200, jar, method = 'GET', form, headers, follow = true } = {} ) {
+	async http( pathOrUrl, options = {} ) {
+		const sent = await this.#request( pathOrUrl, options );
+		this.#assertNoFatal( sent, findLogProblems( this.newLogEntries() ).fatals );
+		this.#assertResponse( sent, options );
+		return sent.res;
+	}
+
+	async #request( pathOrUrl, { jar, method = 'GET', form, headers, follow = true } = {} ) {
 		const target = typeof pathOrUrl === 'string' && pathOrUrl.startsWith( 'http' ) ? new URL( pathOrUrl ).pathname + new URL( pathOrUrl ).search : pathOrUrl;
 		const res = await request( this.url, target, { jar, method, form, headers, follow, siteUrl: this.siteUrl } );
-		const label = `${ method } ${ target }`;
-		const signs = findFatalSigns( res );
-		const { fatals } = findLogProblems( this.newLogEntries() );
+		return { res, target, label: `${ method } ${ target }`, signs: findFatalSigns( res ) };
+	}
+
+	#assertNoFatal( { res, label, signs }, fatals ) {
 		assert.deepEqual( [ ...signs, ...fatals ], [], `${ label } failed with a fatal error (${ this.where() }). Redirects: ${ res.chain.join( ', ' ) }\n${ [ ...signs, ...fatals ].join( '\n' ) }` );
+	}
+
+	#assertResponse( { res, target, label }, { expect = 200, jar } = {} ) {
 		if ( expect !== null ) {
 			const expected = Array.isArray( expect ) ? expect : [ expect ];
 			assert.ok( expected.includes( res.status ), `${ label } returned HTTP ${ res.status }, expected ${ expected.join( ' or ' ) } (${ this.where() }). Redirects: ${ res.chain.join( ', ' ) }\nBody starts: ${ res.text.slice( 0, 500 ) }` );
@@ -105,11 +118,76 @@ export class Site {
 			const onLogin = isLoginPage( new URL( res.url ).pathname ) || isLoginPage( res.location ?? '' ) || /id="loginform"/.test( res.text );
 			assert.ok( ! onLogin, `${ label } ended on the login form, so the cookie jar is not logged in (${ this.where() }). Redirects: ${ res.chain.join( ', ' ) }` );
 		}
-		return res;
 	}
 
 	get( pathOrUrl, options = {} ) {
 		return this.http( pathOrUrl, options );
+	}
+
+	// Only for GETs that change nothing and do not depend on each other's order, such as pages loaded after the first load.
+	async getAll( requests, { concurrency = config.pageConcurrency } = {} ) {
+		const items = requests.map( ( item ) => ( typeof item === 'string' ? { path: item } : item ) );
+		assert.ok( items.every( ( item ) => item.method === undefined && item.form === undefined ), 'getAll only sends GET requests' );
+		const probeMark = this.probe().length;
+		const logMark = this.logMark();
+		const sent = new Array( items.length );
+		let next = 0;
+		const lane = async () => {
+			for ( let i = next++; i < items.length; i = next++ ) {
+				const { path: target, ...options } = items[ i ];
+				try {
+					sent[ i ] = { ...( await this.#request( target, options ) ), options };
+				} catch ( error ) {
+					sent[ i ] = { error, label: `GET ${ target }` };
+				}
+			}
+		};
+		await Promise.all( Array.from( { length: Math.max( 1, Math.min( concurrency, items.length ) ) }, lane ) );
+
+		const { fatals } = findLogProblems( this.newLogEntries() );
+		const probes = this.probe().slice( probeMark );
+		const booted = this.logEntriesSince( logMark ).map( ( entry ) => entry.split( `] ${ LOG_CANARY }` ) ).filter( ( parts ) => parts.length === 2 ).map( ( [ , uri ] ) => uri.trim() );
+		// Concurrent requests interleave in debug.log, so a fatal is pinned through the probe line that recorded it, or the boot line of a request that died before writing one.
+		const unfinished = [ ...booted ];
+		for ( const { uri } of probes ) {
+			const index = unfinished.indexOf( uri );
+			if ( index !== -1 ) {
+				unfinished.splice( index, 1 );
+			}
+		}
+		const culprits = fatals.length ? [ ...probes.filter( ( line ) => line.fatal ).map( ( line ) => line.uri ), ...unfinished ] : [];
+		const labels = sent.map( ( { label } ) => label ).join( ', ' );
+		const failures = [];
+		let fatalsReported = false;
+		for ( const result of sent ) {
+			if ( result.error ) {
+				failures.push( { error: result.error, label: result.label } );
+				continue;
+			}
+			const hops = result.res.chain.map( ( hop ) => hop.replace( /^\S+ /, '' ).replace( / -> \d+$/, '' ) );
+			const blamed = culprits.some( ( uri ) => hops.includes( uri ) );
+			fatalsReported ||= blamed || result.signs.length > 0;
+			try {
+				this.#assertNoFatal( result, blamed || result.signs.length ? fatals : [] );
+				this.#assertResponse( result, result.options );
+			} catch ( error ) {
+				failures.push( { error } );
+			}
+		}
+		if ( fatals.length && ! fatalsReported ) {
+			failures.push( { error: new assert.AssertionError( { message: `One of ${ labels } failed with a fatal error (${ this.where() }):\n${ fatals.join( '\n' ) }` } ) } );
+		}
+		if ( booted.length !== probes.length ) {
+			failures.push( { error: new assert.AssertionError( { message: `debug.log has ${ booted.length } "${ LOG_CANARY }" lines but probe.jsonl has ${ probes.length } for ${ labels }, so a request died before writing its probe line or lines were lost while ${ concurrency } requests ran at once; where appends are not atomic, set SN_TEST_PAGE_CONCURRENCY=1 (${ this.where() })` } ) } );
+		}
+		if ( failures.length === 1 ) {
+			throw failures[ 0 ].error;
+		}
+		if ( failures.length > 1 ) {
+			const messages = failures.map( ( { error, label } ) => ( label ? `${ label } failed: ${ error.message }` : error.message ) );
+			assert.fail( [ messages[ 0 ], `${ messages.length - 1 } more failed in the same batch:`, ...messages.slice( 1 ) ].join( '\n\n' ) );
+		}
+		return sent.map( ( { res } ) => res );
 	}
 
 	post( pathOrUrl, form, options = {} ) {
@@ -200,20 +278,28 @@ echo "\\n@@SN_TEST_RESULT@@" . json_encode( $sn_test_result ) . "@@SN_TEST_END@@
 
 	async stop() {
 		await this.server?.[ Symbol.asyncDispose ]();
+		if ( this.copyDir ) {
+			rmSync( this.copyDir, { recursive: true, force: true } );
+		}
 	}
 }
 
+// update_option() would skip these, since WP_SITEURL and WP_HOME already filter the old value to the new URL.
+const setSiteUrl = ( url ) => `global $wpdb; foreach ( array( 'siteurl', 'home' ) as $option ) { $wpdb->update( $wpdb->options, array( 'option_value' => ${ phpString( url ) } ), array( 'option_name' => $option ) ); }`;
+
 // Safety Net is copied in but not enabled, so each scenario decides which request is the first load.
-export async function bootSite( { name, env = 'staging', mode = 'plugin', multisite = false, woocommerce = false, wpCli = false, beforeInstall = false, constants = {} } ) {
+export async function bootSite( { name, env = 'staging', mode = 'plugin', multisite = false, woocommerce = false, wpCli = false, beforeInstall = false, constants = {}, buildIn = null } ) {
 	assertPluginDir();
 	assert.ok( MODES.includes( mode ), `Unknown mode ${ mode }` );
 	assert.ok( ! beforeInstall || mode === 'mu', 'beforeInstall only supports mu mode' );
+	const fromWooSite = ! buildIn && config.wooSite !== '' && Boolean( SCENARIOS.find( ( s ) => s.name === name )?.needs?.includes( 'woocommerce-site' ) );
+	assert.ok( ! fromWooSite || ( woocommerce === 'active' && ! multisite && ! beforeInstall ), `Scenario "${ name }" needs the prebuilt WooCommerce site, which only fits WooCommerce active on a single site` );
 	const outDir = path.join( config.outputDir, name );
 	rmSync( outDir, { recursive: true, force: true } );
 	mkdirSync( outDir, { recursive: true } );
 
 	const baseMounts = [
-		{ hostPath: config.pluginDir, vfsPath: '/sn-src' },
+		...( buildIn ? [] : [ { hostPath: config.pluginDir, vfsPath: '/sn-src' } ] ),
 		{ hostPath: FIXTURES_DIR, vfsPath: '/fixtures' },
 		{ hostPath: outDir, vfsPath: '/out' },
 	];
@@ -227,36 +313,67 @@ export async function bootSite( { name, env = 'staging', mode = 'plugin', multis
 	if ( wpCli ) {
 		mounts.push( { hostPath: await ensureWpCli(), vfsPath: '/sn-wp-cli' } );
 	}
+	const wpCliPhar = multisite ? readFileSync( path.join( await ensureWpCli(), 'wp-cli.phar' ) ) : null;
+
+	// A new directory per attempt, since a stalled attempt may still be writing to the previous one.
+	let wordpressDir = null;
+	const newWordpressDir = () => {
+		if ( buildIn ) {
+			wordpressDir = mkdtempSync( path.join( buildIn, 'woocommerce-site-' ) );
+		} else if ( fromWooSite ) {
+			wordpressDir = mkdtempSync( path.join( path.dirname( config.wooSite ), `${ name }-` ) );
+			cpSync( config.wooSite, wordpressDir, { recursive: true } );
+		}
+		return wordpressDir;
+	};
 
 	const siteUrl = multisite ? MULTISITE_URL : null;
 	const started = Date.now();
-	const boot = async ( port ) => runCLI( {
-		command: 'server',
-		port,
-		php: config.php,
-		wp: config.wp,
-		'site-url': siteUrl ?? `http://127.0.0.1:${ port }`,
-		verbosity: config.verbose ? 'normal' : 'quiet',
-		workers: config.workers,
-		blueprint: {
-			preferredVersions: { php: config.php, wp: config.wp },
-			steps: multisite ? [ { step: 'enableMultisite' } ] : [],
-		},
-		// Copies, because runCLI adds mounts of its own per-boot temp dir to these arrays, and a retry must not reuse them.
-		mount: structuredClone( mounts ),
-		'mount-before-install': structuredClone( mountBeforeInstall ),
-		define: {
-			WP_DEBUG_LOG: '/out/debug.log',
-			...( env === null ? {} : { WP_ENVIRONMENT_TYPE: env } ),
-		},
-		'define-bool': {
-			WP_DEBUG: true,
-			WP_DEBUG_DISPLAY: false,
-			// Keeps state still between requests; wp-cron.php can still be requested directly.
-			DISABLE_WP_CRON: true,
-			...constants,
-		},
-	} );
+	const startServer = async ( port ) => {
+		const dir = newWordpressDir();
+		return runCLI( {
+			command: 'server',
+			port,
+			php: config.php,
+			wp: config.wp,
+			'site-url': siteUrl ?? `http://127.0.0.1:${ port }`,
+			verbosity: config.verbose ? 'normal' : 'quiet',
+			workers: config.workers,
+			blueprint: {
+				preferredVersions: { php: config.php, wp: config.wp },
+				steps: [],
+			},
+			// Copies, because runCLI adds mounts of its own per-boot temp dir to these arrays, and a retry must not reuse them.
+			mount: structuredClone( mounts ),
+			'mount-before-install': [ ...( dir ? [ { hostPath: dir, vfsPath: '/wordpress' } ] : [] ), ...structuredClone( mountBeforeInstall ) ],
+			...( fromWooSite ? { wordpressInstallMode: 'do-not-attempt-installing' } : {} ),
+			define: {
+				WP_DEBUG_LOG: '/out/debug.log',
+				...( env === null ? {} : { WP_ENVIRONMENT_TYPE: env } ),
+			},
+			'define-bool': {
+				WP_DEBUG: true,
+				WP_DEBUG_DISPLAY: false,
+				// Keeps state still between requests; wp-cron.php can still be requested directly.
+				DISABLE_WP_CRON: true,
+				...constants,
+			},
+		} );
+	};
+	// The enableMultisite blueprint step would download wp-cli.phar from playground.wordpress.net on every boot.
+	const boot = async ( port ) => {
+		const server = await startServer( port );
+		if ( wpCliPhar ) {
+			try {
+				await server.playground.writeFile( defaultWpCliPath, wpCliPhar );
+				await enableMultisite( server.playground, {} );
+			} catch ( error ) {
+				await server[ Symbol.asyncDispose ]();
+				throw error;
+			}
+		}
+		return server;
+	};
 	const bootOnce = async () => {
 		const pending = boot( await freePort() );
 		try {
@@ -274,6 +391,11 @@ export async function bootSite( { name, env = 'staging', mode = 'plugin', multis
 		try {
 			server = await bootOnce();
 		} catch ( error ) {
+			if ( wordpressDir ) {
+				try {
+					rmSync( wordpressDir, { recursive: true, force: true } );
+				} catch {}
+			}
 			if ( attempt >= attempts ) {
 				throw new Error( `WordPress Playground did not boot for scenario "${ name }" (${ attempt } attempt${ attempt > 1 ? 's' : '' }): ${ error.stack ?? error }${ beforeInstall ? installDiagnostics( outDir ) : '' }` );
 			}
@@ -285,6 +407,9 @@ export async function bootSite( { name, env = 'staging', mode = 'plugin', multis
 	}
 
 	const site = new Site( { name, outDir, server, siteUrl: siteUrl ?? server.serverUrl, mode } );
+	site.woocommerce = woo?.version ?? null;
+	site.wordpressDir = wordpressDir;
+	site.copyDir = fromWooSite ? wordpressDir : null;
 	try {
 		// Playground answers the first HTTP request with a bare redirect to itself without running PHP.
 		await fetch( server.serverUrl + '/', { redirect: 'manual' } ).then( ( r ) => r.arrayBuffer() );
@@ -295,19 +420,20 @@ export async function bootSite( { name, env = 'staging', mode = 'plugin', multis
 		if ( /^\d+\.\d+(\.\d+)?$/.test( config.wp ) ) {
 			assert.ok( site.versions.wp === config.wp || site.versions.wp.startsWith( `${ config.wp }.` ), `Requested WordPress ${ config.wp } but the site runs ${ site.versions.wp } (${ site.where() })` );
 		}
-		writeFileSync( path.join( outDir, 'environment.json' ), JSON.stringify( { ...site.versions, woocommerce: woo?.version ?? null, env, mode, multisite, plugin: config.pluginDir, bootMs: site.bootMs }, null, 2 ) );
+		writeFileSync( path.join( outDir, 'environment.json' ), JSON.stringify( { ...site.versions, woocommerce: site.woocommerce, env, mode, multisite, plugin: buildIn ? null : config.pluginDir, fromWooCommerceSite: fromWooSite, bootMs: site.bootMs }, null, 2 ) );
 
 		const installTo = mode === 'mu' ? 'WPMU_PLUGIN_DIR' : 'WP_PLUGIN_DIR';
 		await ( beforeInstall ? Promise.resolve() : site.php(
 			`
 sn_test_install_helper_mu_plugin();
-sn_test_install_safety_net( ${ installTo } . '/safety-net' );
+${ buildIn ? '' : `sn_test_install_safety_net( ${ installTo } . '/safety-net' );` }
 ${ mode === 'duplicate' ? "sn_test_install_safety_net( WPMU_PLUGIN_DIR . '/safety-net' );" : '' }
+${ fromWooSite ? `${ setSiteUrl( site.siteUrl ) } if ( ! function_exists( 'WC' ) ) { throw new RuntimeException( 'WooCommerce is not active in the copy of the prebuilt site' ); }` : '' }
 return true;`,
-			{ label: 'installing Safety Net and the test helper' }
+			{ label: buildIn ? 'installing the test helper' : 'installing Safety Net and the test helper' }
 		) );
 
-		if ( woocommerce && woocommerce !== 'inactive' ) {
+		if ( woocommerce && woocommerce !== 'inactive' && ! fromWooSite ) {
 			await site.php(
 				`
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -322,6 +448,22 @@ return true;`,
 		throw error;
 	}
 	return site;
+}
+
+// Never holds Safety Net, and never gets a wp-admin request, since WooCommerce finishes setting up a new store on the first admin_init.
+export async function buildWooCommerceSite( parentDir ) {
+	const site = await bootSite( { name: '_woocommerce-site', woocommerce: 'active', buildIn: parentDir } );
+	try {
+		const state = await site.php(
+			"global $wpdb; return array( 'woocommerce' => WC()->version, 'db_version' => get_option( 'woocommerce_db_version' ), 'needs_db_update' => WC_Install::needs_db_update(), 'safety_net_options' => $wpdb->get_col( $wpdb->prepare( \"SELECT option_name FROM $wpdb->options WHERE option_name LIKE %s\", $wpdb->esc_like( 'safety_net' ) . '%' ) ) );",
+			{ label: 'checking the WooCommerce install' }
+		);
+		assert.deepEqual( state, { woocommerce: site.woocommerce, db_version: site.woocommerce, needs_db_update: false, safety_net_options: [] }, `WooCommerce did not install as expected (${ site.where() })` );
+		site.assertCleanLog();
+		return { dir: site.wordpressDir, versions: site.versions, woocommerce: site.woocommerce };
+	} finally {
+		await site.stop();
+	}
 }
 
 function installDiagnostics( outDir ) {

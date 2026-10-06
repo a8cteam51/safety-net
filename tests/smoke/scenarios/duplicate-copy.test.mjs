@@ -23,9 +23,8 @@ describe( 'duplicate-copy: mu-plugin and regular plugin both active on a "sandbo
 
 	test( 'D1: the second copy never redeclares anything and Safety Net loads once per request', async () => {
 		await site.get( '/' );
-		await site.login();
-		await site.get( '/wp-admin/plugins.php', { jar: site.adminJar } );
-		await site.get( '/wp-admin/tools.php?page=safety_net_options', { jar: site.adminJar } );
+		const jar = await site.login();
+		await site.getAll( [ '/wp-admin/plugins.php', '/wp-admin/tools.php?page=safety_net_options' ].map( ( path ) => ( { path, jar } ) ) );
 		for ( const line of site.probe() ) {
 			if ( line.runs?.safety_net_loaded !== null ) {
 				assert.ok( line.runs.safety_net_loaded <= 1, `safety_net_loaded fired ${ line.runs.safety_net_loaded } times on ${ line.uri }` );

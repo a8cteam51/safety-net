@@ -11,6 +11,7 @@
 		"test:archive": "node tests/smoke/check-release-archive.mjs"
 	},
 	"devDependencies": {
+		"@wp-playground/blueprints": "3.1.57",
 		"@wp-playground/cli": "3.1.57"
 	}
 }

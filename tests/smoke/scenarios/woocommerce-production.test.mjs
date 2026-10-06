@@ -24,13 +24,9 @@ describe( 'woocommerce-production: a production WooCommerce store is left alone'
 
 	test( 'P1: the store and its admin screens load', async () => {
 		await site.get( '/' );
-		for ( const page of await site.php( `return array( wc_get_page_permalink( 'shop' ), wc_get_page_permalink( 'checkout' ), get_permalink( ${ seed.woo.product } ) );` ) ) {
-			await site.get( page );
-		}
-		await site.login();
-		for ( const page of [ '/wp-admin/', '/wp-admin/plugins.php', '/wp-admin/admin.php?page=wc-orders', '/wp-admin/admin.php?page=wc-settings&tab=checkout' ] ) {
-			await site.get( page, { jar: site.adminJar } );
-		}
+		await site.getAll( await site.php( `return array( wc_get_page_permalink( 'shop' ), wc_get_page_permalink( 'checkout' ), get_permalink( ${ seed.woo.product } ) );` ) );
+		const jar = await site.login();
+		await site.getAll( [ '/wp-admin/', '/wp-admin/plugins.php', '/wp-admin/admin.php?page=wc-orders', '/wp-admin/admin.php?page=wc-settings&tab=checkout' ].map( ( path ) => ( { path, jar } ) ) );
 	} );
 
 	test( 'P1: orders, customers, tokens, webhooks, gateways and plugins are untouched', async () => {

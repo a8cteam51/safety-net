@@ -31,6 +31,9 @@ export const config = {
 	outputDir: path.resolve( env( 'SN_TEST_OUTPUT', path.join( REPO_ROOT, 'tests/_output' ) ) ),
 	cacheDir: path.resolve( env( 'SN_TEST_CACHE', defaultCacheDir() ) ),
 	workers: Number( env( 'SN_TEST_WORKERS', '2' ) ),
+	// macOS ignores O_APPEND on positioned writes, so concurrent PHP workers there overwrite each other's debug.log and probe.jsonl lines.
+	pageConcurrency: Math.max( 1, Number( env( 'SN_TEST_PAGE_CONCURRENCY', process.platform === 'linux' ? env( 'SN_TEST_WORKERS', '2' ) : '1' ) ) || 1 ),
+	wooSite: env( 'SN_TEST_WOO_SITE', '' ),
 	bootTimeoutMs: Number( env( 'SN_TEST_BOOT_TIMEOUT', '240000' ) ),
 	verbose: env( 'SN_TEST_VERBOSE', '' ) === '1',
 };

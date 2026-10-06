@@ -93,12 +93,17 @@ export function assertNoFlags( flags ) {
 	assert.deepEqual( flags, [], `Safety Net wrote its flags on a site where it must stay dormant: ${ JSON.stringify( flags ) }` );
 }
 
-export async function getToolsPage( site, { jar = site.adminJar, prefix = '' } = {} ) {
-	const res = await site.get( `${ prefix }/wp-admin/tools.php?page=safety_net_options`, { jar } );
+export const toolsPagePath = ( prefix = '' ) => `${ prefix }/wp-admin/tools.php?page=safety_net_options`;
+
+export function assertToolsPage( res ) {
 	assert.match( res.text, /id="safety-net-settings-title"/, 'The Tools > Safety Net page has no title' );
 	const nonces = scrapeNonces( res.text );
 	assert.deepEqual( Object.keys( nonces ).sort(), [ ...TOOL_BUTTONS ].sort(), 'The Tools page is missing tool buttons or their nonces' );
 	return { res, nonces };
+}
+
+export async function getToolsPage( site, { jar = site.adminJar, prefix = '' } = {} ) {
+	return assertToolsPage( await site.get( toolsPagePath( prefix ), { jar } ) );
 }
 
 // Fetching the enqueued assets also proves SAFETY_NET_URL is right for the install location.

@@ -149,8 +149,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 	} );
 
 	test( 'S9: the REST status route reports every step and is never cached', async () => {
-		for ( const route of [ '/wp-json/safety-net/v1/status', '/?rest_route=/safety-net/v1/status' ] ) {
-			const res = await site.get( route );
+		for ( const res of await site.getAll( [ '/wp-json/safety-net/v1/status', '/?rest_route=/safety-net/v1/status' ] ) ) {
 			assert.deepEqual( JSON.parse( res.text ), {
 				active: true,
 				environment: 'staging',
@@ -218,9 +217,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 	} );
 
 	test( 'S15: core admin screens load', async () => {
-		for ( const page of [ '/wp-admin/options-reading.php', '/wp-admin/users.php', '/wp-admin/update-core.php' ] ) {
-			await site.get( page, { jar: site.adminJar } );
-		}
+		await site.getAll( [ '/wp-admin/options-reading.php', '/wp-admin/users.php', '/wp-admin/update-core.php' ].map( ( path ) => ( { path, jar: site.adminJar } ) ) );
 	} );
 
 	test( 'U6: the self-updater offers a newer GitHub release on staging too', async () => {

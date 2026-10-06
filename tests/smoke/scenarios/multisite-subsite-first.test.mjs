@@ -83,8 +83,7 @@ return array( 'blog' => $blog, 'client' => $client, 'owner' => $owner, 'post' =>
 	} );
 
 	test( 'M4: both sites still load', async () => {
-		await site.get( '/shop/' );
-		await site.get( '/empty/' );
+		await site.getAll( [ '/shop/', '/empty/' ] );
 	} );
 
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {

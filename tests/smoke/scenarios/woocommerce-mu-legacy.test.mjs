@@ -45,9 +45,7 @@ describe( 'woocommerce-mu-legacy: mu-plugin on a WooCommerce store with posts-ba
 	} );
 
 	test( 'S8: the storefront loads', async () => {
-		for ( const page of await site.php( "return array( wc_get_page_permalink( 'shop' ), wc_get_page_permalink( 'checkout' ) );" ) ) {
-			await site.get( page );
-		}
+		await site.getAll( await site.php( "return array( wc_get_page_permalink( 'shop' ), wc_get_page_permalink( 'checkout' ) );" ) );
 	} );
 
 	test( 'S7/S10: the Tools page and its AJAX tools work from mu-plugins, and Delete removes a legacy order added later', async () => {

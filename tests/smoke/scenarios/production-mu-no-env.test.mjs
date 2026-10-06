@@ -39,8 +39,7 @@ describe( 'production-mu-no-env: mu-plugin with WP_ENVIRONMENT_TYPE undefined st
 	} );
 
 	test( 'P4: the REST route and the Tools page do not exist', async () => {
-		await site.get( '/wp-json/safety-net/v1/status', { expect: 404 } );
-		await site.get( '/wp-admin/tools.php?page=safety_net_options', { jar: site.adminJar, expect: 403 } );
+		await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: 403 } ] );
 	} );
 
 	test( 'U8: no update is offered for an mu-plugin', async () => {

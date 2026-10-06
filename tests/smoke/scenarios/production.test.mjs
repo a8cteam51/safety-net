@@ -23,9 +23,8 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 	test( 'P1: front end, dashboard and plugins screen load', async () => {
 		const home = await site.get( '/' );
 		assert.doesNotMatch( home.text, /<meta name=['"]robots['"][^>]*noindex/ );
-		await site.login();
-		await site.get( '/wp-admin/', { jar: site.adminJar } );
-		await site.get( '/wp-admin/plugins.php', { jar: site.adminJar } );
+		const jar = await site.login();
+		await site.getAll( [ '/wp-admin/', '/wp-admin/plugins.php' ].map( ( path ) => ( { path, jar } ) ) );
 	} );
 
 	test( 'P1: no seeded data changed and no flags or backups were written', async () => {
@@ -51,9 +50,8 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 	} );
 
 	test( 'P1: the REST route, Tools page and AJAX tools do not exist', async () => {
-		const rest = await site.get( '/wp-json/safety-net/v1/status', { expect: 404 } );
+		const [ rest, tools ] = await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: 403 } ] );
 		assert.equal( JSON.parse( rest.text ).code, 'rest_no_route' );
-		const tools = await site.get( '/wp-admin/tools.php?page=safety_net_options', { jar: site.adminJar, expect: 403 } );
 		assert.match( tools.text, /Sorry, you are not allowed to access this page\./ );
 		const ajax = await site.post( '/wp-admin/admin-ajax.php', { action: 'safety_net_scrub_options', nonce: 'x' }, { jar: site.adminJar, expect: 400 } );
 		assert.equal( ajax.text, '0' );

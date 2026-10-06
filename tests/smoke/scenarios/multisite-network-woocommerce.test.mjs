@@ -95,13 +95,9 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 	} );
 
 	test( 'M4: the stores and network admin load', async () => {
-		for ( const path of [ '/', '/shop/', '/shop/wp-json/safety-net/v1/status' ] ) {
-			await site.get( path );
-		}
-		await site.login();
-		for ( const path of [ '/wp-admin/network/plugins.php', '/shop/wp-admin/admin.php?page=wc-settings&tab=checkout', '/shop/wp-admin/tools.php?page=safety_net_options' ] ) {
-			await site.get( path, { jar: site.adminJar } );
-		}
+		await site.getAll( [ '/', '/shop/', '/shop/wp-json/safety-net/v1/status' ] );
+		const jar = await site.login();
+		await site.getAll( [ '/wp-admin/network/plugins.php', '/shop/wp-admin/admin.php?page=wc-settings&tab=checkout', '/shop/wp-admin/tools.php?page=safety_net_options' ].map( ( path ) => ( { path, jar } ) ) );
 	} );
 
 	test( 'K5: network-activated denylisted and gateway plugins are deactivated network-wide and the rest stay network-active', async () => {

@@ -46,7 +46,7 @@ export default async function* smokeReporter( source ) {
 			}
 			continue;
 		}
-		if ( event.type === 'test:fail' && failureType === 'cancelledByParent' ) {
+		if ( event.type === 'test:fail' && ( failureType === 'cancelledByParent' || failureType === 'testAborted' ) ) {
 			result.cancelled++;
 		} else if ( data.skip !== undefined && data.skip !== false ) {
 			result.skipped++;

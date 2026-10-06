@@ -24,7 +24,7 @@ Safety Net is a WordPress plugin by WordPress.com Special Projects that secures 
 |----------|---------|
 | Language | PHP 8.1+ |
 | Platform | WordPress (plugin) |
-| Dependencies | None at runtime. A dev-only npm package (`@wp-playground/cli`) runs the tests and never ships |
+| Dependencies | None at runtime. Dev-only npm packages (`@wp-playground/cli` and `@wp-playground/blueprints`) run the tests and never ship |
 | Build tools | None—plugin is deployed as source |
 | WP-CLI | Supported; commands registered when `WP_CLI` is defined |
 | Coding standards | WordPress PHP Coding Standards (phpcs) |
@@ -57,7 +57,7 @@ safety-net/
 │       ├── option_scrublist.txt   # Options to scrub (one per line)
 │       └── plugin_denylist.txt    # Plugin slugs/partials to deactivate (one per line)
 ├── tests/smoke/            # Smoke tests (not shipped); see Tests below
-├── package.json            # Pins @wp-playground/cli for the tests (not shipped)
+├── package.json            # Pins @wp-playground/cli and @wp-playground/blueprints, same version, for the tests (not shipped)
 ├── phpcs.xml.dist          # phpcs ruleset: WordPress standard on safety-net.php, includes/ and assets/ (not shipped)
 └── .github/workflows/
     ├── tests.yml           # Lint, release-zip check and smoke tests
@@ -101,11 +101,11 @@ Smoke tests boot real WordPress sites in [WordPress Playground](https://wordpres
 
 - Node.js 24.18 or later (`@php-wasm/node` declares it; older 24.x releases work but `npm ci` prints `EBADENGINE` warnings).
 - `unzip` and `git` on `PATH` (unpacking WooCommerce, and building the release zip in `npm run test:archive`).
-- Network access on every run, not just the first: Playground looks up the WordPress version on api.wordpress.org at every boot, even when the zip is cached, and `SN_TEST_WC_VERSION=latest` is looked up too. Downloads are retried with backoff.
+- Network access on every run, not just the first: Playground looks up the WordPress version on api.wordpress.org at every boot that installs WordPress, even when the zip is cached, and `SN_TEST_WC_VERSION=latest` is looked up too. Downloads are retried with backoff.
 
 ```bash
-npm ci                                  # once: installs the pinned @wp-playground/cli
-npm test                                # every scenario, a few in parallel (about 2-3 minutes)
+npm ci                                  # once: installs the pinned @wp-playground packages
+npm test                                # every scenario, a few in parallel, longest first (about 2-3 minutes)
 npm test -- multisite                   # one group: single-site, woocommerce or multisite
 npm test -- staging-plugin wp-cli       # specific scenarios (names never clash with group names)
 npm test -- --list                      # every scenario and what it covers
@@ -114,12 +114,14 @@ SAFETY_NET_PATH=/path/to/copy npm test  # test a different copy of the plugin
 npm run test:archive                    # check what the release zip would contain
 ```
 
-More settings: `SN_TEST_WP` (WordPress version, default `latest`), `SN_TEST_WC_VERSION` (default: the version pinned in `tests/smoke/lib/config.mjs`, or `latest`), `SN_TEST_CONCURRENCY`, `SN_TEST_OUTPUT` (default `tests/_output`), `SN_TEST_CACHE` (WooCommerce and WP-CLI downloads; default `~/.cache/safety-net-tests`, or `$XDG_CACHE_HOME/safety-net-tests`, or the system temp directory; kept outside the repo so nothing downloaded sits next to the plugin), `SN_TEST_BOOT_TIMEOUT` (milliseconds per Playground boot, default 240000), `SN_TEST_GROUP` / `SN_TEST_ONLY` (same as passing a group or scenario name), `SN_TEST_WORKERS` and `SN_TEST_VERBOSE=1`.
+`package.json` pins `@wp-playground/blueprints`, whose `enableMultisite` step the multisite boots call directly, to the same version as `@wp-playground/cli`. Update both together: `npm test` stops with an error when the installed versions differ, since a mismatch breaks every boot.
+
+More settings: `SN_TEST_WP` (WordPress version, default `latest`), `SN_TEST_WC_VERSION` (default: the version pinned in `tests/smoke/lib/config.mjs`, or `latest`), `SN_TEST_CONCURRENCY`, `SN_TEST_OUTPUT` (default `tests/_output`), `SN_TEST_CACHE` (WooCommerce and WP-CLI downloads; default `~/.cache/safety-net-tests`, or `$XDG_CACHE_HOME/safety-net-tests`, or the system temp directory; kept outside the repo so nothing downloaded sits next to the plugin), `SN_TEST_BOOT_TIMEOUT` (milliseconds per Playground boot, default 240000), `SN_TEST_GROUP` / `SN_TEST_ONLY` (same as passing a group or scenario name), `SN_TEST_WORKERS` (PHP workers per site, default 2), `SN_TEST_PAGE_CONCURRENCY` (how many independent pages a test loads at once; default `SN_TEST_WORKERS` on Linux and 1 elsewhere, because on macOS concurrent PHP workers overwrite each other's lines in `debug.log` and `probe.jsonl`) and `SN_TEST_VERBOSE=1`.
 
 Layout:
 
-- `tests/smoke/scenarios/*.test.mjs`: one `node:test` file per scenario. Each boots a fresh site, seeds data, enables Safety Net, checks the first page load and then everything after it.
-- `tests/smoke/scenarios.mjs`: the scenario list, their groups and what each covers.
+- `tests/smoke/scenarios/*.test.mjs`: one `node:test` file per scenario. Each boots a fresh site, seeds data, enables Safety Net, checks the first page load and then everything after it. Pages that a test loads after the first load, that change nothing and do not depend on each other's order, go through `site.getAll()`, which loads them up to `SN_TEST_PAGE_CONCURRENCY` at a time and reports every one that fails; first loads, logins, POSTs and requests after a state change stay sequential.
+- `tests/smoke/scenarios.mjs`: the scenario list, their groups, what each covers, roughly how many `seconds` each takes and what it needs: `woocommerce` and `wp-cli` are downloaded before the run (multisite boots use the cached `wp-cli.phar` to convert the network), and `woocommerce-site` starts the scenario from a copy of a site with WooCommerce already activated (see `_woocommerce-site/` below). `run.mjs` starts the scenarios with the most `seconds` first, so the parallel lanes finish close together (`node --test` would start them alphabetically); update a scenario's `seconds` when it gets much longer or shorter.
 - `tests/smoke/lib/`: booting Playground and the HTTP, PHP and WP-CLI helpers (`site.mjs`), shared assertions (`checks.mjs`), debug.log analysis, known issues and the reporter.
 - `tests/smoke/fixtures/`: stub plugins (denylisted, payment gateways, controls), the test-helper mu-plugin (per-request probe, log canary, notice attribution, filter hooks, offline HTTP mock) and the PHP seed and inspection helpers.
 
@@ -129,10 +131,11 @@ A Playground boot that stalls past `SN_TEST_BOOT_TIMEOUT` is retried like any ot
 
 `tests/smoke/lib/known-issues.mjs` lists Safety Net bugs the suite found. Each has a test marked `todo`, which is reported as one line but does not fail the run, plus an allow-list pattern if the bug writes to `debug.log`. Each known-issue test is written so it cannot pass when nothing happened: it checks that Safety Net ran, or that the data it expects to change was seeded. When a known issue starts passing, the run prints it as fixed but still marked todo, and in CI (`CI` set) that fails the run. When you fix one, delete its entry and the `todo` option so the test guards against a regression.
 
-The reporter prints one line per test (`✔` passed, `✖` failed, `-` known issue, `!` known issue now passing) and a summary at the end that names each failure's scenario, assertion and output folder. Output goes to `tests/_output/`:
+The reporter prints one line per test (`✔` passed, `✖` failed, `-` known issue, `!` known issue now passing) and a summary at the end that names each failure's scenario, assertion and output folder. Ctrl-C (`SIGINT`), `SIGTERM` or `SIGHUP` stops every scenario process, counts the unfinished scenarios as not run and exits with 130 or 143. Output goes to `tests/_output/`:
 
 - `<scenario>/`: `debug.log`, `probe.jsonl` (one line per request or WP-CLI call: what Safety Net ran and the status code), `http.jsonl` (outgoing HTTP attempts, all blocked or mocked), `environment.json` and `log-summary.json`. Files are written when there is something to record, so a scenario without outgoing HTTP has no `http.jsonl`.
 - `_warm-up/`: the boot before the parallel run that downloads WordPress once.
+- `_woocommerce-site/`: replaces the warm-up when two or more selected scenarios need `woocommerce-site`. It installs WordPress, activates WooCommerce and checks that WooCommerce installed cleanly, without Safety Net and without a wp-admin request. Each of those scenarios then boots from its own copy of that site, so it skips installing WordPress and activating WooCommerce but still starts where Safety Net never ran. The site and its copies live in a temporary directory outside the output (each is over 100 MB) that is deleted when the run ends, also when it is interrupted with Ctrl-C, `SIGTERM` or `SIGHUP` (closing the terminal); a `SIGKILL` or a crash can still leave an `sn-smoke-*` directory in the system temp directory. A scenario run on its own, or with no other such scenario, installs and activates as usual, and so does every scenario when building the site fails (the run prints why).
 - `summary.json`: the counts, failures and known issues of the last run (also used to fail CI on fixed known issues).
 
 CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on PHP 8.1, 8.3, 8.4 and 8.5, the release-zip check plus a check that the smoke matrix runs every group in `scenarios.mjs` (add a new group to the matrix, or that check fails), and the smoke tests on PHP 8.1, 8.3, 8.4 and 8.5 for each group, against the tree `release.yml` would zip. Pull requests, trunk and releases always use the latest WordPress. The weekly scheduled run adds WordPress nightly and the latest WooCommerce; a failure there fails that run, which notifies maintainers, but never blocks a pull request or a release. Every leg restores the weekly download cache; only the PHP 8.3 leg of each group saves it. Make the "Tests result" check required in branch protection.

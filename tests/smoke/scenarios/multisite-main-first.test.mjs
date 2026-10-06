@@ -94,17 +94,11 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 	} );
 
 	test( 'M4: front ends, REST routes, network admin and the subsite Tools page load', async () => {
-		for ( const path of [ '/', '/shop/', '/empty/' ] ) {
-			await site.get( path );
-		}
-		const status = JSON.parse( ( await site.get( '/shop/wp-json/safety-net/v1/status' ) ).text );
-		assert.equal( status.data_deleted, true );
-		await site.get( '/shop/?rest_route=/safety-net/v1/status' );
-		await site.login();
-		for ( const path of [ '/wp-admin/network/', '/wp-admin/network/plugins.php', '/wp-admin/network/sites.php', '/wp-admin/network/users.php', '/shop/wp-admin/', '/shop/wp-admin/plugins.php' ] ) {
-			await site.get( path, { jar: site.adminJar } );
-		}
-		assert.match( ( await site.get( '/shop/wp-admin/', { jar: site.adminJar } ) ).text, /Safety Net Activated/ );
+		const [ , , , status ] = await site.getAll( [ '/', '/shop/', '/empty/', '/shop/wp-json/safety-net/v1/status', '/shop/?rest_route=/safety-net/v1/status' ] );
+		assert.equal( JSON.parse( status.text ).data_deleted, true );
+		const jar = await site.login();
+		const [ , , , , shopDashboard ] = await site.getAll( [ '/wp-admin/network/', '/wp-admin/network/plugins.php', '/wp-admin/network/sites.php', '/wp-admin/network/users.php', '/shop/wp-admin/', '/shop/wp-admin/plugins.php' ].map( ( path ) => ( { path, jar } ) ) );
+		assert.match( shopDashboard.text, /Safety Net Activated/ );
 	} );
 
 	test( 'K5/K11: a site administrator\'s Scrub Options and Deactivate Plugins change only their own site', async () => {
