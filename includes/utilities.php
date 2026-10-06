@@ -106,10 +106,53 @@ function should_change_network( string $automatic_hook, string $flag, string $ca
 	}
 
 	if ( doing_action( $automatic_hook ) ) {
-		return ! get_site_option( $flag );
+		if ( get_site_option( $flag ) ) {
+			return false;
+		}
+
+		if ( network_processed_before_flags( $flag ) ) {
+			update_site_option( $flag, true );
+			return false;
+		}
+
+		return true;
 	}
 
 	return ( defined( 'WP_CLI' ) && WP_CLI ) || current_user_can( $capability );
+}
+
+/**
+ * Whether the main site finished this step before network flags existed, so the change isn't applied retroactively.
+ *
+ * @param string $flag The network option that records the change was made.
+ *
+ * @return bool
+ */
+function network_processed_before_flags( string $flag ): bool {
+	global $wpdb;
+
+	// The main site's own first run sets its step flags only after the network check, so it never counts as processed.
+	if ( is_main_site() ) {
+		return false;
+	}
+
+	$options = $wpdb->get_blog_prefix( get_main_site_id() ) . 'options';
+	$flags   = $wpdb->get_results( "SELECT option_name, option_value FROM $options WHERE option_name LIKE 'safety\\_net\\_%'", OBJECT_K ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$is_set  = static function ( string $name ) use ( $flags ): bool {
+		return ! empty( $flags[ $name ]->option_value );
+	};
+
+	switch ( $flag ) {
+		case 'safety_net_network_plugins_deactivated':
+			return $is_set( 'safety_net_plugins_deactivated' );
+		case 'safety_net_network_admin_email_scrubbed':
+			return $is_set( 'safety_net_options_scrubbed' );
+		case 'safety_net_network_gateway_plugins_deactivated':
+			// Current versions leave one of these on the main site, so their absence means an older version ran it.
+			return $is_set( 'safety_net_plugins_deactivated' ) && ! $is_set( 'safety_net_gateway_plugins_pending' ) && ! $is_set( 'safety_net_gateway_plugins_deactivated' );
+	}
+
+	return false;
 }
 
 /**
