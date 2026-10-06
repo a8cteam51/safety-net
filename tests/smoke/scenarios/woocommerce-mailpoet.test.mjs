@@ -34,3 +34,28 @@ describe( 'woocommerce-mailpoet: regular plugin deactivating MailPoet while WooC
 		site.assertCleanLog();
 	} );
 } );
+
+// As an mu-plugin, Safety Net runs before any regular plugin is included, so MailPoet never loads in that request.
+describe( 'woocommerce-mailpoet: mu-plugin deactivating MailPoet before regular plugins load', () => {
+	let site;
+
+	before( async () => {
+		site = await bootSite( { name: 'woocommerce-mailpoet-mu', env: 'staging', mode: 'mu', woocommerce: 'active', mailpoet: true } );
+		await site.php( 'return sn_test_seed_base();', { label: 'seeding the site' } );
+		await site.enableSafetyNet();
+	} );
+
+	after( () => site?.stop() );
+
+	test( 'MW3: MailPoet is not added to the Jetpack Autoloader, whose paths saved at the end of the first load leave it out', async () => {
+		await firstLoad( site );
+		const s = await site.php( "return array( 'active' => get_option( 'active_plugins' ), 'paths' => get_transient( 'jetpack_autoloader_plugin_paths' ) );" );
+		assert.ok( ! s.active.includes( 'mailpoet/mailpoet.php' ), 'MailPoet is still active' );
+		assert.ok( Array.isArray( s.paths ) && s.paths.some( ( p ) => p.endsWith( '/woocommerce' ) ), `The autoloader did not save its paths: ${ JSON.stringify( s.paths ) }` );
+		assert.deepEqual( s.paths.filter( ( p ) => p.endsWith( '/mailpoet' ) ), [], 'The deactivated MailPoet was added to the autoloader although it never loaded' );
+	} );
+
+	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
+		site.assertCleanLog();
+	} );
+} );

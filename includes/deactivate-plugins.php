@@ -140,7 +140,8 @@ function keep_in_jetpack_autoloader( string $plugin ) {
 	global $jetpack_autoloader_activating_plugins_paths;
 
 	// A later plugin's autoloader would rebuild its class map without it while the plugin, already loaded, still runs.
-	if ( did_action( 'plugins_loaded' ) || '.' === dirname( $plugin ) ) {
+	// Before muplugins_loaded, regular plugins are not included yet, so the deactivated plugin never loads.
+	if ( ! did_action( 'muplugins_loaded' ) || did_action( 'plugins_loaded' ) || '.' === dirname( $plugin ) ) {
 		return;
 	}
 
