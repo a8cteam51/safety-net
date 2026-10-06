@@ -538,6 +538,19 @@ function sn_test_mailpoet_state(): array {
 	);
 }
 
+// MailPoet's own reset treats every table with this prefix as its own.
+function sn_test_mailpoet_tables(): array {
+	global $wpdb;
+	$prefix = $wpdb->prefix . 'mailpoet_';
+	$tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
+	if ( $wpdb->last_error ) {
+		throw new RuntimeException( "Listing the MailPoet tables failed: {$wpdb->last_error}" );
+	}
+	$tables = array_map( static fn( $table ) => substr( $table, strlen( $prefix ) ), $tables );
+	sort( $tables );
+	return $tables;
+}
+
 // Just enough of MailPoet's tables for Safety Net's SQL, at this site's prefix, for sites that never ran MailPoet.
 function sn_test_seed_mailpoet_tables( string $key ): array {
 	global $wpdb;
