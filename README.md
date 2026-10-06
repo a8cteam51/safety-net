@@ -88,7 +88,7 @@ npm ci
 npm test                       # every scenario: single site, mu-plugin, production, WooCommerce, multisite, WP-CLI
 npm test -- woocommerce        # one group (single-site, woocommerce or multisite)
 npm test -- woocommerce-hpos   # one scenario; --list shows them all
-SN_TEST_PHP=7.4 npm test       # another PHP version
+SN_TEST_PHP=8.1 npm test       # another PHP version
 ```
 
 They check that no request fails with a PHP fatal error or a 500, and that Safety Net does what this README says on each kind of site. Logs go to `tests/_output/`; downloads are cached in `~/.cache/safety-net-tests`. See the Tests section of `AGENTS.md` for the details. Releases are only built once the same tests pass, so the release zip appears about 10 minutes after a release is created.

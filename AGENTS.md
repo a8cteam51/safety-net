@@ -22,7 +22,7 @@ Safety Net is a WordPress plugin by WordPress.com Special Projects that secures 
 
 | Component | Details |
 |----------|---------|
-| Language | PHP 7.4+ |
+| Language | PHP 8.1+ |
 | Platform | WordPress (plugin) |
 | Dependencies | None at runtime. A dev-only npm package (`@wp-playground/cli`) runs the tests and never ships |
 | Build tools | None—plugin is deployed as source |
@@ -109,7 +109,7 @@ npm test                                # every scenario, a few in parallel (abo
 npm test -- multisite                   # one group: single-site, woocommerce or multisite
 npm test -- staging-plugin wp-cli       # specific scenarios (names never clash with group names)
 npm test -- --list                      # every scenario and what it covers
-SN_TEST_PHP=7.4 npm test                # another PHP version (7.4 to 8.5)
+SN_TEST_PHP=8.1 npm test                # another PHP version (8.1 to 8.5)
 SAFETY_NET_PATH=/path/to/copy npm test  # test a different copy of the plugin
 npm run test:archive                    # check what the release zip would contain
 ```
@@ -135,7 +135,7 @@ The reporter prints one line per test (`✔` passed, `✖` failed, `-` known iss
 - `_warm-up/`: the boot before the parallel run that downloads WordPress once.
 - `summary.json`: the counts, failures and known issues of the last run (also used to fail CI on fixed known issues).
 
-CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on PHP 7.4, 8.1, 8.3, 8.4 and 8.5, the release-zip check plus a check that the smoke matrix runs every group in `scenarios.mjs` (add a new group to the matrix, or that check fails), and the smoke tests on PHP 7.4, 8.1, 8.3, 8.4 and 8.5 for each group, against the tree `release.yml` would zip. Pull requests, trunk and releases always use the latest WordPress. The weekly scheduled run adds WordPress nightly and the latest WooCommerce; a failure there fails that run, which notifies maintainers, but never blocks a pull request or a release. Every leg restores the weekly download cache; only the PHP 8.3 leg of each group saves it. Make the "Tests result" check required in branch protection.
+CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on PHP 8.1, 8.3, 8.4 and 8.5, the release-zip check plus a check that the smoke matrix runs every group in `scenarios.mjs` (add a new group to the matrix, or that check fails), and the smoke tests on PHP 8.1, 8.3, 8.4 and 8.5 for each group, against the tree `release.yml` would zip. Pull requests, trunk and releases always use the latest WordPress. The weekly scheduled run adds WordPress nightly and the latest WooCommerce; a failure there fails that run, which notifies maintainers, but never blocks a pull request or a release. Every leg restores the weekly download cache; only the PHP 8.3 leg of each group saves it. Make the "Tests result" check required in branch protection.
 
 ### Release
 

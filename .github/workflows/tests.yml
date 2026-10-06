@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['7.4', '8.1', '8.3', '8.4', '8.5']
+        php: ['8.1', '8.3', '8.4', '8.5']
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -93,7 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['7.4', '8.1', '8.3', '8.4', '8.5']
+        php: ['8.1', '8.3', '8.4', '8.5']
         # Nightly only runs on the schedule, where a failure notifies maintainers without blocking a pull request or a release.
         wp: ${{ fromJSON(github.event_name == 'schedule' && '["latest","nightly"]' || github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.wp-version) || '["latest"]') }}
         group: [single-site, woocommerce, multisite]
