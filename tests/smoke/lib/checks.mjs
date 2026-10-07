@@ -106,6 +106,15 @@ export async function getToolsPage( site, { jar = site.adminJar, prefix = '' } =
 	return assertToolsPage( await site.get( toolsPagePath( prefix ), { jar } ) );
 }
 
+// Posts the form as the browser does with the pause checkbox unticked, which leaves the field out.
+export async function saveToolsForm( site ) {
+	const { res } = await getToolsPage( site );
+	const nonce = res.text.match( /name="_wpnonce" value="([a-f0-9]+)"/ )?.[ 1 ];
+	assert.ok( nonce, 'The Tools form has no settings nonce' );
+	const save = await site.post( '/wp-admin/options.php', { option_page: 'safety-net', action: 'update', _wpnonce: nonce, _wp_http_referer: '/wp-admin/tools.php?page=safety_net_options' }, { jar: site.adminJar, follow: false, expect: 302 } );
+	assert.match( save.location, /settings-updated=true/ );
+}
+
 // Fetching the enqueued assets also proves SAFETY_NET_URL is right for the install location.
 export async function assertToolsAssets( site, html, expectedDir ) {
 	const script = html.match( /<script[^>]+src=['"]([^'"]*assets\/js\/safety-net-admin\.js[^'"]*)['"]/ )?.[ 1 ];

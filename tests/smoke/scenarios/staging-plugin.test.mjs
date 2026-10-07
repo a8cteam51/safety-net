@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite, phpAtLeast } from '../lib/site.mjs';
 
@@ -117,6 +117,18 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		const log = site.logEntriesSince( mark ).join( '\n' );
 		assert.match( log, /Email blocked: Order receipt/ );
 		assert.ok( log.includes( `Email sent: ${ mail.reset_subject }` ), 'The password reset email was not logged as sent' );
+	} );
+
+	test( 'A30: emails sent before init are blocked too, except password resets', async () => {
+		await site.php( "update_option( 'sn_test_early_mail', 1 ); return true;" );
+		try {
+			const mark = site.logMark();
+			const early = await site.php( "return $GLOBALS['sn_test_early_mail'] ?? null;", { label: 'sending emails on plugins_loaded' } );
+			assert.deepEqual( early, { 'Early order receipt': false, 'Early Password Reset': null }, 'Safety Net did not block a regular email sent on plugins_loaded (false is blocked, null is let through)' );
+			assert.match( site.logEntriesSince( mark ).join( '\n' ), /Email blocked: Early order receipt/ );
+		} finally {
+			await site.php( "delete_option( 'sn_test_early_mail' ); return true;" );
+		}
 	} );
 
 	test( 'A25: Jetpack subscriptions only go to a category that does not exist and PMPro registers no crons', async () => {
@@ -285,13 +297,10 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 	} );
 
 	test( 'S17: saving the Tools form turns the renewal pause off', async () => {
-		const { res } = await getToolsPage( site );
-		const nonce = res.text.match( /name="_wpnonce" value="([a-f0-9]+)"/ )?.[ 1 ];
-		assert.ok( nonce, 'The Tools form has no settings nonce' );
-		const save = await site.post( '/wp-admin/options.php', { option_page: 'safety-net', action: 'update', _wpnonce: nonce, _wp_http_referer: '/wp-admin/tools.php?page=safety_net_options' }, { jar: site.adminJar, follow: false, expect: 302 } );
-		assert.match( save.location, /settings-updated=true/ );
-		const toggle = await site.php( "return get_option( 'safety_net_pause_renewal_actions_toggle' );" );
-		assert.notEqual( toggle, 'on' );
+		await saveToolsForm( site );
+		const toggle = await site.php( "return array( 'value' => get_option( 'safety_net_pause_renewal_actions_toggle' ), 'raw' => sn_test_raw_option( 'safety_net_pause_renewal_actions_toggle' ) );" );
+		assert.notEqual( toggle.value, 'on' );
+		assert.notEqual( toggle.raw, null, 'Saving the form deleted the toggle, which the next load turns back on' );
 		assert.doesNotMatch( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, /scheduled actions are currently paused/ );
 	} );
 
