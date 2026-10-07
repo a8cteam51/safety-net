@@ -166,6 +166,13 @@ return true;`,
 		assert.deepEqual( { key: s.settings.mta.mailpoet_api_key, premium: s.settings.premium.premium_key, subscribers: s.counts.subscribers }, { key: '', premium: '', subscribers: 0 } );
 	} );
 
+	test( 'M8: every MailPoet table is either emptied or deliberately kept, so a table added by a new MailPoet version is noticed', async () => {
+		const tables = await site.php( 'return sn_test_mailpoet_tables();' );
+		const known = [ ...DELETED, ...KEPT, 'newsletters', 'settings' ];
+		assert.deepEqual( known.filter( ( table ) => ! tables.includes( table ) ), [], `These tables are listed here but MailPoet does not have them: ${ JSON.stringify( tables ) }` );
+		assert.deepEqual( tables.filter( ( table ) => ! known.includes( table ) ), [], 'MailPoet has tables Safety Net neither empties nor deliberately keeps: add each to the list in delete_mailpoet_data() and to DELETED here if it holds subscriber data, or to KEPT if it holds configuration' );
+	} );
+
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
 		site.assertCleanLog();
 	} );
