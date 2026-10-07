@@ -3,6 +3,8 @@ _transient_timeout_nelio_content_news
 _wp_convertkit_settings
 apple_news_settings
 default_pingback_flag
+iawmlf_archive_api_access
+iawmlf_archive_api_secret
 jetpack_active_modules
 jetpack_private_options
 jetpack_secrets

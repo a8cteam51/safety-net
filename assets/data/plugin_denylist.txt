@@ -36,6 +36,7 @@ google-tag-manager
 hotjar
 hubspot
 in-stock-mailer-for-wc
+internet-archive-wayback-machine-link-fixer
 jetpack-social
 klarna
 klaviyo

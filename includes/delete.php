@@ -37,8 +37,8 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
 	}
 	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
-	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_order' OR post_type = 'shop_subscription' )" );
-	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_order'" );
+	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type IN ( 'shop_order', 'shop_order_refund', 'shop_order_placehold', 'shop_subscription' ) )" );
+	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type IN ( 'shop_order', 'shop_order_refund', 'shop_order_placehold' )" );
 	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
 
 	// Delete Woo memberships
@@ -80,6 +80,13 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_product_lookup" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_log" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_stats" );
+	}
+
+	foreach ( array( 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ) as $wc_table ) {
+		$wc_full_table = $wpdb->prefix . $wc_table;
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wc_full_table ) ) === $wc_full_table ) {
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}{$wc_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from hardcoded allow-list above.
+		}
 	}
 
 	// Delete renewal scheduled actions
@@ -133,33 +140,39 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_memberships_users" );
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}pmpro_discount_codes_uses" );
 
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'pmpro_stripe_customerid'" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key LIKE 'pmpro_b%'" );
+		$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key = 'pmpro_stripe_customerid'" );
+		$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE 'pmpro_b%'" );
 	}
 
-	// Delete BuddyPress data
-	$table_name = $wpdb->prefix . 'bp_xprofile_data';
+	// Delete BuddyPress data. Its tables are network-wide on multisite; this is bp_core_get_table_prefix(), which may not be loaded yet.
+	$bp_prefix  = apply_filters( 'bp_core_get_table_prefix', $wpdb->base_prefix );
+	$table_name = $bp_prefix . 'bp_xprofile_data';
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_xprofile_data" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}signups" );
+		$wpdb->query( "DELETE FROM {$bp_prefix}bp_xprofile_data" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
 
-		$table_name = $wpdb->prefix . 'bp_friends';
+		// Signups is a network-wide table on multisite, and BuddyPress uses the same name on single sites.
+		$table_name = $wpdb->base_prefix . 'signups';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_friends" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}usermeta WHERE meta_key = 'total_friend_count'" );
+			$wpdb->query( "DELETE FROM {$wpdb->base_prefix}signups" );
 		}
 
-		$table_name = $wpdb->prefix . 'bp_messages_messages';
+		$table_name = $bp_prefix . 'bp_friends';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_messages" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_threads" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_messages_recipients" );
+			$wpdb->query( "DELETE FROM {$bp_prefix}bp_friends" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
+			$wpdb->query( "DELETE FROM $wpdb->usermeta WHERE meta_key = 'total_friend_count'" );
 		}
 
-		$table_name = $wpdb->prefix . 'bp_notifications';
+		foreach ( array( 'bp_messages_messages', 'bp_messages_recipients', 'bp_messages_notices', 'bp_messages_meta' ) as $bp_table ) {
+			$bp_full_table = $bp_prefix . $bp_table;
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bp_full_table ) ) === $bp_full_table ) {
+				$wpdb->query( "DELETE FROM {$bp_full_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from hardcoded allow-list above.
+			}
+		}
+
+		$table_name = $bp_prefix . 'bp_notifications';
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications" );
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}bp_notifications_meta" );
+			$wpdb->query( "DELETE FROM {$bp_prefix}bp_notifications" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
+			$wpdb->query( "DELETE FROM {$bp_prefix}bp_notifications_meta" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table prefix from BuddyPress or $wpdb.
 		}
 	}
 
@@ -204,20 +217,119 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpforms_entry_fields" );
 	}
 
+	delete_mailpoet_data();
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
 	$admins = get_admin_user_ids(); // returns an array of ids
 
-	// Delete all non-admin users and their user meta
-	$placeholders = implode( ',', array_fill( 0, count( $admins ), '%d' ) );
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+	// Delete all non-admin users and their user meta, but never every user when no admin can be found.
+	if ( $admins ) {
+		$placeholders = implode( ',', array_fill( 0, count( $admins ), '%d' ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE user_id NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+		$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->users WHERE ID NOT IN ($placeholders)", ...$admins ) ); // phpcs:ignore
+	} else {
+		error_log( 'Safety Net: no administrators found, so users were not deleted.' ); // phpcs:ignore -- Logging is okay here.
+	}
+
+	// Admins keep their user meta, so their cached subscription IDs would point at deleted subscriptions.
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE %s", $wpdb->esc_like( '_wcs_subscription_ids_cache' ) . '%' ) );
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
 
 	wp_cache_flush();
+}
+
+/**
+ * Deletes MailPoet's subscribers and their activity, keeping its forms, lists, emails, templates and automations.
+ *
+ * @return void
+ */
+function delete_mailpoet_data() {
+	global $wpdb;
+
+	delete_mailpoet_export_files();
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names come from $wpdb and the allow-list below.
+	// MailPoet's automation storage ignores the mailpoet_db_prefix filter, so its tables always use this prefix.
+	$prefix     = $wpdb->prefix . 'mailpoet_';
+	$table_name = $prefix . 'subscribers';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) !== $table_name ) {
+		return;
+	}
+
+	$mailpoet_tables = array(
+		'subscribers',
+		'subscriber_segment',
+		'subscriber_custom_field',
+		'subscriber_tag',
+		'subscriber_ips',
+		'statistics_newsletters',
+		'statistics_opens',
+		'statistics_clicks',
+		'statistics_bounces',
+		'statistics_unsubscribes',
+		'statistics_forms',
+		'statistics_woocommerce_purchases',
+		'user_agents',
+		'scheduled_tasks',
+		'scheduled_task_subscribers',
+		'sending_queues',
+		'stats_notifications',
+		'newsletter_links',
+		'automation_runs',
+		'automation_run_subjects',
+		'automation_run_logs',
+		'log',
+	);
+	foreach ( $mailpoet_tables as $mailpoet_table ) {
+		$mailpoet_full_table = $prefix . $mailpoet_table;
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $mailpoet_full_table ) ) ) === $mailpoet_full_table ) {
+			$wpdb->query( "DELETE FROM {$mailpoet_full_table}" );
+		}
+	}
+
+	// MailPoet cannot unschedule a newsletter whose sending queue is gone, so these get the status its own unschedule and cleanup give.
+	$table_name = $prefix . 'newsletters';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+		$wpdb->query( "UPDATE {$table_name} SET status = 'draft' WHERE type = 'standard' AND status IN ( 'scheduled', 'sending' )" );
+		$wpdb->query( "UPDATE {$table_name} SET status = 'sent' WHERE type = 'notification_history' AND status IN ( 'scheduled', 'sending' )" );
+	}
+
+	// Each step action points at an automation run deleted above.
+	$table_name = $wpdb->prefix . 'actionscheduler_logs';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook = 'mailpoet/automation/step'" );
+	}
+	$table_name = $wpdb->prefix . 'actionscheduler_actions';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook = 'mailpoet/automation/step'" );
+	}
+	// phpcs:enable
+}
+
+/**
+ * Deletes MailPoet's subscriber and statistics exports, which it otherwise keeps for up to a week.
+ *
+ * @return void
+ */
+function delete_mailpoet_export_files() {
+	$directory = wp_upload_dir( null, false )['basedir'] . '/mailpoet';
+	if ( ! is_dir( $directory ) ) {
+		return;
+	}
+
+	// Older MailPoet versions wrote exports directly into this folder.
+	foreach ( array( $directory, $directory . '/exports' ) as $folder ) {
+		foreach ( array( 'MailPoet_export_*.*', 'MailPoet_stats_export_*.*' ) as $pattern ) {
+			$files = glob( $folder . '/' . $pattern );
+			foreach ( is_array( $files ) ? $files : array() as $file ) {
+				wp_delete_file( $file );
+			}
+		}
+	}
 }
 
 /**
@@ -228,26 +340,31 @@ function delete_users_and_orders() {
 function reassign_all_posts() {
 	global $wpdb;
 
-	$wpdb->get_results( $wpdb->prepare( "UPDATE $wpdb->posts SET post_author = %d", get_admin_id() ) );
+	$admin_id = get_admin_id();
+	if ( ! $admin_id ) {
+		return;
+	}
+
+	$wpdb->get_results( $wpdb->prepare( "UPDATE $wpdb->posts SET post_author = %d", $admin_id ) );
 
 	wp_cache_flush();
 }
 
 /**
- * Returns an admin ID that posts can be reassigned to.
+ * Returns an admin ID that posts can be reassigned to, or 0 if there is none.
  *
- * @return mixed
+ * @return int|string
  */
 function get_admin_id() {
-	$admin = get_users(
-		array(
-			'role__in' => array(
-				'administrator',
-			),
-			'fields'   => 'ids',
-			'number'   => 1,
-		)
-	);
+	global $wpdb;
 
-	return $admin[0];
+	// Not get_users(): user queries must not run before plugins_loaded, when the automatic run fires.
+	$admin = $wpdb->get_col( $wpdb->prepare( "SELECT u.ID FROM $wpdb->users u INNER JOIN $wpdb->usermeta m ON m.user_id = u.ID WHERE m.meta_key = %s AND m.meta_value LIKE %s ORDER BY u.ID LIMIT 1", $wpdb->prefix . 'capabilities', '%' . $wpdb->esc_like( '"administrator"' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	// A network site can have no administrator of its own, only super admins.
+	if ( empty( $admin ) ) {
+		$admin = get_admin_user_ids();
+	}
+
+	return $admin[0] ?? 0;
 }

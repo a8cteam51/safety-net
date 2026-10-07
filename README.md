@@ -3,12 +3,12 @@
 
 # Safety Net
 
-**for Team51 Development Sites**
+**for development, staging, and local WordPress sites**
 
 **[Download the latest release](https://github.com/a8cteam51/safety-net/releases/latest/download/safety-net.zip)**
 
 ## What's this?
-This is a WordPress plugin developed by WordPress.com Special Projects (Team 51) that secures sensitive data on development, staging, and local sites. It deletes users and WooCommerce orders and subscriptions, as well as prevents sites from acting on user data (e.g. sending emails, processing renewals, etc.)
+This is a WordPress plugin developed by WordPress.com Special Projects that secures sensitive data on development, staging, and local sites. It deletes users and WooCommerce orders and subscriptions, as well as prevents sites from acting on user data (e.g. sending emails, processing renewals, etc.)
 
 ## Disclaimer
 This public plugin is provided as an example of how such a plugin could be implemented, and is provided without any support or guarantees. Please use at your own discretion. Incorrect usage could result in data deletion.
@@ -18,8 +18,8 @@ This public plugin is provided as an example of how such a plugin could be imple
 - **Pause Renewal Actions**: When Safety Net is activated, Action Scheduler will not claim renewal actions or payment retry actions from WooCommerce Subscriptions, effectively pausing them. Other scheduled actions will continue to run. This is toggleable in wp-admin.
 - **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
-- **Deactivate Plugins**: Deactivates denylisted plugins. Also, runs through installed Woo payment gateways and deactivates them as well (deactivates the actual plugin, not from the checkout settings).
-- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions.
+- **Deactivate Plugins**: Deactivates denylisted plugins. Also deactivates any plugin that registers a WooCommerce payment gateway (deactivates the actual plugin, not from the checkout settings). WooCommerce's built-in gateways and a few offline ones (such as Pre-Orders' "Pay Later" and Bookings' availability check) are left alone. To exclude a plugin from this step, use the `safety_net_payment_gateway_plugins` filter; plugins that also match the denylist (Stripe, PayPal, etc.) additionally need `safety_net_denylisted_plugins`.
+- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions, and the personal data some plugins keep in their own tables (see [Explanations](#explanations)).
 
 #### Advanced features
 - **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
@@ -35,7 +35,6 @@ define( 'SAFETY_NET_SKIP_GIVEWP', true );
 When this constant is set to `true`, all GiveWP-specific data will be excluded from the deletion process. This includes donor records, donation posts, subscription data, and related metadata.
 
 ## Planned Features
-- Multi-site (WordPress network) compatibility
 - Do you have a suggestion for the next great feature to add? Please create an issue or submit a PR!
 
 ## How to use?
@@ -51,6 +50,8 @@ Activating the plugin on a non-production site will:
 6. Discourage search engines.
 
 *Only runs automatically if `wp_get_environment_type` returns `staging`, `development`, or `local`. If you have access to WP-CLI, you can SSH in and run `wp config set WP_ENVIRONMENT_TYPE staging --type=constant`
+
+On a multisite network, each site runs these steps on its own first load. Network-activated plugins and the network admin email are handled once per network, by the first site that runs (for payment gateway plugins, the first one with WooCommerce active), so later sites don't undo what a super admin changes afterwards. On the Tools > Safety Net page, only super admins re-apply those network-wide changes; a site administrator's buttons only change their own site. `wp safety-net scrub-options` and `wp safety-net deactivate-plugins` always apply them.
 
 ## How to add plugins or options to the denylists
 These denylists are `txt` files that live in the `assets/data/` folder. Each plugin or option is on its own line. 
@@ -78,6 +79,19 @@ add_filter( 'safety_net_denylisted_plugins', function( $denylist ) {
     return $denylist;
 } );
 ```
+
+## Running the tests
+The smoke tests boot real WordPress sites in [WordPress Playground](https://wordpress.github.io/wordpress-playground/), so you don't need PHP, MySQL or Docker. You need Node.js 24.18 or later (older 24.x releases work, with `EBADENGINE` warnings from `npm ci`), `unzip` and `git` on your `PATH`, and network access on every run:
+
+```bash
+npm ci
+npm test                       # every scenario: single site, mu-plugin, production, WooCommerce, multisite, WP-CLI
+npm test -- woocommerce        # one group (single-site, woocommerce or multisite)
+npm test -- woocommerce-hpos   # one scenario; --list shows them all
+SN_TEST_PHP=8.1 npm test       # another PHP version
+```
+
+They check that no request fails with a PHP fatal error or a 500, and that Safety Net does what this README says on each kind of site. Logs go to `tests/_output/`; downloads are cached in `~/.cache/safety-net-tests`. See the Tests section of `AGENTS.md` for the details. Releases are only built once the same tests pass, so the release zip appears about 10 minutes after a release is created.
 
 ## Troubleshooting
 
@@ -111,6 +125,18 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 
 * Scrubs the API access settings.
 * Disables the plugin.
+
+### MailPoet
+
+Safety Net keeps MailPoet's configuration and deletes its people, so a staging site keeps its forms and can be connected to its own accounts.
+
+* Deactivates MailPoet and MailPoet Premium (they are on the plugin denylist).
+* Deletes subscribers and everything recorded about them: list and tag memberships, custom field values, sending, open, click, bounce, unsubscribe, form and WooCommerce purchase statistics, sending queues and tasks, automation runs and their scheduled steps, the MailPoet log, the last sending error, and subscriber and statistics export files in `uploads/mailpoet`.
+* Scrubs the MailPoet Sending Service and Premium keys and their cached key checks, the SMTP, Amazon SES and SendGrid credentials, and the reCAPTCHA and Turnstile secret keys. Forms that used reCAPTCHA or Turnstile switch to MailPoet's built-in captcha.
+* Blanks the default sender, reply-to, bounce and notification email addresses, and each email's own sender and reply-to addresses. Emails without a sender use the default one, which a reactivated MailPoet fills in from the scrubbed admin email. Saving an automation copies the sender stored in its email step back to that email.
+* Keeps forms, lists (now empty), segments, custom fields, tags, emails, templates, automations and the other settings. Scheduled and sending newsletters become drafts.
+
+MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email blocking does not cover a reactivated MailPoet.
 
 ### PMPro
 

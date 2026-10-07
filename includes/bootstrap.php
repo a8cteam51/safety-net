@@ -14,6 +14,8 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_transients' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_disable_webhooks' );
+// safety_net_loaded fires before WooCommerce and its gateways load, so gateway plugins are handled once everything has.
+add_action( 'wp_loaded', __NAMESPACE__ . '\maybe_deactivate_gateway_plugins' );
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
  *
@@ -126,4 +128,26 @@ function maybe_disable_webhooks() {
 	}
 
 	do_action( 'safety_net_disable_webhooks' );
+}
+
+/**
+ * Determines if plugins that register a WooCommerce payment gateway should be deactivated.
+ */
+function maybe_deactivate_gateway_plugins() {
+	// Only set by the plugin step itself, so sites processed before this pass existed aren't touched retroactively.
+	if ( ! get_option( 'safety_net_gateway_plugins_pending' ) ) {
+		return;
+	}
+
+	// If we're not on staging, development, or a local environment, return.
+	if ( is_production() ) {
+		return;
+	}
+
+	// Without WooCommerce there are no gateways yet, so try again once it's active.
+	if ( ! class_exists( 'WooCommerce' ) ) {
+		return;
+	}
+
+	do_action( 'safety_net_deactivate_gateway_plugins' );
 }

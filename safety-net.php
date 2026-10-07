@@ -2,11 +2,13 @@
 /*
  * Plugin Name: Safety Net
  * Plugin URI: https://specialprojects.automattic.com/tools/safety-net/
- * Description: For Team51 Development Sites. Deletes user data and more!
- * Version: 1.6.1
+ * Description: Secures sensitive data on development, staging, and local sites by deleting user data, scrubbing API keys, deactivating risky plugins, and blocking emails.
+ * Version: 1.7.0
+ * Requires PHP: 8.1
  * Author: WordPress.com Special Projects
  * Author URI: https://specialprojects.automattic.com
  * Text Domain: safety-net
+ * Update URI: https://github.com/a8cteam51/safety-net
  * License: GPLv3
 */
 
@@ -18,12 +20,19 @@ if ( defined( 'SAFETY_NET_PATH' ) ) {
 	return; // Return if another copy of the plugin is activated
 }
 
+if ( wp_installing() && ! is_blog_installed() ) {
+	return; // Bail during core installation — the database isn't ready yet.
+}
+
 define( 'SAFETY_NET_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SAFETY_NET_URL', plugin_dir_url( __FILE__ ) );
 define( 'SAFETY_NET_BASENAME', plugin_basename( __FILE__ ) );
 
 // Allow access to the basic utility functions.
 require_once __DIR__ . '/includes/utilities.php';
+
+// Loaded before the production check so dormant production installs still receive updates.
+require_once __DIR__ . '/includes/self-update.php';
 
 // If the site is production, bail.
 if ( SafetyNet\Utilities\is_production() ) {

@@ -6,3 +6,7 @@ node_modules/
 
 # Local History for Visual Studio Code
 .history/
+
+# Smoke test output and downloads
+/tests/_output/
+/tests/_cache/

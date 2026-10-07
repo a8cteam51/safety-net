@@ -1,0 +1,17 @@
+{
+	"name": "safety-net-tests",
+	"private": true,
+	"description": "Smoke tests for the Safety Net plugin. Not part of the plugin release.",
+	"type": "module",
+	"engines": {
+		"node": ">=24.18"
+	},
+	"scripts": {
+		"test": "node --experimental-wasm-jspi tests/smoke/run.mjs",
+		"test:archive": "node tests/smoke/check-release-archive.mjs"
+	},
+	"devDependencies": {
+		"@wp-playground/blueprints": "3.1.57",
+		"@wp-playground/cli": "3.1.57"
+	}
+}
