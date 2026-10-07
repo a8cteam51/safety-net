@@ -12,6 +12,8 @@ authorize-net
 automatewoo
 automator
 avatax
+bestony-ai-provider/
+birbwhale/
 blaze-ads
 code-snippets
 console
@@ -21,6 +23,8 @@ cybersource
 distributor
 donorbox
 double-the-donation
+duetg-ai-connector/
+duoport-connect-for-opencode/
 email-subscribers
 facebook-for-woocommerce
 facebook-pixel
@@ -38,9 +42,12 @@ hubspot
 in-stock-mailer-for-wc
 internet-archive-wayback-machine-link-fixer
 jetpack-social
+jokiruiz-local-model-connector/
 klarna
 klaviyo
 kliken-ads
+koneek-multi-provider-ai-gateway/
+latentkit-ai-provider/
 leadin
 mail-bank
 mailchimp
@@ -52,10 +59,15 @@ mailster
 memberful
 metorik
 microsoft-start
+mittwald-ai-provider/
+modeltrestle-ai-connector-for-nano-gpt/
+mw-local-ai-connector/
 mwai
 myworks-woo-sync
 nelio-content
 newsletter
+onmyodev-connector-for-deepseek/
+opencode-ai-provider/
 optimonk
 paid-member-subscriptions
 payever
@@ -74,6 +86,7 @@ product-feed
 publish-to-apple-news
 quickbooks
 rank-math
+razhur-connector-for-avalai/
 referralcandy
 routeapp
 salesforce
@@ -94,6 +107,8 @@ tiktok
 tiktok-for-business
 triple-whale
 truemed
+ultimate-ai-connector-compatible-endpoints/
+vercel-ai-gateway-provider/
 wc-cashapp
 webgility
 woocommerce-amazon-fulfillment
@@ -112,6 +127,7 @@ wp-youtube-sync
 wpmandrill
 wpremote
 yotpo
+zactonz-ai-
 zapier
 zoho
 zoho-mail

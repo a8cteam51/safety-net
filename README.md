@@ -117,6 +117,16 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_data' )
 
 ## Explanations
 
+### AI providers
+
+Safety Net removes the keys a staging site would use to call paid AI services as the live site.
+
+* Deletes the AI provider API keys and application passwords that WordPress stores for its connectors (`connectors_ai_*` options), the AI plugin's encrypted copies of them (`_secret_ai/*`), and the keys that known AI provider plugins keep in options of their own. Settings of those plugins that also hold other configuration keep it; only their secrets are blanked. AI keys are never backed up, and backups an earlier run left of them are deleted.
+* Deactivates the AI plugin and AI provider plugins (they are on the plugin denylist), without running their deactivation hooks, so the AI plugin cannot write its decrypted keys back. Plugins that only talk to a local model server, such as Ollama or LM Studio, are deactivated too.
+* Keys supplied through environment variables or `wp-config.php` constants, such as `OPENAI_API_KEY` or any other `{PROVIDER}_API_KEY`, are not in the database, so Safety Net cannot scrub them. Remove them from the staging site's environment and configuration.
+* On a multisite network each site's keys are deleted on that site's first load, so a site that is never loaded keeps its keys, as it keeps every other scrubbed option.
+* Staging sites that an earlier version of Safety Net already processed keep their AI keys until Scrub Options is run again, from Tools > Safety Net or with `wp safety-net scrub-options`.
+
 ### BuddyPress
 
 * Deletes user profiles, friends, messages, and notifications.

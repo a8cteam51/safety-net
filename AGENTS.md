@@ -7,7 +7,7 @@ This document helps coding agents work autonomously on the Safety Net WordPress 
 Safety Net is a WordPress plugin by WordPress.com Special Projects that secures sensitive data on development, staging, and local sites. It:
 
 - Deletes non-admin users, WooCommerce orders, subscriptions, and related data, plus the personal data some plugins keep in their own tables (e.g. MailPoet subscribers and their activity)
-- Scrubs denylisted options (API keys, secrets) and MailPoet's service keys, mail credentials and sender addresses
+- Scrubs denylisted options (API keys, secrets), deletes AI provider credentials, and scrubs MailPoet's service keys, mail credentials and sender addresses
 - Deactivates denylisted plugins and WooCommerce payment gateways
 - Blocks outgoing emails
 - Pauses WooCommerce Subscriptions renewal actions (toggleable)
@@ -41,7 +41,7 @@ safety-net/
 │   ├── admin.php           # Admin UI, AJAX handlers, email blocking
 │   ├── common.php          # Filters: disable emails, Jetpack, robots.txt
 │   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production
-│   ├── scrub-options.php   # Scrubs options from option_scrublist.txt
+│   ├── scrub-options.php   # Scrubs options from option_scrublist.txt and deletes AI provider credentials
 │   ├── self-update.php     # Offers GitHub releases as plugin updates (loads on production too)
 │   ├── deactivate-plugins.php
 │   ├── delete.php          # delete_users_and_orders
@@ -253,6 +253,9 @@ Constant:
 
 9. **Deactivating plugins mid-load**  
    The automatic run deactivates plugins while WordPress is still including them, so plugins earlier in the list (such as MailPoet) are already running. Plugins that use the Jetpack Autoloader (MailPoet, WooCommerce, Jetpack) share one class map, which a later plugin rebuilds from `active_plugins` and the `jetpack_autoloader_plugin_paths` transient. `keep_in_jetpack_autoloader()` adds each deactivated plugin whose main file is already included to the autoloader's list for the rest of the request; without it that plugin fatals. A plugin not loaded yet never runs in that request, so it is left out (mu-plugin mode, or a site plugin deactivated by a network-activated Safety Net). Network-activated plugins load alphabetically before site plugins, so network-activated MailPoet runs before a network-activated Safety Net. The `woocommerce-mailpoet` and `multisite-network-mailpoet` scenarios cover these cases.
+
+10. **AI provider credentials**  
+   `scrub-options.php` deletes AI provider credentials without a backup and without option hooks: WordPress's connector keys and application passwords (`connectors_ai_*`), the AI plugin's encrypted `_secret_ai/*` keys, and the options listed in `AI_CREDENTIAL_OPTIONS`, `AI_CREDENTIAL_PATTERNS` and `AI_CREDENTIAL_SETTINGS`, whose provider plugins keep keys outside core's names (settings that also hold other configuration only have their secrets blanked). The rows are changed with `$wpdb`, so each one is also dropped from the object cache right away, as `delete_option()` does; otherwise a later `add_option()` in the same request saves the stale `alloptions` copy back. The AI plugin and AI provider plugins are on the plugin denylist; check a new entry against real plugin slugs, since entries are substring matches. Keys supplied through `{PROVIDER}_API_KEY` environment variables or `wp-config.php` constants can't be scrubbed, a multisite subsite that is never loaded keeps its keys like every other scrubbed option, and sites that an earlier version already processed keep their AI keys until Scrub Options runs again.
 
 ---
 

@@ -8,6 +8,36 @@ use WC_Webhook;
 use function SafetyNet\Utilities\get_denylist_array;
 use function SafetyNet\Utilities\should_change_network;
 
+const AI_CREDENTIAL_OPTIONS = array(
+	'aiprfoex_api_key',
+	'halawa_chatgpt_tokens',
+	'jokiruiz_local_model_connector_api_key',
+	'mwlai_actual_computer_api_key',
+	'mwlai_api_key',
+	'ultimate_ai_connector_api_key',
+	'wp_ai_client_provider_credentials',
+	'zctz_ollama_ai_connector_cloud_api_key',
+	'zctz_ollama_ai_connector_self_hosted_api_key',
+);
+
+const AI_CREDENTIAL_PATTERNS = array(
+	array( 'connectors_ai_', '_api_key' ),
+	array( 'connectors_ai_', '_application_password' ),
+	array( '_secret_ai/', '_api_key' ),
+	array( 'koneek_api_key', '' ),
+	array( 'zctz_openrouter_secret_', '' ),
+);
+
+// These also hold the provider's other settings, so only the secrets inside them are blanked.
+const AI_CREDENTIAL_SETTINGS = array(
+	'ai_provider_for_cursor_settings'     => array( 'api_key' ),
+	'aipcf_settings'                      => array( 'api_key', 'gateway_token', 'qdrant_api_key', 'pg_password' ),
+	'obenweb_openwebui_provider_settings' => array( 'api_key' ),
+	'ultimate_ai_connector_providers'     => array( 'api_key' ),
+	'vercel_ai_gateway_provider_settings' => array( 'api_key' ),
+	'wp_ai_client_credentials'            => array( 'api_key' ),
+);
+
 add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
 
 /*
@@ -205,13 +235,21 @@ function is_ai_credential_option( $option ): bool {
 		return false;
 	}
 
-	return 'wp_ai_client_provider_credentials' === $option
-		|| ( str_starts_with( $option, 'connectors_ai_' ) && str_ends_with( $option, '_api_key' ) )
-		|| ( str_starts_with( $option, '_secret_ai/' ) && str_ends_with( $option, '_api_key' ) );
+	if ( in_array( $option, AI_CREDENTIAL_OPTIONS, true ) || array_key_exists( $option, AI_CREDENTIAL_SETTINGS ) ) {
+		return true;
+	}
+
+	foreach ( AI_CREDENTIAL_PATTERNS as list( $prefix, $suffix ) ) {
+		if ( str_starts_with( $option, $prefix ) && str_ends_with( $option, $suffix ) ) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**
- * Scrubs an AI provider credential without reading or backing up its value.
+ * Scrubs an AI provider credential without backing up its value.
  *
  * @param string $option Option name.
  * @return void
@@ -219,55 +257,111 @@ function is_ai_credential_option( $option ): bool {
 function scrub_ai_credential_option( string $option ): void {
 	global $wpdb;
 
-	$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- AI credentials must not be retained in backup options.
-		$wpdb->options,
-		array( 'option_name' => $option . '_sn_backup' )
-	);
+	delete_option_directly( $option . '_sn_backup' );
 
-	$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct access intentionally bypasses option hooks.
-		$wpdb->options,
-		array( 'option_name' => $option )
-	);
+	if ( ! array_key_exists( $option, AI_CREDENTIAL_SETTINGS ) ) {
+		delete_option_directly( $option );
+		return;
+	}
+
+	$settings = maybe_unserialize( $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $option ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct access intentionally bypasses option hooks.
+	if ( ! is_array( $settings ) ) {
+		return;
+	}
+
+	$scrubbed = blank_ai_secrets( $settings, AI_CREDENTIAL_SETTINGS[ $option ] );
+	if ( $scrubbed !== $settings ) {
+		safety_net_update_option_direct( $option, $scrubbed );
+		forget_cached_option( $option, false );
+	}
 }
 
 /**
- * Gets database-backed WordPress AI connector credentials that should be scrubbed.
+ * Blanks the given keys at any depth of an AI provider plugin's settings.
  *
- * WordPress 7.0+ stores AI provider API keys in options matching the
- * `connectors_ai_{provider}_api_key` pattern. The AI plugin can instead store
- * those keys as encrypted `_secret_ai/{provider}_api_key` options, and older
- * versions used one combined credentials option.
+ * @param array    $settings    The stored settings.
+ * @param string[] $secret_keys Keys whose values are secrets.
+ * @return array The settings without their secrets.
+ */
+function blank_ai_secrets( array $settings, array $secret_keys ): array {
+	foreach ( $settings as $key => $value ) {
+		if ( in_array( $key, $secret_keys, true ) ) {
+			$settings[ $key ] = '';
+		} elseif ( is_array( $value ) ) {
+			$settings[ $key ] = blank_ai_secrets( $value, $secret_keys );
+		}
+	}
+
+	return $settings;
+}
+
+/**
+ * Deletes an option without running its hooks.
+ *
+ * @param string $option Option name.
+ * @return void
+ */
+function delete_option_directly( string $option ): void {
+	global $wpdb;
+
+	if ( $wpdb->delete( $wpdb->options, array( 'option_name' => $option ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct access intentionally bypasses option hooks.
+		forget_cached_option( $option, true );
+	}
+}
+
+/**
+ * Drops an option changed directly in the database from the object cache, as delete_option() and update_option() do.
+ *
+ * @param string $option  Option name.
+ * @param bool   $deleted Whether the option's row was deleted.
+ * @return void
+ */
+function forget_cached_option( string $option, bool $deleted ): void {
+	if ( wp_installing() ) {
+		return;
+	}
+
+	$alloptions = wp_load_alloptions( true );
+	if ( isset( $alloptions[ $option ] ) ) {
+		unset( $alloptions[ $option ] );
+		wp_cache_set( 'alloptions', $alloptions, 'options' );
+	}
+	wp_cache_delete( $option, 'options' );
+
+	if ( $deleted ) {
+		$notoptions            = wp_cache_get( 'notoptions', 'options' );
+		$notoptions            = is_array( $notoptions ) ? $notoptions : array();
+		$notoptions[ $option ] = true;
+		wp_cache_set( 'notoptions', $notoptions, 'options' );
+	}
+}
+
+/**
+ * Gets the AI provider credential options to scrub on the current site, including those only a backup is left of.
  *
  * @return array AI credential option names.
  */
 function get_ai_options_to_clear(): array {
 	global $wpdb;
 
-	$plain_key_pattern     = $wpdb->esc_like( 'connectors_ai_' ) . '%';
-	$encrypted_key_pattern = $wpdb->esc_like( '_secret_ai/' ) . '%';
-
-	$stored_options = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Scrubbing requires the stored option names, not their values.
-		$wpdb->prepare(
-			"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-			$plain_key_pattern,
-			$encrypted_key_pattern
-		)
-	);
-
-	$ai_options    = array();
+	$ai_options    = array_merge( AI_CREDENTIAL_OPTIONS, array_keys( AI_CREDENTIAL_SETTINGS ) );
 	$backup_suffix = '_sn_backup';
 
-	foreach ( $stored_options as $option ) {
-		if ( str_ends_with( $option, $backup_suffix ) ) {
-			$option = substr( $option, 0, -strlen( $backup_suffix ) );
-		}
+	foreach ( array_unique( array_column( AI_CREDENTIAL_PATTERNS, 0 ) ) as $prefix ) {
+		$stored_options = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Scrubbing requires the stored option names, not their values.
+			$wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' )
+		);
 
-		if ( is_ai_credential_option( $option ) ) {
-			$ai_options[] = $option;
+		foreach ( $stored_options as $option ) {
+			if ( str_ends_with( $option, $backup_suffix ) ) {
+				$option = substr( $option, 0, -strlen( $backup_suffix ) );
+			}
+
+			if ( is_ai_credential_option( $option ) ) {
+				$ai_options[] = $option;
+			}
 		}
 	}
-
-	$ai_options[] = 'wp_ai_client_provider_credentials';
 
 	return array_values( array_unique( $ai_options ) );
 }
