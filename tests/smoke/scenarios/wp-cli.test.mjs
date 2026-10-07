@@ -43,10 +43,12 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 	} );
 
 	test( 'C1/S11: each command succeeds and does its job', async () => {
-		await site.php( "sn_test_create_user( 'cli_customer', 'customer' ); set_transient( 'sn_cli', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php', 'zz-checkout/zz-checkout.php' ) ); return true;", { label: 're-seeding after the automatic pass' } );
+		await site.php( "sn_test_create_user( 'cli_customer', 'customer' ); set_transient( 'sn_cli', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); update_option( 'connectors_ai_openai_api_key', 'sk-test-cli' ); update_option( '_secret_ai/openai_api_key', base64_encode( 'sn-test-cli' ), false ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php', 'zz-checkout/zz-checkout.php' ) ); return true;", { label: 're-seeding after the automatic pass' } );
 
 		assert.match( ( await wpOk( 'safety-net', 'scrub-options' ) ).stdout, /Success: All options have been scrubbed\./ );
 		assert.equal( await site.php( "return sn_test_raw_option( 'klaviyo_api_key' );" ), '' );
+		const ai = await site.php( 'return sn_test_ai_state();' );
+		assert.deepEqual( { openai: ai.keys.connectors_ai_openai_api_key, secret: ai.keys[ '_secret_ai/openai_api_key' ], backups: ai.backups }, { openai: null, secret: null, backups: [] }, 'wp safety-net scrub-options left an AI provider key or a backup of it' );
 
 		assert.match( ( await wpOk( 'safety-net', 'deactivate-plugins' ) ).stdout, /Success: Problematic plugins have been deactivated\./ );
 		const active = await site.php( "return get_option( 'active_plugins' );" );

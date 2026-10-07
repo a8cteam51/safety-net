@@ -1,7 +1,7 @@
 // Each scenario is tests/smoke/scenarios/<name>.test.mjs and boots its own WordPress; runs start the longest (most seconds) first.
 export const SCENARIOS = [
-	{ name: 'staging-plugin', group: 'single-site', seconds: 46, covers: 'Regular plugin on staging without WooCommerce: first load, every scrub step, tools page, AJAX (including refused requests), REST, robots, emails, filters, self-update offer' },
-	{ name: 'staging-mu', group: 'single-site', seconds: 16, covers: 'mu-plugin on a development site: first load, asset URLs from mu-plugins, AJAX, REST' },
+	{ name: 'staging-plugin', group: 'single-site', seconds: 46, covers: 'Regular plugin on staging without WooCommerce: first load, every scrub step, AI provider keys and plugins (including the options cache in the scrub\'s own request), tools page, AJAX (including refused requests), REST, robots, emails, filters, self-update offer' },
+	{ name: 'staging-mu', group: 'single-site', seconds: 16, covers: 'mu-plugin on a development site: first load, including AI provider keys and plugins, asset URLs from mu-plugins, AJAX, REST' },
 	{ name: 'production', group: 'single-site', seconds: 24, needs: [ 'wp-cli' ], covers: 'Production: nothing runs or changes, notice, endpoints absent, GitHub self-updater, WP-CLI commands absent' },
 	{ name: 'production-mu-no-env', group: 'single-site', seconds: 14, covers: 'mu-plugin with WP_ENVIRONMENT_TYPE undefined behaves as production, then "sandbox" set as an environment variable runs everything' },
 	{ name: 'duplicate-copy', group: 'single-site', seconds: 12, covers: 'mu-plugin and regular plugin both active, "sandbox" environment' },
@@ -14,12 +14,12 @@ export const SCENARIOS = [
 	{ name: 'woocommerce-activated-later', group: 'woocommerce', seconds: 14, needs: [ 'woocommerce' ], covers: 'Gateway pass waits until WooCommerce is activated' },
 	{ name: 'woocommerce-preprocessed', group: 'woocommerce', seconds: 9, needs: [ 'woocommerce', 'woocommerce-site' ], covers: 'Sites processed before the gateway pass existed are not changed retroactively' },
 	{ name: 'woocommerce-mailpoet', group: 'woocommerce', seconds: 28, needs: [ 'woocommerce', 'woocommerce-site', 'mailpoet' ], covers: 'Deactivating MailPoet while it is loaded, before WooCommerce loads, leaves both Jetpack Autoloaders working; as an mu-plugin, MailPoet stays out of the autoloader' },
-	{ name: 'multisite-main-first', group: 'multisite', seconds: 36, needs: [ 'wp-cli' ], covers: 'Network, main site first: per-site runs, surviving admins and super admins, network-wide changes made once and only re-applied by super admins, subsite tools, new sites' },
-	{ name: 'multisite-subsite-first', group: 'multisite', seconds: 16, needs: [ 'wp-cli' ], covers: 'Network, subsite first: main site untouched, network admin email, network-wide BuddyPress tables, per-site MailPoet tables, fallback and exact-role post author' },
+	{ name: 'multisite-main-first', group: 'multisite', seconds: 36, needs: [ 'wp-cli' ], covers: 'Network, main site first: per-site runs, per-site AI provider keys, surviving admins and super admins, network-wide changes made once and only re-applied by super admins, subsite tools, new sites' },
+	{ name: 'multisite-subsite-first', group: 'multisite', seconds: 16, needs: [ 'wp-cli' ], covers: 'Network, subsite first: main site untouched, per-site AI provider keys, network admin email, network-wide BuddyPress tables, per-site MailPoet tables, fallback and exact-role post author' },
 	{ name: 'multisite-network-mailpoet', group: 'multisite', seconds: 25, needs: [ 'woocommerce', 'mailpoet', 'wp-cli' ], covers: 'Network-activated Safety Net deactivating network-activated MailPoet, which loads before it, while network-activated WooCommerce loads after it' },
-	{ name: 'multisite-network-woocommerce', group: 'multisite', seconds: 58, needs: [ 'woocommerce', 'wp-cli' ], covers: 'Network-activated Safety Net and WooCommerce: per-site order deletion, network-active plugins and the network admin email changed once per network, WP-CLI on a subsite' },
+	{ name: 'multisite-network-woocommerce', group: 'multisite', seconds: 58, needs: [ 'woocommerce', 'wp-cli' ], covers: 'Network-activated Safety Net and WooCommerce: per-site order deletion, network-active plugins and the network admin email changed once per network, WP-CLI on a subsite, including its AI provider keys' },
 	// A single site in this group, which already downloads WooCommerce and WP-CLI; in woocommerce it would make that the slowest CI leg.
-	{ name: 'wp-cli', group: 'multisite', seconds: 49, needs: [ 'woocommerce', 'woocommerce-site', 'wp-cli' ], covers: 'wp safety-net commands' },
+	{ name: 'wp-cli', group: 'multisite', seconds: 49, needs: [ 'woocommerce', 'woocommerce-site', 'wp-cli' ], covers: 'wp safety-net commands, including deleting AI provider keys' },
 ];
 
 export const GROUPS = [ ...new Set( SCENARIOS.map( ( scenario ) => scenario.group ) ) ];

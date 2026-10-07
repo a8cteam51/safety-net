@@ -89,6 +89,16 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 		assertNetworkChanged( await site.php( 'return sn_test_network_state();' ), 'The WP-CLI commands' );
 	} );
 
+	test( 'M13: wp safety-net scrub-options on a subsite deletes that site\'s AI provider key and not the main site\'s', async () => {
+		await site.php( "foreach ( array( 1, 2 ) as $blog ) { switch_to_blog( $blog ); update_option( 'connectors_ai_openai_api_key', \"sk-test-cli-$blog\" ); restore_current_blog(); } return true;", { label: 're-seeding an AI key on the main site and the shop' } );
+		const res = await site.wp( [ 'safety-net', 'scrub-options' ], { url: `${ MULTISITE_URL }/shop/` } );
+		assert.equal( res.exitCode, 0, `wp safety-net scrub-options exited with ${ res.exitCode }: ${ plain( res.stderr || res.stdout ).slice( 0, 500 ) }` );
+		const s = await site.php( "return array( 'main' => sn_test_network_site_state( 1 )['ai'], 'shop' => sn_test_network_site_state( 2 )['ai'] );" );
+		assert.equal( s.shop.keys.connectors_ai_openai_api_key, null, 'The shop\'s AI provider key was not deleted' );
+		assert.deepEqual( s.shop.backups, [], 'The shop has backups of AI provider keys' );
+		assert.equal( s.main.keys.connectors_ai_openai_api_key, 'sk-test-cli-1', 'Scrubbing the shop deleted the main site\'s AI provider key' );
+	} );
+
 	test( 'M5: the PMPro tables on the shop site are emptied', async () => {
 		const counts = await site.php( `global $wpdb; $counts = array(); foreach ( array( '${ PMPRO_TABLES.join( "', '" ) }' ) as $table ) { $counts[ $table ] = sn_test_count( $wpdb->get_blog_prefix( 2 ) . $table ); } return $counts;` );
 		assert.deepEqual( Object.values( counts ), PMPRO_TABLES.map( () => 0 ) );

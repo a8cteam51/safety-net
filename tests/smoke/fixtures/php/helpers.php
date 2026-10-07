@@ -41,6 +41,11 @@ function sn_test_install_helper_mu_plugin() {
 }
 
 function sn_test_activate_plugins( array $plugins ) {
+	foreach ( $plugins as $plugin ) {
+		if ( ! file_exists( WP_PLUGIN_DIR . "/$plugin" ) ) {
+			throw new RuntimeException( "Cannot activate $plugin: its file is missing from the plugins directory." );
+		}
+	}
 	$active = array_values( array_unique( array_merge( (array) get_option( 'active_plugins', array() ), $plugins ) ) );
 	sort( $active );
 	update_option( 'active_plugins', $active );
@@ -93,10 +98,46 @@ function sn_test_users(): array {
 	return $users;
 }
 
+// Core turns a hyphenated provider ID into underscores; the AI plugin's encrypted keys keep the hyphens.
+const SN_TEST_AI_KEYS = array( 'connectors_ai_anthropic_api_key', 'connectors_ai_google_api_key', 'connectors_ai_openai_api_key', 'connectors_ai_openai_compatible_servers_api_key', 'connectors_ai_provider_acme_application_password', '_secret_ai/openai_api_key', '_secret_ai/openai-compatible-servers_api_key', 'wp_ai_client_provider_credentials', 'aiprfoex_api_key', 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_actual_computer_api_key', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' );
+
+// Provider plugins' settings that keep their configuration and lose only the secrets inside.
+const SN_TEST_AI_SETTINGS = array( 'ai_provider_for_cursor_settings', 'aipcf_settings', 'obenweb_openwebui_provider_settings', 'ultimate_ai_connector_providers', 'vercel_ai_gateway_provider_settings', 'wp_ai_client_credentials' );
+
+// Named like AI credentials but not ones: provider endpoints and settings, a non-key row among the AI plugin's secrets, another plugin's secret, the Secrets SDK master key other plugins share, and core's Akismet connector key.
+const SN_TEST_AI_CONTROLS = array( 'connectors_ai_openai_compatible_servers_base_url', 'mwlai_endpoint_url', 'zctz_ollama_ai_connector_settings', 'zctz_openrouter_settings', '_secret_ai/openai_base_url', '_secret_otherplugin/openai_api_key', '_secrets_master_key', 'wordpress_api_key' );
+
+function sn_test_ai_state(): array {
+	global $wpdb;
+	$state = array(
+		'keys'     => array(),
+		'settings' => array(),
+		'controls' => array(),
+		'backups'  => array(),
+	);
+	foreach ( SN_TEST_AI_KEYS as $name ) {
+		$state['keys'][ $name ] = sn_test_raw_option( $name );
+	}
+	foreach ( SN_TEST_AI_SETTINGS as $name ) {
+		$state['settings'][ $name ] = sn_test_raw_option( $name );
+	}
+	foreach ( SN_TEST_AI_CONTROLS as $name ) {
+		$state['controls'][ $name ] = sn_test_raw_option( $name );
+	}
+	foreach ( $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE '%\\_sn\\_backup' ORDER BY option_name" ) as $backup ) {
+		$name = substr( $backup, 0, -strlen( '_sn_backup' ) );
+		$ai   = in_array( $name, SN_TEST_AI_KEYS, true ) || in_array( $name, SN_TEST_AI_SETTINGS, true ) || preg_match( '#^(connectors_ai_|_secret_ai/|wp_ai_client_|koneek_api_key)#', $name );
+		if ( $ai && ! in_array( $name, SN_TEST_AI_CONTROLS, true ) ) {
+			$state['backups'][] = $backup;
+		}
+	}
+	return $state;
+}
+
 function sn_test_snapshot(): array {
 	global $wpdb;
 	$options = array();
-	foreach ( array( 'admin_email', 'blogname', 'blog_public', 'klaviyo_api_key', 'mc4wp', 'woocommerce_stripe_settings', 'woocommerce-ppcp-settings', 'jetpack_active_modules', 'jetpack_secrets', 'pmpro_gateway', 'pmpro_gateway_environment', 'pmpro_last_known_url', 'default_pingback_flag', 'sn_custom_secret', 'wprus', '_wp_convertkit_settings', 'apple_news_settings', 'active_plugins', '_transient_sn_seed', '_transient_nelio_content_news' ) as $name ) {
+	foreach ( array_merge( array( 'admin_email', 'blogname', 'blog_public', 'klaviyo_api_key', 'mc4wp', 'woocommerce_stripe_settings', 'woocommerce-ppcp-settings', 'jetpack_active_modules', 'jetpack_secrets', 'pmpro_gateway', 'pmpro_gateway_environment', 'pmpro_last_known_url', 'default_pingback_flag', 'sn_custom_secret', 'wprus', '_wp_convertkit_settings', 'apple_news_settings', 'active_plugins', '_transient_sn_seed', '_transient_nelio_content_news' ), SN_TEST_AI_KEYS, SN_TEST_AI_SETTINGS, SN_TEST_AI_CONTROLS ) as $name ) {
 		$options[ $name ] = sn_test_raw_option( $name );
 	}
 	$backups = $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE '%\\_sn\\_backup' ORDER BY option_name" );
@@ -154,6 +195,7 @@ function sn_test_tool_targets( int $user, ?int $order, array $admins ): array {
 		'transient_timeout' => null !== sn_test_raw_option( '_transient_timeout_sn_tool_target' ),
 		'order'             => null === $order ? null : sn_test_order_exists( $order ),
 		'admins'            => array_values( array_filter( array_map( 'intval', $admins ), 'sn_test_user_exists' ) ),
+		'ai'                => sn_test_raw_option( 'connectors_ai_openai_api_key' ),
 	);
 }
 
@@ -163,6 +205,7 @@ function sn_test_ajax_sentinels( string $login ): array {
 		'user'      => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE user_login = %s", $login ) ),
 		'transient' => sn_test_raw_option( '_transient_sn_sentinel' ),
 		'secret'    => sn_test_raw_option( 'sn_custom_secret' ),
+		'ai'        => sn_test_raw_option( 'connectors_ai_openai_api_key' ),
 		'mailchimp' => in_array( 'mailchimp-for-wp/mailchimp-for-wp.php', (array) get_option( 'active_plugins' ), true ),
 	);
 	if ( sn_test_table_exists( $wpdb->prefix . 'wc_webhooks' ) ) {
