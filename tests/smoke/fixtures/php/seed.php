@@ -653,7 +653,7 @@ function sn_test_network_buddypress_counts(): array {
 // One row in each table these plugins keep personal data in. BuddyPress has no bp_messages_threads table, so none is made.
 function sn_test_seed_third_party(): array {
 	global $wpdb;
-	$tables = array( 'wpml_mails', 'newsletter', 'give_donors', 'give_donormeta', 'give_donationmeta', 'give_comments', 'give_commentmeta', 'give_sessions', 'give_subscriptions', 'give_subscriptionmeta', 'pmpro_membership_orders', 'pmpro_membership_ordermeta', 'pmpro_subscriptions', 'pmpro_subscriptionmeta', 'pmpro_memberships_users', 'pmpro_discount_codes_uses', 'bp_xprofile_data', 'signups', 'bp_friends', 'bp_messages_messages', 'bp_messages_recipients', 'bp_messages_notices', 'bp_messages_meta', 'bp_notifications', 'bp_notifications_meta', 'zbs_contacts', 'zbs_contactmeta', 'zbs_transactions', 'wpforms_entries', 'wpforms_entry_meta', 'wpforms_entry_fields' );
+	$tables = array( 'wpml_mails', 'newsletter', 'give_donors', 'give_donormeta', 'give_donationmeta', 'give_comments', 'give_commentmeta', 'give_sessions', 'give_subscriptions', 'give_subscriptionmeta', 'pmpro_membership_orders', 'pmpro_membership_ordermeta', 'pmpro_subscriptions', 'pmpro_subscriptionmeta', 'pmpro_memberships_users', 'pmpro_discount_codes_uses', 'bp_xprofile_data', 'signups', 'bp_friends', 'bp_messages_messages', 'bp_messages_recipients', 'bp_messages_notices', 'bp_messages_meta', 'bp_notifications', 'bp_notifications_meta', 'zbs_contacts', 'zbs_contactmeta', 'zbs_companies', 'zbs_companymeta', 'zbs_quotes', 'zbs_quotemeta', 'zbs_invoices', 'zbs_invoicemeta', 'zbs_transactions', 'zbs_transactionmeta', 'zbs_lineitems', 'zbs_events', 'zbs_eventmeta', 'zbs_logs', 'zbs_mail', 'zbs_lists', 'zbs_tags', 'zbs_tagmeta', 'zbs_aliases', 'zbs_objlinks', 'wpforms_entries', 'wpforms_entry_meta', 'wpforms_entry_fields' );
 	foreach ( $tables as $table ) {
 		$wpdb->query( "CREATE TABLE {$wpdb->prefix}$table ( id INTEGER PRIMARY KEY, data TEXT )" ); // phpcs:ignore
 		$wpdb->insert( $wpdb->prefix . $table, array( 'data' => 'customer1@example.com' ) );
@@ -663,6 +663,7 @@ function sn_test_seed_third_party(): array {
 	update_user_meta( 1, 'pmpro_stripe_customerid', 'cus_x' );
 	update_user_meta( 1, 'pmpro_bfirstname', 'Admin' );
 	update_user_meta( 1, 'total_friend_count', 3 );
+	update_option( 'pmpro_stripe_secretkey', 'sk_live_pmpro' );
 	return array(
 		'tables'   => $tables,
 		'donation' => $donation,

@@ -8,6 +8,7 @@ const ORDERS = "global $wpdb; $counts = array(); foreach ( array( 1, 2 ) as $blo
 const SITE_FLAGS = "return array( 1 => sn_test_network_site_state( 1 )['flags'], 2 => sn_test_network_site_state( 2 )['flags'], 3 => sn_test_network_site_state( 3 )['flags'] );";
 const PMPRO_TABLES = [ 'pmpro_membership_orders', 'pmpro_membership_ordermeta', 'pmpro_subscriptions', 'pmpro_subscriptionmeta', 'pmpro_memberships_users', 'pmpro_discount_codes_uses' ];
 const PMPRO_META = "sn_test_count( $GLOBALS['wpdb']->usermeta, \"user_id = 1 AND meta_key IN ( 'pmpro_stripe_customerid', 'pmpro_bfirstname' )\" )";
+const SIGNUPS = "sn_test_count( $GLOBALS['wpdb']->signups, \"user_login = 'pending'\" )";
 // A denylisted plugin and a plugin with an online gateway, then an offline gateway and an unrelated plugin that must stay.
 const NETWORK_DENIED = [ 'mailchimp-for-wp/mailchimp-for-wp.php', 'zz-checkout/zz-checkout.php' ];
 const NETWORK_KEPT = [ 'zz-offline-cod/zz-offline-cod.php', 'barcode-label-printer/barcode-label-printer.php' ];
@@ -42,6 +43,8 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 		}
 		const pmproMeta = await site.php( `global $wpdb; foreach ( array( '${ PMPRO_TABLES.join( "', '" ) }' ) as $table ) { $wpdb->query( "CREATE TABLE {$wpdb->get_blog_prefix( 2 )}$table ( id INTEGER PRIMARY KEY )" ); $wpdb->insert( $wpdb->get_blog_prefix( 2 ) . $table, array( 'id' => 1 ) ); } update_user_meta( 1, 'pmpro_stripe_customerid', 'cus_x' ); update_user_meta( 1, 'pmpro_bfirstname', 'Admin' ); return ${ PMPRO_META };`, { label: 'creating PMPro tables on the shop site' } );
 		assert.equal( pmproMeta, 2, 'Seeding PMPro user meta failed' );
+		const signups = await site.php( `$GLOBALS['wpdb']->insert( $GLOBALS['wpdb']->signups, array( 'domain' => '', 'path' => '', 'title' => '', 'user_login' => 'pending', 'user_email' => 'pending@example.com', 'registered' => current_time( 'mysql', true ), 'activation_key' => 'sn-test-pending', 'meta' => '' ) ); return ${ SIGNUPS };`, { label: 'adding a pending signup to the network' } );
+		assert.equal( signups, 1, 'Seeding a pending signup failed' );
 		await site.enableSafetyNet();
 	} );
 
@@ -53,6 +56,10 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 		assertStepFlags( flags[ 1 ], { woocommerce: true } );
 		assert.deepEqual( flags[ 2 ], [] );
 		assert.deepEqual( await site.php( ORDERS ), { 1: 0, 2: 2 } );
+	} );
+
+	test( 'K6: the main site has no PMPro tables, so its run leaves PMPro user meta in the network\'s usermeta table', async () => {
+		assert.equal( await site.php( `return ${ PMPRO_META };` ), 2, 'The main site\'s run removed PMPro user meta' );
 	} );
 
 	test( 'K5/K11: the first site\'s run, gateway pass included, applies the network-wide changes once, and then a super admin reverts them', async () => {
@@ -136,6 +143,10 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 		const after = await site.php( 'return sn_test_network_state();' );
 		assertNetworkUntouched( after, 'The new site\'s first run, gateway pass included, on an already processed network' );
 		assert.deepEqual( after.flags, NETWORK_FLAGS, 'The network flags were not recorded for the already processed network' );
+	} );
+
+	test( 'K12: without BuddyPress tables, no site\'s run empties the network\'s signups table', async () => {
+		assert.equal( await site.php( `return ${ SIGNUPS };` ), 1, 'A run without BuddyPress tables deleted a pending signup' );
 	} );
 
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
