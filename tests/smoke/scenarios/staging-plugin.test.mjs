@@ -162,13 +162,16 @@ return $state;` );
 		assert.deepEqual( ai.plugins.lookalikes.filter( ( plugin ) => ! active.includes( plugin ) ), [], 'These plugins, which are not AI providers, were deactivated' );
 	} );
 
-	test( 'A39: keys AI provider plugins keep in their own options are deleted without a backup, and their settings lose only the secrets', async () => {
-		const own = [ 'aiprfoex_api_key', 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' ];
+	test( 'A39: keys AI provider plugins keep in their own options are deleted without a backup, except exo\'s local cluster token, and their settings lose only the secrets', async () => {
+		const own = [ 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' ];
 		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'] );` );
 		for ( const name of own ) {
 			assert.ok( seed.ai.keys[ name ], `Seeding ${ name } failed, so this proves nothing` );
 			assert.equal( s.ai.keys[ name ], null, `${ name } was not deleted` );
 		}
+		assert.ok( seed.ai.controls.aiprfoex_api_key, 'Seeding aiprfoex_api_key failed, so this proves nothing' );
+		assert.equal( s.ai.controls.aiprfoex_api_key, seed.ai.controls.aiprfoex_api_key, 'aiprfoex_api_key, exo\'s optional token for a model cluster the site owner runs locally, was not kept' );
+		assert.ok( ! s.backups.includes( 'aiprfoex_api_key_sn_backup' ), 'aiprfoex_api_key was backed up' );
 		const seeded = seed.ai.settings;
 		const blank = ( value, keys ) => ( { ...value, ...Object.fromEntries( keys.map( ( key ) => [ key, '' ] ) ) } );
 		assert.deepEqual( s.ai.settings, {
@@ -396,12 +399,13 @@ return $seen;` );
 		assert.equal( s.after, false, 'get_option() still returns the deleted AI key in the same request' );
 	} );
 
-	test( 'R1: every integration is valid, is declared by its own file, and shares no option or plugin pattern with another integration or the data files', async () => {
+	test( 'R1: every integration is valid, is declared by its own file ahead of a site\'s declarations, and shares no option or plugin pattern with another integration or the data files', async () => {
 		const r = await site.php( 'return sn_test_integrations_report();', { label: 'reading the integrations registry' } );
 		assert.ok( r.scrublist.length > 0 && r.denylist.length > 0, 'The data files read as empty, so the overlap checks prove nothing' );
 		const files = r.files.filter( ( file ) => ! file.startsWith( '_' ) );
 		assert.deepEqual( r.integrations.map( ( integration ) => integration.slug ), files, 'The registered integrations are not exactly the files in includes/integrations/, in file order' );
 		assert.deepEqual( r.declared, Object.fromEntries( files.map( ( file ) => [ file, [ file ] ] ) ), 'Each integration file must declare exactly one integration, whose slug is the file name' );
+		assert.deepEqual( r.early, Object.fromEntries( files.map( ( file ) => [ file, true ] ) ), 'Each integration file must add its declaration at BUILT_IN_PRIORITY, so a site\'s declaration that overlaps it is the one skipped' );
 		const isNameList = ( list ) => Array.isArray( list ) && list.every( ( value ) => typeof value === 'string' && value !== '' );
 		const owners = { option: new Map(), plugin: new Map() };
 		for ( const integration of r.integrations ) {
@@ -413,13 +417,16 @@ return $seen;` );
 			for ( const table of [ ...integration.tables, ...integration.network_tables ] ) {
 				assert.ok( ! table.startsWith( r.prefix ) && ! table.startsWith( r.base_prefix ), `${ slug }: table ${ table } must leave out the table prefix` );
 			}
-			for ( const field of [ 'partial_options', 'option_values' ] ) {
+			for ( const field of [ 'partial_options', 'option_values', 'delete_partial_options' ] ) {
 				assert.deepEqual( Object.keys( integration[ field ] ).filter( ( key ) => /^\d*$/.test( key ) ), [], `${ slug }: ${ field } must be keyed by option name` );
+			}
+			for ( const [ option, keys ] of Object.entries( integration.delete_partial_options ) ) {
+				assert.ok( isNameList( keys ) && keys.length > 0, `${ slug }: delete_partial_options must list the keys to blank inside ${ option }` );
 			}
 			for ( const phase of r.phases ) {
 				assert.equal( typeof integration[ phase ], 'boolean', `${ slug }: ${ phase } must be a closure or null` );
 			}
-			for ( const option of [ ...integration.options, ...Object.keys( integration.partial_options ), ...Object.keys( integration.option_values ), ...integration.delete_options ] ) {
+			for ( const option of [ ...integration.options, ...Object.keys( integration.partial_options ), ...Object.keys( integration.option_values ), ...integration.delete_options, ...Object.keys( integration.delete_partial_options ) ] ) {
 				assert.ok( ! owners.option.has( option ), `Option ${ option } is declared by both ${ owners.option.get( option ) } and ${ slug }` );
 				assert.ok( ! r.scrublist.includes( option ), `Option ${ option } is declared by ${ slug } and listed in option_scrublist.txt` );
 				owners.option.set( option, slug );
@@ -430,9 +437,20 @@ return $seen;` );
 				owners.plugin.set( pattern, slug );
 			}
 		}
+		const deletesByPrefix = ( integration, option ) => Object.entries( integration.delete_option_prefixes )
+			.map( ( [ key, value ] ) => ( typeof value === 'string' ? [ value, [] ] : [ key, value ] ) )
+			.some( ( [ prefix, suffixes ] ) => option.startsWith( prefix ) && ( suffixes.length === 0 || suffixes.some( ( suffix ) => option.endsWith( suffix ) ) ) );
+		for ( const integration of r.integrations ) {
+			for ( const [ option, owner ] of owners.option ) {
+				assert.ok( owner === integration.slug || ! deletesByPrefix( integration, option ), `Option ${ option } is declared by ${ owner } and falls under the delete_option_prefixes of ${ integration.slug }` );
+			}
+			for ( const option of r.scrublist ) {
+				assert.ok( ! deletesByPrefix( integration, option ), `Option ${ option } is listed in option_scrublist.txt and falls under the delete_option_prefixes of ${ integration.slug }` );
+			}
+		}
 	} );
 
-	test( 'R2: invalid integration declarations are logged and skipped, and a valid one from an mu-plugin gets everything it declares scrubbed, deactivated and deleted', async () => {
+	test( 'R2: invalid integration declarations, and ones that overlap the AI integration, are logged and skipped, and a valid one from an mu-plugin gets everything it declares scrubbed, deactivated and deleted', async () => {
 		let seeded;
 		try {
 			seeded = await site.php( "$seeded = sn_test_seed_extra_integration(); foreach ( array( 'safety_net_options_scrubbed', 'safety_net_plugins_deactivated', 'safety_net_data_deleted' ) as $flag ) { delete_option( $flag ); } return $seeded;", { label: 'seeding a test integration and clearing the step flags' } );
@@ -446,6 +464,7 @@ return $seen;` );
 				usermeta: [ 'sn_test_extra_meta_1', 'sn_test_extra_meta_2', 'sn_test_keep_meta' ],
 				uploads: [ 'export-1.csv', 'export-2.csv', 'keep.txt' ],
 				active: true,
+				ai: { connectors_ai_openai_api_key: 'sk-test-overlap', connectors_ai_openai_api_key_sn_backup: null, koneek_api_key_openai: 'sk-test-overlap', koneek_api_key_openai_sn_backup: null },
 			}, 'Seeding the test integration\'s data failed, so this proves nothing' );
 
 			const before = site.probe().length;
@@ -459,6 +478,9 @@ return $seen;` );
 				'"SN Test Bad": its slug may only contain a-z, 0-9 and hyphens.',
 				'"sn-test-extra": another integration already uses its slug.',
 				'"sn-test-claimed": option sn_test_extra_secret is already declared by integration sn-test-extra.',
+				'"sn-test-bad-partial": delete_partial_options must map each option to the keys to blank inside it.',
+				'"sn-test-ai-engine": plugin pattern ai-engine is already declared by integration ai-connectors.',
+				'"sn-test-ai-key": option koneek_api_key_openai falls under the delete_option_prefixes of integration ai-connectors.',
 				'#N: expected a SafetyNet\\Integrations\\Integration, got string.',
 			], 'Each invalid declaration must be logged once and skipped' );
 			assert.deepEqual( log.map( ( entry ) => entry.match( /SN_TEST integration phase (.*)/ )?.[ 1 ] ).filter( Boolean ), [ 'hooks', 'scrub, option ""', 'delete, rows 0', 'late' ], 'The integration\'s closures did not run once each, in phase order, after the declared scrub and deletes' );
@@ -478,7 +500,8 @@ return $seen;` );
 				usermeta: [ 'sn_test_keep_meta' ],
 				uploads: [ 'keep.txt' ],
 				active: false,
-			}, 'The valid integration\'s data was not handled as declared, or an invalid declaration\'s data was touched' );
+				ai: { connectors_ai_openai_api_key: null, connectors_ai_openai_api_key_sn_backup: null, koneek_api_key_openai: null, koneek_api_key_openai_sn_backup: null },
+			}, 'The valid integration\'s data was not handled as declared, an invalid or overlapping declaration\'s data was touched, or an overlapping declaration kept an AI key' );
 		} finally {
 			await site.php( `return sn_test_remove_extra_integration( ${ seeded?.kept_post ?? 0 } );`, { label: 'removing the test integration' } );
 		}

@@ -173,7 +173,7 @@ export function assertAiKeysScrubbed( now, seeded, label ) {
 	assert.deepEqual( left, [], `${ label } left these AI provider credentials` );
 	assert.deepEqual( now.settings, withoutSeededSecrets( seeded.settings ), `${ label } did not blank exactly the secrets in AI provider plugins' settings` );
 	assert.deepEqual( now.backups, [], `${ label } left backups of AI provider credentials` );
-	assert.deepEqual( now.controls, seeded.controls, `${ label } changed options that are not AI provider credentials` );
+	assert.deepEqual( now.controls, seeded.controls, `${ label } changed options it must keep` );
 }
 
 // Sentinels that each tool would change, to prove a refused AJAX request did nothing.

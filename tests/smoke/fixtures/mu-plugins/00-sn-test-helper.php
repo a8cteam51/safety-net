@@ -178,6 +178,9 @@ if ( get_option( 'sn_test_extra_integration' ) || get_option( 'sn_test_bad_integ
 				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'SN Test Bad', label: 'Invalid slug', options: array( 'sn_test_bad_secret' ), tables: array( 'sn_test_bad' ) );
 				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-extra', label: 'Duplicate slug', options: array( 'sn_test_bad_secret' ), tables: array( 'sn_test_bad' ) );
 				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-claimed', label: 'Declares an option another integration declares', options: array( 'sn_test_bad_secret', 'sn_test_extra_secret' ), tables: array( 'sn_test_bad' ) );
+				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-bad-partial', label: 'Maps an option to one key instead of a list', delete_partial_options: array( 'sn_test_bad_secret' => 'api_key' ), tables: array( 'sn_test_bad' ) );
+				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-ai-engine', label: 'Declares a plugin pattern the AI integration declares', plugins: array( 'ai-engine' ), tables: array( 'sn_test_bad' ) );
+				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-ai-key', label: 'Declares an option the AI integration deletes by prefix', options: array( 'koneek_api_key_openai' ), tables: array( 'sn_test_bad' ) );
 				$integrations[] = 'sn-test-not-an-integration';
 			}
 			return $integrations;

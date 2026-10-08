@@ -26,6 +26,7 @@ final class Integration {
 	 * @param array         $partial_options               Option name => keys inside its array value: listed keys are blanked, string keys set to their value; a value that is not an array is blanked whole; backup kept.
 	 * @param array         $option_values                 Option name => value to set; backup kept.
 	 * @param string[]      $delete_options                Options deleted without a backup, together with any {name}_sn_backup.
+	 * @param array         $delete_partial_options        Option name => keys blanked at any depth inside its array value, without a backup; a value that is not an array is kept, and any {name}_sn_backup is deleted.
 	 * @param array         $delete_option_prefixes        Option name prefixes deleted like delete_options; a prefix => suffixes entry only matches names ending in one of them.
 	 * @param string[]      $tables                        Tables after $wpdb->prefix that are emptied.
 	 * @param string[]      $network_tables                Tables after $wpdb->base_prefix that are emptied.
@@ -49,6 +50,7 @@ final class Integration {
 		public readonly array $partial_options = array(),
 		public readonly array $option_values = array(),
 		public readonly array $delete_options = array(),
+		public readonly array $delete_partial_options = array(),
 		public readonly array $delete_option_prefixes = array(),
 		public readonly array $tables = array(),
 		public readonly array $network_tables = array(),

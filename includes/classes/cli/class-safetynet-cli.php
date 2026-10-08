@@ -141,7 +141,7 @@ class SafetyNet_CLI extends WP_CLI_Command {
 				'slug'       => $integration['slug'],
 				'label'      => $integration['label'],
 				'plugins'    => implode( ', ', $integration['plugins'] ),
-				'options'    => count( $integration['options'] ) + count( $integration['partial_options'] ) + count( $integration['option_values'] ) + count( $integration['delete_options'] ) + count( $integration['delete_option_prefixes'] ),
+				'options'    => count( $integration['options'] ) + count( $integration['partial_options'] ) + count( $integration['option_values'] ) + count( $integration['delete_options'] ) + count( $integration['delete_partial_options'] ) + count( $integration['delete_option_prefixes'] ),
 				'tables'     => count( $integration['tables'] ) + count( $integration['network_tables'] ),
 				'post_types' => count( $integration['post_types'] ),
 				'usermeta'   => count( $integration['usermeta'] ),
