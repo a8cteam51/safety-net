@@ -293,7 +293,9 @@ function delete_integration_data() {
 
 		foreach ( $integration->upload_globs as $pattern ) {
 			$uploads = wp_upload_dir( null, false )['basedir'];
-			$files   = glob( $uploads . '/' . $pattern );
+			// glob() would read brackets or asterisks in the uploads path as a pattern and find nothing; Windows paths can't be escaped.
+			$base  = '/' === DIRECTORY_SEPARATOR ? addcslashes( $uploads, '\\*?[]' ) : $uploads;
+			$files = glob( $base . '/' . $pattern );
 			foreach ( is_array( $files ) ? $files : array() as $file ) {
 				if ( is_file( $file ) ) {
 					wp_delete_file_from_directory( $file, $uploads );
