@@ -12,22 +12,6 @@ use function SafetyNet\DisableWebhooks\disable_webhooks;
 use function SafetyNet\Integrations\plugin_patterns;
 use function SafetyNet\Utilities\is_denylisted_plugin;
 
-// Registered as this file loads; a missing toggle counts as on, since maybe_pause_renewal_actions() only saves it later in this request.
-if ( in_array( get_option( 'safety_net_pause_renewal_actions_toggle' ), array( 'on', false ), true ) ) {
-	add_filter(
-		'action_scheduler_store_class',
-		function ( $class ) {
-			// Load the custom class file only when Action Scheduler requests it.
-			if ( ! class_exists( 'SafetyNet\ActionScheduler_Custom_DBStore' ) ) {
-				require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
-			}
-			return 'SafetyNet\ActionScheduler_Custom_DBStore';
-		},
-		101,
-		1
-	);
-}
-
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
 // wp_mail() can run from plugins_loaded on, well before init.
@@ -614,7 +598,8 @@ function show_warning() {
 	echo '</strong>';
 	esc_html_e( 'The Safety Net plugin is currently active', 'safety-net' );
 	echo '<br>';
-	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+	// A site that drops the woocommerce-subscriptions integration keeps the toggle but loses the pause.
+	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) && false !== has_filter( 'action_scheduler_store_class', 'SafetyNet\Integrations\WooCommerceSubscriptions\paused_store_class' ) ) {
 		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );
 		echo '<br>';
 	}

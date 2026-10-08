@@ -53,6 +53,21 @@ function sn_test_seed_base(): array {
 			'sandbox_on'     => '1',
 		)
 	);
+	update_option(
+		'woocommerce_afterpay_settings',
+		array(
+			'enabled'         => 'yes',
+			'prod-id'         => 'afterpay_merchant',
+			'prod-secret-key' => 'afterpay_secret',
+		)
+	);
+	update_option(
+		'woocommerce_woocommerce_payments_settings',
+		array(
+			'enabled'   => 'yes',
+			'test_mode' => 'no',
+		)
+	);
 	update_option( 'jetpack_active_modules', array( 'publicize', 'stats', 'subscriptions', 'enhanced-distribution', 'sso' ) );
 	update_option( 'jetpack_secrets', array( 'k' => 'v' ) );
 	update_option( 'pmpro_gateway', 'stripe' );
@@ -484,6 +499,16 @@ function sn_test_seed_woocommerce( int $customer_id ): array {
 	);
 	add_post_meta( $subscription, '_sn_seed_subscription', 'customer1@example.com' );
 
+	$membership = wp_insert_post(
+		array(
+			'post_type'   => 'wc_user_membership',
+			'post_status' => 'wcm-active',
+			'post_title'  => 'SN seed membership',
+			'post_author' => $customer_id,
+		)
+	);
+	add_post_meta( $membership, '_sn_seed_membership', 'customer1@example.com' );
+
 	$renewal_actions = array();
 	foreach ( array( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' ) as $hook ) {
 		$renewal_actions[] = as_schedule_single_action( time() - HOUR_IN_SECONDS, $hook, array( 'subscription_id' => $subscription ) );
@@ -493,6 +518,15 @@ function sn_test_seed_woocommerce( int $customer_id ): array {
 	update_user_meta( 1, '_wcs_subscription_ids_cache', array( 101 ) );
 	update_user_meta( 1, 'awcs_subscription_ids_cache', 'control' );
 
+	$wpdb->insert(
+		"{$wpdb->prefix}woocommerce_log",
+		array(
+			'timestamp' => current_time( 'mysql' ),
+			'level'     => 200,
+			'source'    => 'sn-seed',
+			'message'   => 'Payment failed for customer1@example.com',
+		)
+	);
 	$wpdb->insert(
 		"{$wpdb->prefix}woocommerce_sessions",
 		array(

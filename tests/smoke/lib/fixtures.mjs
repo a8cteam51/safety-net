@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 export const HPOS_TABLES = [ 'wc_orders', 'wc_order_addresses', 'wc_orders_meta', 'wc_order_operational_data' ];
 
-export const ALWAYS_SEEDED = [ 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'order_notes', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'woocommerce_api_keys', 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'wc_webhooks', 'subscription_posts', 'subscription_meta', 'renewal_actions', 'renewal_action_logs', 'keep_actions', 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ];
+export const ALWAYS_SEEDED = [ 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'order_notes', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'woocommerce_api_keys', 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'wc_webhooks', 'subscription_posts', 'subscription_meta', 'membership_posts', 'membership_meta', 'renewal_actions', 'renewal_action_logs', 'keep_actions', 'woocommerce_log', 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ];
 
 // Fails early when a table came out empty, since its deletion could then not be tested.
 export async function seedWooCommerceSite( site, { hpos = true, path = '/', customer } = {} ) {

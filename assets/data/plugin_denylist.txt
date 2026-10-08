@@ -6,7 +6,6 @@ algolia
 amazon-payments
 asendia-shipping
 authorize-net
-automatewoo
 automator
 avatax
 blaze-ads
@@ -18,18 +17,15 @@ distributor
 donorbox
 double-the-donation
 email-subscribers
-facebook-for-woocommerce
 facebook-pixel
 fluentcampaign
 givebutter
 google-analytics
-google-listings-and-ads
 google-photos-sync
 google-site-kit
 google-tag-manager
 hotjar
 hubspot
-in-stock-mailer-for-wc
 internet-archive-wayback-machine-link-fixer
 klarna
 klaviyo
@@ -37,7 +33,6 @@ kliken-ads
 leadin
 mail-bank
 mailchimp
-mailchimp-for-woocommerce
 mailerlite
 mailgun
 mailster
@@ -52,7 +47,6 @@ payever
 payfast
 paysolutions
 paytrace
-pinterest-for-woocommerce
 pixel-caffeine
 pixelyoursite
 plausible-analytics
@@ -82,13 +76,6 @@ triple-whale
 truemed
 wc-cashapp
 webgility
-woocommerce-amazon-fulfillment
-woocommerce-google-adwords-conversion
-woocommerce-payments
-woocommerce-services
-woocommerce-shipping/
-woocommerce-square
-woocommerce-zapier
 wp-ses
 wp-sync
 wp-to-buffer-pro

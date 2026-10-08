@@ -40,9 +40,13 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 					'pingback'        => sn_test_raw_option( 'default_pingback_flag_sn_backup' ),
 					'klaviyo_settings' => sn_test_raw_option( 'klaviyo_settings_sn_backup' ),
 					'pmpro_secret'    => sn_test_raw_option( 'pmpro_stripe_secretkey_sn_backup' ),
+					'afterpay'        => sn_test_raw_option( 'woocommerce_afterpay_settings_sn_backup' ),
+					'woopayments'     => sn_test_raw_option( 'woocommerce_woocommerce_payments_settings_sn_backup' ),
 				),
 				'klaviyo_settings' => sn_test_raw_option( 'klaviyo_settings' ),
 				'pmpro_secret'     => sn_test_raw_option( 'pmpro_stripe_secretkey' ),
+				'afterpay'         => sn_test_raw_option( 'woocommerce_afterpay_settings' ),
+				'woopayments'      => sn_test_raw_option( 'woocommerce_woocommerce_payments_settings' ),
 			);`
 		);
 		const o = s.snapshot.options;
@@ -52,6 +56,10 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.equal( s.backups.klaviyo, 'pk_live_123', 'A3 backup' );
 		assert.deepEqual( o.mc4wp, [], 'A4' );
 		assert.deepEqual( s.backups.mc4wp, { api_key: 'k' }, 'A4 backup' );
+		assert.deepEqual( s.afterpay, [], 'A4 Afterpay settings' );
+		assert.equal( s.backups.afterpay[ 'prod-secret-key' ], 'afterpay_secret', 'A4 Afterpay settings backup' );
+		assert.deepEqual( s.woopayments, [], 'A4 WooPayments settings' );
+		assert.deepEqual( s.backups.woopayments, { enabled: 'yes', test_mode: 'no' }, 'A4 WooPayments settings backup' );
 		assert.deepEqual( o.woocommerce_stripe_settings, { enabled: '', publishable_key: '', secret_key: '', webhook_secret: '', title: 'Card', testmode: 'no' }, 'A5' );
 		assert.equal( s.backups.stripe.secret_key, 'sk_x', 'A5 backup' );
 		assert.deepEqual( Object.values( o.jetpack_active_modules ), [ 'stats', 'sso' ], 'A6' );

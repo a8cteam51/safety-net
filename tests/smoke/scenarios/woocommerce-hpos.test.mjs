@@ -4,7 +4,7 @@ import { assertMailBlocked, assertStepFlags, assertToolsPage, captureMail, first
 import { HPOS_TABLES, seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { bootSite } from '../lib/site.mjs';
 
-const CLEARED = [ ...HPOS_TABLES, 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'order_notes', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'woocommerce_api_keys', 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'wc_webhooks', 'subscription_posts', 'subscription_meta', 'renewal_actions', 'orphaned_action_logs' ];
+const CLEARED = [ ...HPOS_TABLES, 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'order_notes', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'woocommerce_api_keys', 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'wc_webhooks', 'subscription_posts', 'subscription_meta', 'membership_posts', 'membership_meta', 'woocommerce_log', 'renewal_actions', 'orphaned_action_logs' ];
 
 const ADD_WEBHOOK = "$w = new WC_Webhook(); $w->set_name( 'SN late hook' ); $w->set_topic( 'order.created' ); $w->set_delivery_url( 'https://example.com/late' ); $w->set_status( 'active' ); $w->set_user_id( 1 ); return $w->save();";
 
@@ -51,7 +51,7 @@ describe( 'woocommerce-hpos: regular plugin on a WooCommerce store (HPOS)', () =
 		}
 	} );
 
-	test( 'W1/W3: orders, customers, tokens, keys, webhooks and subscriptions are deleted', async () => {
+	test( 'W1/W3: orders, customers, tokens, keys, webhooks, subscriptions, memberships and logs are deleted', async () => {
 		const counts = await site.php( 'return sn_test_wc_counts();' );
 		for ( const table of CLEARED ) {
 			assert.equal( counts[ table ], 0, `${ table } still has ${ counts[ table ] } rows (seeded ${ seed.woo.counts[ table ] })` );

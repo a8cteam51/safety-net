@@ -26,10 +26,8 @@ tt4b_catalog_id
 tt4b_external_business_id
 tt4b_external_data
 tt4b_secret
-woocommerce_afterpay_settings
 woocommerce_referralcandy_settings
 woocommerce_shipstation_auth_key
-woocommerce_woocommerce_payments_settings
 wpmandrill
 yotpo_settings
 zmail_access_token
