@@ -29,78 +29,6 @@ function delete_users_and_orders() {
 
 	global $wpdb;
 
-	// Delete orders and subscriptions
-	$table_name = $wpdb->prefix . 'woocommerce_order_itemmeta';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_itemmeta" );
-	}
-	$table_name = $wpdb->prefix . 'woocommerce_order_items';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_order_items" );
-	}
-	$wpdb->query( "DELETE FROM $wpdb->comments WHERE comment_type = 'order_note'" );
-	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type IN ( 'shop_order', 'shop_order_refund', 'shop_order_placehold', 'shop_subscription' ) )" );
-	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type IN ( 'shop_order', 'shop_order_refund', 'shop_order_placehold' )" );
-	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'shop_subscription'" );
-
-	// Delete Woo memberships
-	$wpdb->query( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = 'wc_user_membership' )" );
-	$wpdb->query( "DELETE FROM $wpdb->posts WHERE post_type = 'wc_user_membership'" );
-
-	// Delete data from the High Performance Order Tables
-	$table_name = $wpdb->prefix . 'wc_orders';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_addresses" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_operational_data" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_orders_meta" );
-	}
-
-	// Delete Woo API keys
-	$table_name = $wpdb->prefix . 'woocommerce_api_keys';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_api_keys" );
-	}
-
-	// Delete Woo webhooks
-	$table_name = $wpdb->prefix . 'wc_webhooks';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_webhooks" );
-	}
-
-	// Delete Woo payment tokens
-	$table_name = $wpdb->prefix . 'woocommerce_payment_tokens';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_payment_tokens" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_payment_tokenmeta" );
-	}
-
-	// Delete Woo customers and analytics
-	$table_name = $wpdb->prefix . 'wc_customer_lookup';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_customer_lookup" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_product_lookup" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_log" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}wc_order_stats" );
-	}
-
-	foreach ( array( 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ) as $wc_table ) {
-		$wc_full_table = $wpdb->prefix . $wc_table;
-		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wc_full_table ) ) === $wc_full_table ) {
-			$wpdb->query( "DELETE FROM {$wpdb->prefix}{$wc_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name from hardcoded allow-list above.
-		}
-	}
-
-	// Delete renewal scheduled actions
-	$table_name = $wpdb->prefix . 'actionscheduler_logs'; // check if table exists before purging
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
-	}
-	$table_name = $wpdb->prefix . 'actionscheduler_actions'; // check if table exists before purging
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
-	}
-
 	delete_integration_data();
 	run_phase( 'delete' );
 
@@ -117,9 +45,6 @@ function delete_users_and_orders() {
 	} else {
 		error_log( 'Safety Net: no administrators found, so users were not deleted.' ); // phpcs:ignore -- Logging is okay here.
 	}
-
-	// Admins keep their user meta, so their cached subscription IDs would point at deleted subscriptions.
-	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE %s", $wpdb->esc_like( '_wcs_subscription_ids_cache' ) . '%' ) );
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );

@@ -9,8 +9,6 @@ namespace SafetyNet\Integrations;
 
 use function SafetyNet\Utilities\get_denylist_array;
 
-use const SafetyNet\Utilities\OFFLINE_GATEWAY_CLASSES;
-
 require_once __DIR__ . '/classes/class-integration.php';
 
 // Safety Net's own declarations come first, so a site's declaration that overlaps one of them is the one skipped.
@@ -388,7 +386,7 @@ function plugin_patterns(): array {
  * @return string[]
  */
 function offline_gateways(): array {
-	$classes = OFFLINE_GATEWAY_CLASSES;
+	$classes = array();
 
 	foreach ( get_integrations() as $integration ) {
 		$classes = array_merge( $classes, $integration->offline_gateways );

@@ -156,7 +156,7 @@ function sn_test_snapshot(): array {
 function sn_test_wc_counts(): array {
 	global $wpdb;
 	$counts = array();
-	foreach ( array( 'wc_orders', 'wc_order_addresses', 'wc_orders_meta', 'wc_order_operational_data', 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'woocommerce_api_keys', 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'wc_webhooks', 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ) as $table ) {
+	foreach ( array( 'wc_orders', 'wc_order_addresses', 'wc_orders_meta', 'wc_order_operational_data', 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'woocommerce_api_keys', 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'wc_webhooks', 'woocommerce_log', 'woocommerce_sessions', 'woocommerce_downloadable_product_permissions', 'wc_download_log' ) as $table ) {
 		$counts[ $table ] = sn_test_count( $wpdb->prefix . $table );
 	}
 	$counts['order_notes']          = sn_test_count( $wpdb->comments, "comment_type = 'order_note'" );
@@ -167,6 +167,8 @@ function sn_test_wc_counts(): array {
 	$counts['refund_postmeta']      = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->postmeta pm INNER JOIN $wpdb->posts p ON p.ID = pm.post_id WHERE p.post_type = 'shop_order_refund'" );
 	$counts['subscription_posts']   = sn_test_count( $wpdb->posts, "post_type = 'shop_subscription'" );
 	$counts['subscription_meta']    = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->postmeta WHERE meta_key = '_sn_seed_subscription'" );
+	$counts['membership_posts']     = sn_test_count( $wpdb->posts, "post_type = 'wc_user_membership'" );
+	$counts['membership_meta']      = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->postmeta WHERE meta_key = '_sn_seed_membership'" );
 	$counts['renewal_actions']      = sn_test_count( $wpdb->prefix . 'actionscheduler_actions', "hook IN ( 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' )" );
 	$counts['keep_actions']         = sn_test_count( $wpdb->prefix . 'actionscheduler_actions', "hook = 'sn_keep_hook'" );
 	$counts['renewal_action_logs']  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}actionscheduler_logs lg INNER JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook LIKE 'woocommerce_scheduled_subscription%'" );

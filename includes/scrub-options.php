@@ -2,9 +2,6 @@
 
 namespace SafetyNet\ScrubOptions;
 
-use WC_Data_Store;
-use WC_Webhook;
-
 use function SafetyNet\Integrations\get_integrations;
 use function SafetyNet\Integrations\option_treatment;
 use function SafetyNet\Integrations\options_to_clear;
@@ -92,34 +89,6 @@ function scrub_options() {
 				}
 			}
 		}
-	}
-
-	// Disable all Woo Webhooks
-	if ( class_exists( 'WooCommerce' ) ) {
-		$data_store = WC_Data_Store::load( 'webhook' );
-		$webhooks   = $data_store->search_webhooks();
-
-		if ( ! empty( $webhooks ) ) {
-			foreach ( $webhooks as $webhook_id ) {
-				$webhook = new WC_Webhook( $webhook_id );
-				$webhook->set_status( 'disabled' );
-				$webhook->save();
-			}
-		}
-	}
-
-	// Disable AutomateWoo workflows, clear the queue, and set scheduled actions to "canceled".
-	$wpdb->query( "UPDATE $wpdb->posts SET post_status = 'aw-disabled' WHERE post_type = 'aw_workflow' AND post_status = 'publish'" );
-
-	$table_name = $wpdb->prefix . 'automatewoo_queue';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}automatewoo_queue" );
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}automatewoo_queue_meta" );
-	}
-
-	$table_name = $wpdb->prefix . 'actionscheduler_actions';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "UPDATE {$wpdb->prefix}actionscheduler_actions SET status = 'canceled' WHERE status = 'pending' AND hook LIKE '%automatewoo%'" );
 	}
 
 	cancel_integration_actions();
