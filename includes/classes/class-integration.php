@@ -23,7 +23,7 @@ final class Integration {
 	 * @param string        $label                         Human-readable name.
 	 * @param string[]      $plugins                       Case-insensitive substrings of plugin basenames to deactivate, as in plugin_denylist.txt.
 	 * @param string[]      $options                       Options blanked after a copy to {name}_sn_backup.
-	 * @param array         $partial_options               Option name => keys inside its array value: listed keys are blanked, string keys set to their value; backup kept.
+	 * @param array         $partial_options               Option name => keys inside its array value: listed keys are blanked, string keys set to their value; a value that is not an array is blanked whole; backup kept.
 	 * @param array         $option_values                 Option name => value to set; backup kept.
 	 * @param string[]      $delete_options                Options deleted without a backup, together with any {name}_sn_backup.
 	 * @param array         $delete_option_prefixes        Option name prefixes deleted like delete_options; a prefix => suffixes entry only matches names ending in one of them.
