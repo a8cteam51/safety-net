@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite, phpAtLeast, wpAtLeast } from '../lib/site.mjs';
 
@@ -84,7 +84,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		}
 	} );
 
-	test( 'A30: AI provider credentials are deleted without a backup, stale AI backups go too, and look-alike options and other backups stay', async () => {
+	test( 'A33: AI provider credentials are deleted without a backup, stale AI backups go too, and look-alike options and other backups stay', async () => {
 		assert.deepEqual( ai.backups, [ '_secret_ai/anthropic_api_key_sn_backup', 'aipcf_settings_sn_backup', 'connectors_ai_mistral_api_key_sn_backup', 'connectors_ai_openai_api_key_sn_backup', 'koneek_api_key_gemini_sn_backup', 'wp_ai_client_provider_credentials_sn_backup' ], 'Seeding the stale AI backups failed' );
 		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'], 'rest' => array_map( 'sn_test_raw_option', json_decode( '${ JSON.stringify( ai.rest ?? {} ) }', true ) ) );` );
 		assertAiKeysScrubbed( s.ai, seed.ai, 'The first load' );
@@ -94,7 +94,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		}
 	} );
 
-	test( 'A31: core reads its AI provider credentials from the seeded options, and none at all after the first load', async ( t ) => {
+	test( 'A34: core reads its AI provider credentials from the seeded options, and none at all after the first load', async ( t ) => {
 		if ( ! wpAtLeast( site, '7.0' ) ) {
 			t.skip( 'WordPress before 7.0 has no connectors' );
 			return;
@@ -116,7 +116,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.deepEqual( Object.entries( after ).filter( ( [ , connector ] ) => connector.source !== 'none' ), [], 'Core still finds these AI provider credentials after the first load' );
 	} );
 
-	test( 'A32: the AI plugin and AI provider plugins are deactivated without the AI plugin\'s deactivation hook, and a look-alike plugin stays active', async () => {
+	test( 'A35: the AI plugin and AI provider plugins are deactivated without the AI plugin\'s deactivation hook, and a look-alike plugin stays active', async () => {
 		const s = await site.php( `
 $state = array( 'active' => get_option( 'active_plugins' ), 'key' => sn_test_raw_option( 'connectors_ai_openai_api_key' ) );
 include_once WP_PLUGIN_DIR . '/ai/ai.php';
@@ -132,7 +132,7 @@ return $state;` );
 		assert.notEqual( s.key, s.hook_writes, 'The AI plugin\'s deactivation hook ran and wrote a decrypted key back after the scrub' );
 	} );
 
-	test( 'A33: AI connector application passwords and a connector key stored under a plugin\'s own option name are deleted without a backup', async () => {
+	test( 'A36: AI connector application passwords and a connector key stored under a plugin\'s own option name are deleted without a backup', async () => {
 		const names = [ 'connectors_ai_provider_acme_application_password', 'mwlai_actual_computer_api_key' ];
 		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'] );` );
 		for ( const name of names ) {
@@ -142,7 +142,7 @@ return $state;` );
 		}
 	} );
 
-	test( 'A34: an application password written through WordPress 7.1\'s settings endpoint is deleted, and core no longer finds it', async ( t ) => {
+	test( 'A37: an application password written through WordPress 7.1\'s settings endpoint is deleted, and core no longer finds it', async ( t ) => {
 		if ( ! wpAtLeast( site, '7.1' ) ) {
 			t.skip( 'WordPress before 7.1 has no application-password connectors' );
 			return;
@@ -155,14 +155,14 @@ return $state;` );
 		assert.deepEqual( s.credentials, { username: '', password: '', source: 'none' }, 'Core still finds the application password' );
 	} );
 
-	test( 'A35: AI provider plugins that \'ai-provider-for-\' misses are deactivated, and plugins named like them stay active', async () => {
+	test( 'A38: AI provider plugins that \'ai-provider-for-\' misses are deactivated, and plugins named like them stay active', async () => {
 		assert.deepEqual( ai.plugins.active, [ ...ai.plugins.providers, ...ai.plugins.lookalikes ], 'Activating the AI provider stubs failed' );
 		const active = await site.php( "return get_option( 'active_plugins' );" );
 		assert.deepEqual( ai.plugins.providers.filter( ( plugin ) => active.includes( plugin ) ), [], 'These AI provider plugins are still active' );
 		assert.deepEqual( ai.plugins.lookalikes.filter( ( plugin ) => ! active.includes( plugin ) ), [], 'These plugins, which are not AI providers, were deactivated' );
 	} );
 
-	test( 'A36: keys AI provider plugins keep in their own options are deleted without a backup, and their settings lose only the secrets', async () => {
+	test( 'A39: keys AI provider plugins keep in their own options are deleted without a backup, and their settings lose only the secrets', async () => {
 		const own = [ 'aiprfoex_api_key', 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' ];
 		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'] );` );
 		for ( const name of own ) {
@@ -218,6 +218,18 @@ return $state;` );
 		const log = site.logEntriesSince( mark ).join( '\n' );
 		assert.match( log, /Email blocked: Order receipt/ );
 		assert.ok( log.includes( `Email sent: ${ mail.reset_subject }` ), 'The password reset email was not logged as sent' );
+	} );
+
+	test( 'A30: emails sent before init are blocked too, except password resets', async () => {
+		await site.php( "update_option( 'sn_test_early_mail', 1 ); return true;" );
+		try {
+			const mark = site.logMark();
+			const early = await site.php( "return $GLOBALS['sn_test_early_mail'] ?? null;", { label: 'sending emails on plugins_loaded' } );
+			assert.deepEqual( early, { 'Early order receipt': false, 'Early Password Reset': null }, 'Safety Net did not block a regular email sent on plugins_loaded (false is blocked, null is let through)' );
+			assert.match( site.logEntriesSince( mark ).join( '\n' ), /Email blocked: Early order receipt/ );
+		} finally {
+			await site.php( "delete_option( 'sn_test_early_mail' ); return true;" );
+		}
 	} );
 
 	test( 'A25: Jetpack subscriptions only go to a category that does not exist and PMPro registers no crons', async () => {
@@ -364,7 +376,7 @@ return $state;` );
 		assert.ok( s.active.includes( 'mailchimp-for-wp/mailchimp-for-wp.php' ) );
 	} );
 
-	test( 'A37: in the scrub\'s own request, a deleted autoloaded AI key is already out of the options cache when the run-once flag is saved', async () => {
+	test( 'A40: in the scrub\'s own request, a deleted autoloaded AI key is already out of the options cache when the run-once flag is saved', async () => {
 		const s = await site.php( `
 delete_option( 'safety_net_options_scrubbed' );
 update_option( 'connectors_ai_openai_api_key', 'sk-test-same-request' );
@@ -407,13 +419,10 @@ return $seen;` );
 	} );
 
 	test( 'S17: saving the Tools form turns the renewal pause off', async () => {
-		const { res } = await getToolsPage( site );
-		const nonce = res.text.match( /name="_wpnonce" value="([a-f0-9]+)"/ )?.[ 1 ];
-		assert.ok( nonce, 'The Tools form has no settings nonce' );
-		const save = await site.post( '/wp-admin/options.php', { option_page: 'safety-net', action: 'update', _wpnonce: nonce, _wp_http_referer: '/wp-admin/tools.php?page=safety_net_options' }, { jar: site.adminJar, follow: false, expect: 302 } );
-		assert.match( save.location, /settings-updated=true/ );
-		const toggle = await site.php( "return get_option( 'safety_net_pause_renewal_actions_toggle' );" );
-		assert.notEqual( toggle, 'on' );
+		await saveToolsForm( site );
+		const toggle = await site.php( "return array( 'value' => get_option( 'safety_net_pause_renewal_actions_toggle' ), 'raw' => sn_test_raw_option( 'safety_net_pause_renewal_actions_toggle' ) );" );
+		assert.notEqual( toggle.value, 'on' );
+		assert.notEqual( toggle.raw, null, 'Saving the form deleted the toggle, which the next load turns back on' );
 		assert.doesNotMatch( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, /scheduled actions are currently paused/ );
 	} );
 

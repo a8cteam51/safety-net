@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { assertMailBlocked, assertStepFlags, assertToolsPage, captureMail, firstLoad, getToolsPage, httpProbeSince, postAjax, robotsLines, runAjaxTools, toolsPagePath } from '../lib/checks.mjs';
+import { assertMailBlocked, assertStepFlags, assertToolsPage, captureMail, firstLoad, getToolsPage, httpProbeSince, postAjax, robotsLines, runAjaxTools, saveToolsForm, toolsPagePath } from '../lib/checks.mjs';
 import { HPOS_TABLES, seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { bootSite } from '../lib/site.mjs';
 
@@ -12,6 +12,7 @@ describe( 'woocommerce-hpos: regular plugin on a WooCommerce store (HPOS)', () =
 	let site;
 	let seed;
 	let automateWoo;
+	let firstProbe;
 
 	before( async () => {
 		site = await bootSite( { name: 'woocommerce-hpos', env: 'staging', mode: 'plugin', woocommerce: 'active' } );
@@ -25,7 +26,13 @@ describe( 'woocommerce-hpos: regular plugin on a WooCommerce store (HPOS)', () =
 
 	test( 'S1: the first page load runs the automatic pass, including the gateway pass', async () => {
 		const { probe } = await firstLoad( site );
+		firstProbe = probe;
 		assert.equal( probe.runs.safety_net_deactivate_gateway_plugins, 1, 'The wp_loaded gateway pass did not run on the first load' );
+	} );
+
+	test( 'A31: the first page load already uses the paused Action Scheduler store', () => {
+		assert.ok( firstProbe, 'S1 never loaded the first page' );
+		assert.equal( firstProbe.as_store, 'SafetyNet\\ActionScheduler_Custom_DBStore', 'Action Scheduler could claim renewal actions on the load that first ran Safety Net' );
 	} );
 
 	test( 'A1: every step flag is set and the gateway pass is done', async () => {
@@ -160,6 +167,15 @@ return array(
 		const { nonces } = await getToolsPage( site );
 		await runAjaxTools( site, nonces, { order: true } );
 		assert.deepEqual( await site.php( 'return sn_test_users();' ), { admin: 1, admin2: seed.base.users.admin2 } );
+	} );
+
+	test( 'A32: once the Tools form turns the pause off, the next load uses Action Scheduler\'s own store', async () => {
+		await saveToolsForm( site );
+		const before = site.probe().length;
+		await site.get( '/' );
+		const [ load ] = httpProbeSince( site, before );
+		assert.ok( load?.as_store, 'The load built no Action Scheduler store' );
+		assert.notEqual( load.as_store, 'SafetyNet\\ActionScheduler_Custom_DBStore', 'Renewal actions are still paused after the Tools form turned the pause off' );
 	} );
 
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {

@@ -193,6 +193,8 @@ try {
 			files,
 			concurrency,
 			timeout: 900_000,
+			// A failed Playground boot leaks worker threads, which would keep that scenario's process alive forever.
+			forceExit: true,
 			signal: controller.signal,
 			execArgv: [ '--experimental-wasm-jspi' ].filter( ( flag ) => ! process.execArgv.includes( flag ) ),
 		} ).on( 'test:summary', ( data ) => {

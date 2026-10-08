@@ -107,6 +107,12 @@ function maybe_delete_data() {
 		return;
 	}
 
+	// A concurrent load that stored this flag first leaves it unseen here, and the worker's own check would die() mid-load.
+	if ( ! get_option( 'safety_net_plugins_deactivated' ) ) {
+		error_log( sprintf( 'Safety Net: safety_net_plugins_deactivated is not set on site %d, so data deletion is postponed.', get_current_blog_id() ) ); // phpcs:ignore -- Logging is okay here.
+		return;
+	}
+
 	// Fire hooks to let plugin know to delete data.
 	do_action( 'safety_net_delete_data' );
 }

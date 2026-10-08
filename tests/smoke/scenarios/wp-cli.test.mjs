@@ -111,6 +111,35 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		}
 	} );
 
+	test( 'C6: when the plugins step flag does not stick, the WP-CLI call still completes and the next one deletes the data', async () => {
+		await site.php( "sn_test_create_user( 'cli_retry', 'customer' ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php' ) ); delete_option( 'safety_net_plugins_deactivated' ); delete_option( 'safety_net_data_deleted' ); update_option( 'sn_test_lost_flag', 'safety_net_plugins_deactivated' ); return true;", { label: 'losing the next write of safety_net_plugins_deactivated' } );
+		try {
+			// Read from the call's own probe line, since checking the site would load it and run the pass again.
+			const getBlogname = async () => {
+				const before = site.probe().length;
+				const res = await wpOk( 'option', 'get', 'blogname' );
+				const lines = site.probe().slice( before ).filter( ( line ) => line.wp_cli );
+				assert.equal( lines.length, 1, `wp option get blogname wrote ${ lines.length } probe lines` );
+				return { blogname: res.stdout.trim().split( '\n' ).pop(), steps: { deactivate: lines[ 0 ].runs.safety_net_deactivate_plugins, delete: lines[ 0 ].runs.safety_net_delete_data } };
+			};
+
+			const mark = site.logMark();
+			const lost = await getBlogname();
+			assert.equal( lost.blogname, 'My WordPress Website', 'wp option get blogname was cut short after the plugins step flag did not stick' );
+			assert.deepEqual( lost.steps, { deactivate: 1, delete: 0 }, 'The delete step was not postponed after the plugins step flag did not stick' );
+			assert.match( site.logEntriesSince( mark ).join( '\n' ), /Safety Net: safety_net_plugins_deactivated is not set on site 1, so data deletion is postponed\./ );
+
+			const retry = await getBlogname();
+			assert.deepEqual( retry.steps, { deactivate: 1, delete: 1 }, 'The next WP-CLI call did not delete the data' );
+			const state = await site.php( "return array( 'flags' => sn_test_flags(), 'users' => sn_test_users(), 'active' => get_option( 'active_plugins' ) );" );
+			assertStepFlags( state.flags, { woocommerce: true } );
+			assert.equal( state.users.cli_retry, undefined, 'The retried pass did not delete the data' );
+			assert.ok( ! state.active.includes( 'mailchimp-for-wp/mailchimp-for-wp.php' ), 'The plugins step left a denylisted plugin active' );
+		} finally {
+			await site.php( "delete_option( 'sn_test_lost_flag' ); return true;" );
+		}
+	} );
+
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
 		site.assertCleanLog();
 	} );
