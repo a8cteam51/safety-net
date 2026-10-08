@@ -112,6 +112,13 @@ function sn_test_seed_base(): array {
 	update_option( 'default_pingback_flag', '1' );
 	set_transient( 'sn_seed', 'x', DAY_IN_SECONDS );
 	add_option( '_transient_nelio_content_news', 'x' );
+	add_option( '_transient_timeout_nelio_content_news', time() + DAY_IN_SECONDS, '', false );
+	foreach ( SN_TEST_BLANKED_OPTIONS as $name => $value ) {
+		update_option( $name, $value );
+	}
+	if ( array_filter( sn_test_blanked_options(), static fn( $option ) => $option['value'] !== $option['seeded'] || null !== $option['backup'] ) ) {
+		throw new RuntimeException( 'Seeding the options integrations blank failed: ' . wp_json_encode( sn_test_blanked_options() ) );
+	}
 	$ai = sn_test_seed_ai_keys( 'site' );
 
 	sn_test_install_fixture_plugins();

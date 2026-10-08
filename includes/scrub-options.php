@@ -31,7 +31,7 @@ function scrub_options() {
 
 	safety_net_update_option_direct( 'admin_email', 'safetynet@scrubbedthis.option' );
 
-	$options_to_clear = options_to_clear();
+	$options_to_clear = array_merge( array( 'default_pingback_flag' ), array_diff( options_to_clear(), array( 'default_pingback_flag' ) ) );
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	// Check if it’s an Atomic site either via the Jetpack function or URL.

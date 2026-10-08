@@ -246,7 +246,7 @@ Constant:
    The main plugin file MUST guard with `if ( ! defined( 'ABSPATH' ) ) { exit; }`.
 
 5. **Denylist format**  
-   - Options: exact option name (e.g. `klaviyo_api_key`).
+   - Options: exact option name (e.g. `my_plugin_api_key`).
    - Plugins: slug or partial match (e.g. `smtp` matches `wp-mail-smtp/wp_mail_smtp.php`).
 
 6. **Atomic / WP.com staging**  
