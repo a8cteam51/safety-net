@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertMailBlocked, assertStepFlags, captureMail, firstLoad, getToolsPage, postAjax, runAjaxTools } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAiKeysScrubbed, assertMailBlocked, assertStepFlags, captureMail, firstLoad, getToolsPage, postAjax, runAjaxTools } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite } from '../lib/site.mjs';
 
@@ -12,7 +12,7 @@ const NETWORK_EMAILS = "global $wpdb; return array( 'current' => get_site_option
 
 const SCRUBBED_EMAIL = 'safetynet@scrubbedthis.option';
 const OWNER_EMAIL = 'netowner@example.com';
-const NETWORK_DENIED = [ 'mailchimp-for-wp/mailchimp-for-wp.php' ];
+const NETWORK_DENIED = [ 'ai/ai.php', 'ai-provider-for-anthropic/plugin.php', 'mailchimp-for-wp/mailchimp-for-wp.php' ];
 const SET_NETWORK = `return sn_test_set_network( array( '${ NETWORK_DENIED.join( "', '" ) }' ), '${ OWNER_EMAIL }' );`;
 // Without WooCommerce there is no gateway pass, so no gateway flag either.
 const NETWORK_FLAGS = { safety_net_network_admin_email_scrubbed: '1', safety_net_network_plugins_deactivated: '1' };
@@ -60,6 +60,13 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 		assert.equal( s.shop.klaviyo, 'pk_live_shop' );
 	} );
 
+	test( 'M13: the main site\'s first run deletes its own AI provider keys and leaves the other sites\' until they load', async () => {
+		const s = await site.php( NETWORK_STATE );
+		assertAiKeysScrubbed( s.main.ai, seed.ai.main, 'The main site\'s first run' );
+		assert.deepEqual( s.shop.ai, seed.ai.shop, 'The main site\'s first run changed the shop\'s AI keys or their backups' );
+		assert.deepEqual( s.empty.ai, seed.ai.empty, 'The main site\'s first run changed /empty/\'s AI keys or their backups' );
+	} );
+
 	test( 'K5/K11: the first site\'s run applies the network-wide changes once for the network, and then a super admin reverts them', async () => {
 		assertNetworkChanged( await site.php( 'return sn_test_network_state();' ), 'The main site\'s first run' );
 		assertNetworkUntouched( await site.php( SET_NETWORK, { label: 'reverting the network-wide changes' } ), 'Reverting the network-wide changes' );
@@ -74,6 +81,12 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 		assert.equal( s.shop.transient, null );
 		assert.deepEqual( s.shop.post_authors, [ seed.users.shopowner ], 'Shop posts should go to the shop administrator' );
 		assert.deepEqual( Object.keys( s.users ).sort(), SURVIVORS );
+	} );
+
+	test( 'M13: the shop\'s own first run deletes its AI provider keys', async () => {
+		const s = await site.php( NETWORK_STATE );
+		assertAiKeysScrubbed( s.shop.ai, seed.ai.shop, 'The shop\'s first run' );
+		assert.deepEqual( s.empty.ai, seed.ai.empty, 'The shop\'s first run changed /empty/\'s AI keys or their backups' );
 	} );
 
 	test( 'M1: a site without its own administrator reassigns posts to a super admin', async () => {
@@ -102,8 +115,9 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 	} );
 
 	test( 'K5/K11: a site administrator\'s Scrub Options and Deactivate Plugins change only their own site', async () => {
-		const seeded = await site.php( `wp_set_password( 'password', ${ seed.users.shopowner } ); switch_to_blog( 2 ); update_option( 'klaviyo_api_key', 'pk_live_again' ); update_option( 'admin_email', 'shopowner@example.com' ); sn_test_activate_plugins( array( 'wp-mail-smtp/wp_mail_smtp.php' ) ); $active = get_option( 'active_plugins' ); restore_current_blog(); return array( 'active' => $active, 'super' => is_super_admin( ${ seed.users.shopowner } ), 'network' => sn_test_set_network( array( '${ NETWORK_DENIED.join( "', '" ) }' ), '${ OWNER_EMAIL }' ) );`, { label: 'seeding the shop site for its administrator' } );
+		const seeded = await site.php( `wp_set_password( 'password', ${ seed.users.shopowner } ); switch_to_blog( 2 ); update_option( 'klaviyo_api_key', 'pk_live_again' ); update_option( 'connectors_ai_openai_api_key', 'sk-test-again-shop' ); update_option( 'admin_email', 'shopowner@example.com' ); sn_test_activate_plugins( array( 'wp-mail-smtp/wp_mail_smtp.php' ) ); $active = get_option( 'active_plugins' ); $ai = array( 'shop' => sn_test_raw_option( 'connectors_ai_openai_api_key' ) ); restore_current_blog(); update_option( 'connectors_ai_openai_api_key', 'sk-test-again-main' ); $ai['main'] = sn_test_raw_option( 'connectors_ai_openai_api_key' ); return array( 'active' => $active, 'ai' => $ai, 'super' => is_super_admin( ${ seed.users.shopowner } ), 'network' => sn_test_set_network( array( '${ NETWORK_DENIED.join( "', '" ) }' ), '${ OWNER_EMAIL }' ) );`, { label: 'seeding the shop site for its administrator' } );
 		assert.equal( seeded.super, false, 'shopowner must not be a super admin' );
+		assert.deepEqual( seeded.ai, { shop: 'sk-test-again-shop', main: 'sk-test-again-main' }, 'Re-seeding the AI provider keys on the shop and the main site failed' );
 		assert.ok( seeded.active.includes( 'wp-mail-smtp/wp_mail_smtp.php' ), 'Activating a denylisted plugin on the shop site failed' );
 		assertNetworkUntouched( seeded.network, 'Seeding' );
 		const jar = await site.login( { user: 'shopowner', jar: new CookieJar(), redirectTo: '/shop/wp-admin/' } );
@@ -111,9 +125,11 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 		for ( const [ action, button, message ] of SITE_TOOLS ) {
 			assert.deepEqual( await postAjax( site, action, nonces[ button ], { jar, prefix: '/shop' } ), { success: true, message }, `${ action } returned an unexpected response` );
 		}
-		const s = await site.php( "switch_to_blog( 2 ); $active = get_option( 'active_plugins' ); restore_current_blog(); return array( 'active' => $active, 'shop' => sn_test_network_site_state( 2 ), 'network' => sn_test_network_state() );" );
+		const s = await site.php( "switch_to_blog( 2 ); $active = get_option( 'active_plugins' ); restore_current_blog(); return array( 'active' => $active, 'main' => sn_test_network_site_state( 1 ), 'shop' => sn_test_network_site_state( 2 ), 'network' => sn_test_network_state() );" );
 		assert.equal( s.shop.admin_email, SCRUBBED_EMAIL, 'Scrub Options did not scrub the shop\'s admin email' );
 		assert.equal( s.shop.klaviyo, '', 'Scrub Options did not scrub the shop\'s options' );
+		assert.equal( s.shop.ai.keys.connectors_ai_openai_api_key, null, 'Scrub Options did not delete the shop\'s AI provider key' );
+		assert.equal( s.main.ai.keys.connectors_ai_openai_api_key, 'sk-test-again-main', 'The shop administrator\'s Scrub Options deleted the main site\'s AI provider key' );
 		assert.ok( ! s.active.includes( 'wp-mail-smtp/wp_mail_smtp.php' ), 'Deactivate Plugins left the shop\'s denylisted plugin active' );
 		assertNetworkUntouched( s.network, 'A site administrator\'s tools' );
 		assert.deepEqual( s.network.flags, NETWORK_FLAGS );

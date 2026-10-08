@@ -94,10 +94,15 @@ function sn_test_seed_base(): array {
 	update_option( 'default_pingback_flag', '1' );
 	set_transient( 'sn_seed', 'x', DAY_IN_SECONDS );
 	add_option( '_transient_nelio_content_news', 'x' );
+	$ai = sn_test_seed_ai_keys( 'site' );
 
 	sn_test_install_fixture_plugins();
 	sn_test_activate_plugins(
 		array(
+			'ai/ai.php',
+			'ai-provider-for-anthropic/plugin.php',
+			'ai-services/ai-services.php',
+			'aslams-ai-provider-for-grok/ai-provider-for-grok.php',
 			'barcode-label-printer/barcode-label-printer.php',
 			'mailchimp-for-wp/mailchimp-for-wp.php',
 			'my-stripe-addon/my-stripe-addon.php',
@@ -114,7 +119,247 @@ function sn_test_seed_base(): array {
 		'users'       => $users,
 		'posts'       => $posts,
 		'admin_email' => get_option( 'admin_email' ),
+		'ai'          => $ai,
 	);
+}
+
+// Shaped and autoloaded as each owner stores them.
+function sn_test_seed_ai_keys( string $tag ): array {
+	update_option( 'connectors_ai_anthropic_api_key', "sk-test-anthropic-$tag" );
+	update_option( 'connectors_ai_google_api_key', "test-google-$tag" );
+	update_option( 'connectors_ai_openai_api_key', "sk-test-openai-$tag" );
+	update_option( 'connectors_ai_openai_compatible_servers_api_key', "sk-test-local-$tag" );
+	update_option(
+		'connectors_ai_provider_acme_application_password',
+		array(
+			'username' => 'sn-app-user',
+			'password' => "sn-test-app-password-$tag",
+		)
+	);
+	update_option( '_secret_ai/openai_api_key', base64_encode( "sn-test-nonce-and-ciphertext-openai-$tag" ), false );
+	update_option( '_secret_ai/openai-compatible-servers_api_key', base64_encode( "sn-test-nonce-and-ciphertext-local-$tag" ), false );
+	update_option(
+		'wp_ai_client_provider_credentials',
+		array(
+			'openai'    => "sk-test-legacy-openai-$tag",
+			'anthropic' => "sk-test-legacy-anthropic-$tag",
+		)
+	);
+	sn_test_seed_ai_provider_keys( $tag );
+	update_option( 'connectors_ai_openai_compatible_servers_base_url', 'http://localhost:1234/v1' );
+	update_option( 'mwlai_endpoint_url', 'https://proxy.example.com' );
+	update_option( 'zctz_ollama_ai_connector_settings', array( 'connection_type' => 'cloud', 'host' => 'https://ollama.com' ), false );
+	update_option( 'zctz_openrouter_settings', array( 'base_url' => 'https://openrouter.ai/api/v1' ) );
+	update_option( '_secret_ai/openai_base_url', base64_encode( "sn-test-not-a-key-$tag" ), false );
+	update_option( '_secret_otherplugin/openai_api_key', base64_encode( "sn-test-other-plugin-$tag" ), false );
+	update_option( '_secrets_master_key', base64_encode( "sn-test-master-key-$tag" ), false );
+	update_option( 'wordpress_api_key', "akismet-test-$tag" );
+	$state = sn_test_ai_state();
+	if ( in_array( null, $state['keys'], true ) || in_array( null, $state['settings'], true ) || in_array( null, $state['controls'], true ) ) {
+		throw new RuntimeException( 'Seeding the AI keys failed: ' . wp_json_encode( $state ) );
+	}
+	return $state;
+}
+
+// Shaped as each provider plugin stores them; the secrets inside a plugin's settings are the sn-secret- values.
+function sn_test_seed_ai_provider_keys( string $tag ) {
+	update_option( 'aiprfoex_api_key', "sn-test-exo-$tag" );
+	update_option( 'halawa_chatgpt_tokens', base64_encode( "sn-test-nonce-and-oauth-tokens-$tag" ), false );
+	update_option( 'jokiruiz_local_model_connector_api_key', "sn-test-bridge-$tag" );
+	update_option( 'koneek_api_key', base64_encode( "sn-test-koneek-legacy-$tag" ) );
+	update_option( 'koneek_api_key_openai', base64_encode( "sn-test-koneek-$tag" ) );
+	update_option( 'mwlai_actual_computer_api_key', "sk-test-actual-$tag" );
+	update_option( 'mwlai_api_key', "sn-test-tunnel-$tag" );
+	update_option( 'ultimate_ai_connector_api_key', "sk-test-ultimate-$tag" );
+	update_option( 'zctz_ollama_ai_connector_cloud_api_key', "sn-test-ollama-cloud-$tag", false );
+	update_option( 'zctz_ollama_ai_connector_self_hosted_api_key', "sn-test-ollama-$tag", false );
+	update_option( 'zctz_openrouter_secret_api_key', "sk-or-test-$tag", false );
+	update_option(
+		'ai_provider_for_cursor_settings',
+		array(
+			'api_key'       => "sn-secret-cursor-$tag",
+			'default_model' => 'auto',
+			'poll_timeout'  => 120,
+		),
+		false
+	);
+	update_option(
+		'aipcf_settings',
+		array(
+			'api_key'         => "sn-secret-cloudflare-$tag",
+			'account_id'      => 'sn-account',
+			'preferred_model' => '@cf/meta/llama-3.1-8b-instruct',
+			'gateway_id'      => 'sn-gateway',
+			'gateway_token'   => "sn-secret-gateway-$tag",
+			'qdrant_url'      => 'https://qdrant.example.com',
+			'qdrant_api_key'  => "sn-secret-qdrant-$tag",
+			'pg_password'     => "sn-secret-postgres-$tag",
+			'backfill_tasks'  => array( 'meta_description' ),
+		)
+	);
+	update_option(
+		'obenweb_openwebui_provider_settings',
+		array(
+			'host'    => 'http://localhost:3000',
+			'api_key' => "sn-secret-openwebui-$tag",
+			'model'   => 'llama3',
+		)
+	);
+	update_option(
+		'ultimate_ai_connector_providers',
+		array(
+			array(
+				'id'           => 'local',
+				'endpoint_url' => 'http://localhost:11434/v1',
+				'api_key'      => '',
+				'enabled'      => true,
+			),
+			array(
+				'id'           => 'remote',
+				'endpoint_url' => 'https://api.example.com/v1',
+				'api_key'      => "sn-secret-ultimate-$tag",
+				'enabled'      => true,
+			),
+		)
+	);
+	update_option(
+		'vercel_ai_gateway_provider_settings',
+		array(
+			'api_key'       => "sn-secret-vercel-$tag",
+			'default_model' => 'openai/gpt-5',
+		)
+	);
+	update_option(
+		'wp_ai_client_credentials',
+		array(
+			'minimax'      => array( 'api_key' => "sn-secret-minimax-$tag" ),
+			'opencode_zen' => array( 'api_key' => "sn-secret-zen-$tag" ),
+		)
+	);
+}
+
+// Backups an older run could have left for AI options a site's safety_net_options_to_clear filter added.
+function sn_test_seed_ai_backups(): array {
+	update_option( 'connectors_ai_openai_api_key_sn_backup', 'sk-test-openai-old' );
+	update_option( 'wp_ai_client_provider_credentials_sn_backup', array( 'openai' => 'sk-test-legacy-openai-old' ) );
+	update_option( 'aipcf_settings_sn_backup', array( 'api_key' => 'sn-secret-cloudflare-old' ) );
+	update_option( 'connectors_ai_mistral_api_key_sn_backup', 'sk-test-mistral-old' );
+	update_option( '_secret_ai/anthropic_api_key_sn_backup', base64_encode( 'sn-test-nonce-and-ciphertext-anthropic-old' ), false );
+	update_option( 'koneek_api_key_gemini_sn_backup', base64_encode( 'sn-test-koneek-old' ) );
+	foreach ( array( 'connectors_ai_mistral_api_key', '_secret_ai/anthropic_api_key', 'koneek_api_key_gemini' ) as $orphan ) {
+		if ( null !== sn_test_raw_option( $orphan ) ) {
+			throw new RuntimeException( "The orphaned backup of $orphan has its option beside it." );
+		}
+	}
+	return sn_test_ai_state()['backups'];
+}
+
+// The AI provider plugins on wordpress.org that 'ai-provider-for-' misses, by their real basenames.
+const SN_TEST_AI_PROVIDER_PLUGINS = array(
+	'bestony-ai-provider/bestony-ai-provider.php',
+	'birbwhale/birbwhale.php',
+	'duetg-ai-connector/duetg-ai-connector.php',
+	'duoport-connect-for-opencode/duoport-connect-for-opencode.php',
+	'jokiruiz-local-model-connector/jokiruiz-local-model-connector.php',
+	'koneek-multi-provider-ai-gateway/koneek-plugin.php',
+	'latentkit-ai-provider/latentkit-ai-connector.php',
+	'mittwald-ai-provider/mittwald-ai-provider.php',
+	'modeltrestle-ai-connector-for-nano-gpt/modeltrestle-ai-connector-for-nano-gpt.php',
+	'mw-local-ai-connector/mw-local-ai-connector.php',
+	'onmyodev-connector-for-deepseek/onmyodev-connector-for-deepseek.php',
+	'opencode-ai-provider/opencode-ai-provider.php',
+	'razhur-connector-for-avalai/razhur-connector-for-avalai.php',
+	'ultimate-ai-connector-compatible-endpoints/ultimate-ai-connector-compatible-endpoints.php',
+	'vercel-ai-gateway-provider/plugin.php',
+	'zactonz-ai-connector-for-openrouter/igniter.php',
+	'zactonz-ai-provider-ollama/igniter.php',
+);
+
+// wordpress.org plugins named like those that are not AI providers.
+const SN_TEST_AI_LOOKALIKE_PLUGINS = array(
+	'axtolab-ai-connector/axtolab-ai-connector.php',
+	'bestonys-ai-settings/bestonys-ai-settings.php',
+	'jazzs3quence-priority-manager-for-ai-connectors/jazzs3quence-priority-manager-for-ai-connectors.php',
+	'mw-llm-index/mw-llm-index.php',
+);
+
+function sn_test_seed_ai_provider_plugins(): array {
+	$plugins = array_merge( SN_TEST_AI_PROVIDER_PLUGINS, SN_TEST_AI_LOOKALIKE_PLUGINS );
+	foreach ( $plugins as $plugin ) {
+		$file = WP_PLUGIN_DIR . "/$plugin";
+		if ( ! wp_mkdir_p( dirname( $file ) ) || false === file_put_contents( $file, "<?php\n/* Plugin Name: $plugin stub (fixture) */\n" ) ) { // phpcs:ignore
+			throw new RuntimeException( "Could not write the stub plugin $plugin." );
+		}
+	}
+	sn_test_activate_plugins( $plugins );
+	return array(
+		'providers'  => SN_TEST_AI_PROVIDER_PLUGINS,
+		'lookalikes' => SN_TEST_AI_LOOKALIKE_PLUGINS,
+		'active'     => array_values( array_intersect( $plugins, (array) get_option( 'active_plugins' ) ) ),
+	);
+}
+
+// rest_do_request() skips rest_post_dispatch, whose key check needs a provider registered with the AI client.
+function sn_test_write_ai_keys_through_rest(): ?array {
+	if ( ! function_exists( 'wp_get_connector' ) ) {
+		return null;
+	}
+	$values   = array(
+		'sn-fixture'        => 'sk-test-rest',
+		'sn-fixture-custom' => 'sk-test-rest-custom',
+		'sn-fixture-app'    => array(
+			'username' => 'sn-app-user',
+			'password' => 'sn-test-rest-app-password',
+		),
+	);
+	$settings = array();
+	$body     = array();
+	foreach ( $values as $id => $value ) {
+		$connector = wp_get_connector( $id );
+		if ( null !== $connector ) {
+			$settings[ $id ] = $connector['authentication']['setting_name'];
+			$body[ $settings[ $id ] ] = $value;
+		}
+	}
+	$user = get_current_user_id();
+	wp_set_current_user( 1 );
+	$request = new WP_REST_Request( 'POST', '/wp/v2/settings' );
+	$request->set_body_params( $body );
+	$response = rest_do_request( $request );
+	wp_set_current_user( $user );
+	foreach ( $settings as $id => $setting ) {
+		if ( $response->is_error() || $values[ $id ] !== sn_test_raw_option( $setting ) ) {
+			throw new RuntimeException( "Writing $setting through the settings endpoint failed: " . wp_json_encode( $response->get_data() ) );
+		}
+	}
+	return $settings;
+}
+
+// What core itself reads for each AI provider connector, so a renamed option in core fails the test instead of leaving a seed nobody uses.
+function sn_test_ai_core_view(): ?array {
+	if ( ! function_exists( 'wp_get_connectors' ) || ! function_exists( '_wp_connectors_get_api_key_source' ) ) {
+		return null;
+	}
+	$view = array();
+	foreach ( wp_get_connectors() as $id => $connector ) {
+		$auth = $connector['authentication'];
+		if ( 'ai_provider' !== $connector['type'] ) {
+			continue;
+		}
+		if ( 'api_key' === $auth['method'] ) {
+			$source = _wp_connectors_get_api_key_source( $auth['setting_name'], $auth['env_var_name'] ?? '', $auth['constant_name'] ?? '' );
+		} elseif ( 'application_password' === $auth['method'] && function_exists( 'wp_connectors_get_application_password_credentials' ) ) {
+			$source = wp_connectors_get_application_password_credentials( $auth )['source'];
+		} else {
+			continue;
+		}
+		$view[ $id ] = array(
+			'setting' => $auth['setting_name'],
+			'source'  => $source,
+		);
+	}
+	ksort( $view );
+	return $view;
 }
 
 // WooCommerce picks the order data store while booting, so orders must be seeded in a later request.
@@ -322,16 +567,21 @@ function sn_test_seed_network(): array {
 	);
 
 	$posts = array( 'main' => wp_insert_post( array( 'post_title' => 'SN seed main by editor', 'post_status' => 'publish', 'post_author' => $users['editor1'] ) ) );
+	$ai    = array();
 	foreach ( array( 'shop' => $shop, 'empty' => $empty ) as $key => $blog_id ) {
 		switch_to_blog( $blog_id );
 		$posts[ $key ] = wp_insert_post( array( 'post_title' => "SN seed $key by customer", 'post_status' => 'publish', 'post_author' => $users['customer2'] ) );
 		update_option( 'klaviyo_api_key', "pk_live_$key" );
 		update_option( 'blog_public', '1' );
 		set_transient( 'sn_seed', 'x', DAY_IN_SECONDS );
+		sn_test_seed_ai_backups();
+		$ai[ $key ] = sn_test_seed_ai_keys( $key );
 		restore_current_blog();
 	}
 	update_option( 'klaviyo_api_key', 'pk_live_main' );
 	set_transient( 'sn_seed', 'x', DAY_IN_SECONDS );
+	sn_test_seed_ai_backups();
+	$ai['main'] = sn_test_seed_ai_keys( 'main' );
 
 	return array(
 		'users'       => $users,
@@ -342,6 +592,7 @@ function sn_test_seed_network(): array {
 		),
 		'posts'       => $posts,
 		'admin_email' => get_option( 'admin_email' ),
+		'ai'          => $ai,
 	);
 }
 
@@ -356,6 +607,7 @@ function sn_test_network_site_state( int $blog_id ): array {
 		'blog_public'  => sn_test_raw_option( 'blog_public' ),
 		'transient'    => sn_test_raw_option( '_transient_sn_seed' ),
 		'post_authors' => array_map( 'intval', $wpdb->get_col( "SELECT post_author FROM $wpdb->posts WHERE post_title LIKE 'SN seed%' ORDER BY ID" ) ),
+		'ai'           => sn_test_ai_state(),
 	);
 	restore_current_blog();
 	return $state;
@@ -448,6 +700,7 @@ function sn_test_seed_tool_targets( bool $order ): array {
 	$user     = sn_test_create_user( uniqid( 'tool_target_' ), 'subscriber' );
 	$order_id = $order ? sn_test_create_order( $user ) : null;
 	set_transient( 'sn_tool_target', 'x', DAY_IN_SECONDS );
+	update_option( 'connectors_ai_openai_api_key', 'sk-test-tool' );
 	$admins = array_map( 'intval', get_users( array( 'role' => 'administrator', 'fields' => 'ID' ) ) );
 	sort( $admins );
 	return array(
@@ -462,9 +715,10 @@ function sn_test_seed_ajax_sentinels( string $login ): array {
 	sn_test_create_user( $login, 'subscriber' );
 	set_transient( 'sn_sentinel', 'x', DAY_IN_SECONDS );
 	update_option( 'sn_custom_secret', 'sentinel' );
+	update_option( 'connectors_ai_openai_api_key', 'sentinel' );
 	sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php' ) );
 	$state = sn_test_ajax_sentinels( $login );
-	if ( 1 !== $state['user'] || 'x' !== $state['transient'] || 'sentinel' !== $state['secret'] || ! $state['mailchimp'] ) {
+	if ( 1 !== $state['user'] || 'x' !== $state['transient'] || 'sentinel' !== $state['secret'] || 'sentinel' !== $state['ai'] || ! $state['mailchimp'] ) {
 		throw new RuntimeException( 'Seeding the AJAX sentinels failed: ' . wp_json_encode( $state ) );
 	}
 	return array(

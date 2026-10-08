@@ -141,7 +141,7 @@ export async function postAjax( site, action, nonce, { jar = site.adminJar, pref
 export async function runAjaxTools( site, nonces, { prefix = '', order = false } = {} ) {
 	const php = { path: `${ prefix }/` };
 	const seeded = await site.php( `return sn_test_seed_tool_targets( ${ order } );`, { ...php, label: 'seeding data for the AJAX tools' } );
-	assert.deepEqual( seeded.state, { user: true, transient: 'x', transient_timeout: true, order: order ? true : null, admins: seeded.admins }, 'Seeding data for the AJAX tools failed' );
+	assert.deepEqual( seeded.state, { user: true, transient: 'x', transient_timeout: true, order: order ? true : null, admins: seeded.admins, ai: 'sk-test-tool' }, 'Seeding data for the AJAX tools failed' );
 	for ( const [ action, button, message ] of AJAX_ACTIONS ) {
 		assert.deepEqual( await postAjax( site, action, nonces[ button ], { prefix } ), { success: true, message }, `${ action } returned an unexpected response` );
 	}
@@ -153,6 +153,27 @@ export async function runAjaxTools( site, nonces, { prefix = '', order = false }
 		assert.equal( after.order, false, 'The Delete tool left an order created after the automatic pass' );
 	}
 	assert.deepEqual( after.admins, seeded.admins, 'The Delete tool removed an administrator' );
+	assert.equal( after.ai, null, 'The Scrub Options tool left an AI provider key' );
+}
+
+// The seeds mark each secret inside a provider plugin's settings with an sn-secret- value.
+const withoutSeededSecrets = ( value ) => {
+	if ( typeof value === 'string' ) {
+		return value.startsWith( 'sn-secret-' ) ? '' : value;
+	}
+	if ( value && typeof value === 'object' ) {
+		return Array.isArray( value ) ? value.map( withoutSeededSecrets ) : Object.fromEntries( Object.entries( value ).map( ( [ key, item ] ) => [ key, withoutSeededSecrets( item ) ] ) );
+	}
+	return value;
+};
+
+// Only null (no row) counts as deleted; '' would mean the key was blanked and its row kept.
+export function assertAiKeysScrubbed( now, seeded, label ) {
+	const left = Object.entries( now.keys ).filter( ( [ , value ] ) => value !== null ).map( ( [ name ] ) => name );
+	assert.deepEqual( left, [], `${ label } left these AI provider credentials` );
+	assert.deepEqual( now.settings, withoutSeededSecrets( seeded.settings ), `${ label } did not blank exactly the secrets in AI provider plugins' settings` );
+	assert.deepEqual( now.backups, [], `${ label } left backups of AI provider credentials` );
+	assert.deepEqual( now.controls, seeded.controls, `${ label } changed options that are not AI provider credentials` );
 }
 
 // Sentinels that each tool would change, to prove a refused AJAX request did nothing.

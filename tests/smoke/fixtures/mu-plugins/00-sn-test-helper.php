@@ -99,6 +99,44 @@ add_filter(
 	}
 );
 
+// Registered the way plugins add their own AI connectors, so core names or keeps their settings and the settings endpoint accepts them.
+add_action(
+	'wp_connectors_init',
+	static function ( $registry ) {
+		$registry->register(
+			'sn-fixture',
+			array(
+				'name'           => 'SN Fixture',
+				'type'           => 'ai_provider',
+				'authentication' => array( 'method' => 'api_key' ),
+			)
+		);
+		// mw-local-ai-connector registers its connector with the plugin's own option as the setting.
+		$registry->register(
+			'sn-fixture-custom',
+			array(
+				'name'           => 'SN Fixture Custom',
+				'type'           => 'ai_provider',
+				'authentication' => array(
+					'method'       => 'api_key',
+					'setting_name' => 'mwlai_actual_computer_api_key',
+				),
+			)
+		);
+		// WordPress before 7.1 rejects this method with a notice.
+		if ( function_exists( 'wp_connectors_get_application_password_credentials' ) ) {
+			$registry->register(
+				'sn-fixture-app',
+				array(
+					'name'           => 'SN Fixture App',
+					'type'           => 'ai_provider',
+					'authentication' => array( 'method' => 'application_password' ),
+				)
+			);
+		}
+	}
+);
+
 if ( get_option( 'sn_test_hide_admin' ) ) {
 	add_filter( 'safety_net_hide_admin', '__return_true' );
 }

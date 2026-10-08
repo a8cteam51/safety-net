@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { assertStepFlags, firstLoad } from '../lib/checks.mjs';
+import { assertAiKeysScrubbed, assertStepFlags, firstLoad } from '../lib/checks.mjs';
 import { bootSite } from '../lib/site.mjs';
 
 const NETWORK_STATE = "return array( 'users' => sn_test_users(), 'main' => sn_test_network_site_state( 1 ), 'shop' => sn_test_network_site_state( 2 ), 'empty' => sn_test_network_site_state( 3 ) );";
@@ -37,6 +37,13 @@ describe( 'multisite-subsite-first: a subsite is the first site loaded after ena
 		assert.equal( s.main.klaviyo, 'pk_live_main' );
 	} );
 
+	test( 'M13: AI provider keys live in each site\'s options table, so the shop\'s first run deletes the shop\'s and no other site\'s', async () => {
+		const s = await site.php( NETWORK_STATE, { path: '/shop/' } );
+		assertAiKeysScrubbed( s.shop.ai, seed.ai.shop, 'The shop\'s first run' );
+		assert.deepEqual( s.main.ai, seed.ai.main, 'The shop\'s first run changed the main site\'s AI keys or their backups' );
+		assert.deepEqual( s.empty.ai, seed.ai.empty, 'The shop\'s first run changed /empty/\'s AI keys or their backups' );
+	} );
+
 	test( 'K5/K11: the first site\'s run, here a subsite\'s, scrubs the network admin email and records the network-wide changes', async () => {
 		const now = await site.php( 'return sn_test_network_state();', { path: '/shop/' } );
 		assert.equal( now.admin_email, 'safetynet@scrubbedthis.option' );
@@ -61,6 +68,13 @@ describe( 'multisite-subsite-first: a subsite is the first site loaded after ena
 		const s = await site.php( NETWORK_STATE, { path: '/shop/' } );
 		assert.deepEqual( s.empty.post_authors, [ seed.users.superhelper ] );
 		assert.equal( s.users.admin, 1, 'The main site administrator was deleted' );
+	} );
+
+	test( 'M13: /empty/\'s own first run deletes its AI provider keys, and the main site, not loaded yet, keeps its own', async () => {
+		const s = await site.php( NETWORK_STATE, { path: '/shop/' } );
+		assertAiKeysScrubbed( s.empty.ai, seed.ai.empty, '/empty/\'s first run' );
+		assert.deepEqual( s.main.flags, [], 'The main site ran, so it can no longer show its keys surviving until its own first load' );
+		assert.deepEqual( s.main.ai, seed.ai.main, 'Another site\'s run changed the main site\'s AI keys or their backups' );
 	} );
 
 	test( 'K3: the post author is matched on the administrator role exactly, so a client_administrator with a lower ID does not get the posts', async () => {

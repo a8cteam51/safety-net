@@ -1,18 +1,20 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
-import { bootSite, phpAtLeast } from '../lib/site.mjs';
+import { bootSite, phpAtLeast, wpAtLeast } from '../lib/site.mjs';
 
 describe( 'staging-plugin: regular plugin on a staging site without WooCommerce', () => {
 	let site;
 	let seed;
 	let thirdParty;
+	let ai;
 
 	before( async () => {
 		site = await bootSite( { name: 'staging-plugin', env: 'staging', mode: 'plugin' } );
 		seed = await site.php( 'return sn_test_seed_base();', { label: 'seeding the site' } );
 		thirdParty = await site.php( 'return sn_test_seed_third_party();', { label: 'seeding third-party plugin tables' } );
+		ai = await site.php( "return array( 'plugins' => sn_test_seed_ai_provider_plugins(), 'backups' => sn_test_seed_ai_backups(), 'rest' => sn_test_write_ai_keys_through_rest(), 'core' => sn_test_ai_core_view() );", { label: 'seeding AI provider plugins, stale AI backups and AI keys through the settings endpoint' } );
 		await site.enableSafetyNet();
 	} );
 
@@ -80,6 +82,105 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		for ( const plugin of [ 'barcode-label-printer/barcode-label-printer.php', 'zz-single-file.php', 'safety-net/safety-net.php', 'zz-checkout/zz-checkout.php', 'zz-offline-cod/zz-offline-cod.php' ] ) {
 			assert.ok( active.includes( plugin ), `${ plugin } was deactivated` );
 		}
+	} );
+
+	test( 'A33: AI provider credentials are deleted without a backup, stale AI backups go too, and look-alike options and other backups stay', async () => {
+		assert.deepEqual( ai.backups, [ '_secret_ai/anthropic_api_key_sn_backup', 'aipcf_settings_sn_backup', 'connectors_ai_mistral_api_key_sn_backup', 'connectors_ai_openai_api_key_sn_backup', 'koneek_api_key_gemini_sn_backup', 'wp_ai_client_provider_credentials_sn_backup' ], 'Seeding the stale AI backups failed' );
+		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'], 'rest' => array_map( 'sn_test_raw_option', json_decode( '${ JSON.stringify( ai.rest ?? {} ) }', true ) ) );` );
+		assertAiKeysScrubbed( s.ai, seed.ai, 'The first load' );
+		assert.deepEqual( Object.entries( s.rest ).filter( ( [ , value ] ) => value !== null ), [], 'AI credentials written through the settings endpoint were not deleted' );
+		for ( const backup of [ 'klaviyo_api_key_sn_backup', 'mc4wp_sn_backup', 'woocommerce_stripe_settings_sn_backup' ] ) {
+			assert.ok( s.backups.includes( backup ), `${ backup } is missing, so other scrubbed options are no longer backed up` );
+		}
+	} );
+
+	test( 'A34: core reads its AI provider credentials from the seeded options, and none at all after the first load', async ( t ) => {
+		if ( ! wpAtLeast( site, '7.0' ) ) {
+			t.skip( 'WordPress before 7.0 has no connectors' );
+			return;
+		}
+		assert.ok( ai.core, `WordPress ${ site.versions.wp } lacks wp_get_connectors() or _wp_connectors_get_api_key_source(), so core's view of the AI keys cannot be checked` );
+		const settings = {
+			anthropic: 'connectors_ai_anthropic_api_key',
+			google: 'connectors_ai_google_api_key',
+			openai: 'connectors_ai_openai_api_key',
+			'sn-fixture': 'connectors_ai_provider_sn_fixture_api_key',
+			'sn-fixture-custom': 'mwlai_actual_computer_api_key',
+			...( wpAtLeast( site, '7.1' ) ? { 'sn-fixture-app': 'connectors_ai_provider_sn_fixture_app_application_password' } : {} ),
+		};
+		const after = await site.php( 'return sn_test_ai_core_view();' );
+		for ( const [ id, setting ] of Object.entries( settings ) ) {
+			assert.deepEqual( ai.core[ id ], { setting, source: 'database' }, `Core does not read the ${ id } connector's credentials from the seeded option` );
+			assert.deepEqual( after[ id ], { setting, source: 'none' }, `Core still finds the ${ id } connector's credentials after the first load` );
+		}
+		assert.deepEqual( Object.entries( after ).filter( ( [ , connector ] ) => connector.source !== 'none' ), [], 'Core still finds these AI provider credentials after the first load' );
+	} );
+
+	test( 'A35: the AI plugin and AI provider plugins are deactivated without the AI plugin\'s deactivation hook, and a look-alike plugin stays active', async () => {
+		const s = await site.php( `
+$state = array( 'active' => get_option( 'active_plugins' ), 'key' => sn_test_raw_option( 'connectors_ai_openai_api_key' ) );
+include_once WP_PLUGIN_DIR . '/ai/ai.php';
+do_action( 'deactivate_ai/ai.php', false );
+$state['hook_writes'] = sn_test_raw_option( 'connectors_ai_openai_api_key' );
+null === $state['key'] ? delete_option( 'connectors_ai_openai_api_key' ) : update_option( 'connectors_ai_openai_api_key', $state['key'] );
+return $state;` );
+		for ( const plugin of [ 'ai/ai.php', 'ai-provider-for-anthropic/plugin.php', 'aslams-ai-provider-for-grok/ai-provider-for-grok.php' ] ) {
+			assert.ok( ! s.active.includes( plugin ), `${ plugin } is still active` );
+		}
+		assert.ok( s.active.includes( 'ai-services/ai-services.php' ), 'ai-services/ai-services.php was deactivated' );
+		assert.equal( s.hook_writes, 'sk-test-decrypted-on-deactivation', 'The AI stub\'s deactivation hook does not write the key, so this check proves nothing' );
+		assert.notEqual( s.key, s.hook_writes, 'The AI plugin\'s deactivation hook ran and wrote a decrypted key back after the scrub' );
+	} );
+
+	test( 'A36: AI connector application passwords and a connector key stored under a plugin\'s own option name are deleted without a backup', async () => {
+		const names = [ 'connectors_ai_provider_acme_application_password', 'mwlai_actual_computer_api_key' ];
+		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'] );` );
+		for ( const name of names ) {
+			assert.ok( seed.ai.keys[ name ], `Seeding ${ name } failed, so this proves nothing` );
+			assert.equal( s.ai.keys[ name ], null, `${ name } was not deleted` );
+			assert.ok( ! s.backups.includes( `${ name }_sn_backup` ), `${ name } was backed up` );
+		}
+	} );
+
+	test( 'A37: an application password written through WordPress 7.1\'s settings endpoint is deleted, and core no longer finds it', async ( t ) => {
+		if ( ! wpAtLeast( site, '7.1' ) ) {
+			t.skip( 'WordPress before 7.1 has no application-password connectors' );
+			return;
+		}
+		const setting = 'connectors_ai_provider_sn_fixture_app_application_password';
+		assert.equal( ai.rest?.[ 'sn-fixture-app' ], setting, 'The application-password connector was not registered and written, so this proves nothing' );
+		const s = await site.php( `return array( 'value' => sn_test_raw_option( '${ setting }' ), 'backup' => sn_test_raw_option( '${ setting }_sn_backup' ), 'credentials' => wp_connectors_get_application_password_credentials( wp_get_connector( 'sn-fixture-app' )['authentication'] ) );` );
+		assert.equal( s.value, null, `${ setting } was not deleted` );
+		assert.equal( s.backup, null, `${ setting } was backed up` );
+		assert.deepEqual( s.credentials, { username: '', password: '', source: 'none' }, 'Core still finds the application password' );
+	} );
+
+	test( 'A38: AI provider plugins that \'ai-provider-for-\' misses are deactivated, and plugins named like them stay active', async () => {
+		assert.deepEqual( ai.plugins.active, [ ...ai.plugins.providers, ...ai.plugins.lookalikes ], 'Activating the AI provider stubs failed' );
+		const active = await site.php( "return get_option( 'active_plugins' );" );
+		assert.deepEqual( ai.plugins.providers.filter( ( plugin ) => active.includes( plugin ) ), [], 'These AI provider plugins are still active' );
+		assert.deepEqual( ai.plugins.lookalikes.filter( ( plugin ) => ! active.includes( plugin ) ), [], 'These plugins, which are not AI providers, were deactivated' );
+	} );
+
+	test( 'A39: keys AI provider plugins keep in their own options are deleted without a backup, and their settings lose only the secrets', async () => {
+		const own = [ 'aiprfoex_api_key', 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' ];
+		const s = await site.php( `return array( 'ai' => sn_test_ai_state(), 'backups' => sn_test_snapshot()['backups'] );` );
+		for ( const name of own ) {
+			assert.ok( seed.ai.keys[ name ], `Seeding ${ name } failed, so this proves nothing` );
+			assert.equal( s.ai.keys[ name ], null, `${ name } was not deleted` );
+		}
+		const seeded = seed.ai.settings;
+		const blank = ( value, keys ) => ( { ...value, ...Object.fromEntries( keys.map( ( key ) => [ key, '' ] ) ) } );
+		assert.deepEqual( s.ai.settings, {
+			ai_provider_for_cursor_settings: blank( seeded.ai_provider_for_cursor_settings, [ 'api_key' ] ),
+			aipcf_settings: blank( seeded.aipcf_settings, [ 'api_key', 'gateway_token', 'qdrant_api_key', 'pg_password' ] ),
+			obenweb_openwebui_provider_settings: blank( seeded.obenweb_openwebui_provider_settings, [ 'api_key' ] ),
+			ultimate_ai_connector_providers: seeded.ultimate_ai_connector_providers.map( ( provider ) => blank( provider, [ 'api_key' ] ) ),
+			vercel_ai_gateway_provider_settings: blank( seeded.vercel_ai_gateway_provider_settings, [ 'api_key' ] ),
+			wp_ai_client_credentials: Object.fromEntries( Object.entries( seeded.wp_ai_client_credentials ).map( ( [ provider, credentials ] ) => [ provider, blank( credentials, [ 'api_key' ] ) ] ) ),
+		}, 'AI provider plugins\' settings lost more or less than their secrets' );
+		const names = [ ...own, ...Object.keys( seeded ) ];
+		assert.deepEqual( s.backups.filter( ( backup ) => names.includes( backup.replace( /_sn_backup$/, '' ) ) ), [], 'Keys of AI provider plugins were backed up' );
 	} );
 
 	test( 'A17: only administrators remain and their posts were reassigned', async () => {
@@ -264,14 +365,35 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 	} );
 
 	test( 'A23: the automatic pass runs once; data added afterwards survives later loads', async () => {
-		await site.php( "sn_test_create_user( 'late_customer', 'subscriber' ); set_transient( 'sn_late', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php' ) ); return true;" );
+		await site.php( "sn_test_create_user( 'late_customer', 'subscriber' ); set_transient( 'sn_late', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); update_option( 'connectors_ai_openai_api_key', 'sk-test-late' ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php' ) ); return true;" );
 		await site.get( '/' );
 		await site.get( '/' );
-		const s = await site.php( "return array( 'users' => sn_test_users(), 'transient' => get_transient( 'sn_late' ), 'klaviyo' => get_option( 'klaviyo_api_key' ), 'active' => get_option( 'active_plugins' ) );" );
+		const s = await site.php( "return array( 'users' => sn_test_users(), 'transient' => get_transient( 'sn_late' ), 'klaviyo' => get_option( 'klaviyo_api_key' ), 'ai' => sn_test_raw_option( 'connectors_ai_openai_api_key' ), 'active' => get_option( 'active_plugins' ) );" );
 		assert.ok( s.users.late_customer );
 		assert.equal( s.transient, 'x' );
 		assert.equal( s.klaviyo, 'again' );
+		assert.equal( s.ai, 'sk-test-late' );
 		assert.ok( s.active.includes( 'mailchimp-for-wp/mailchimp-for-wp.php' ) );
+	} );
+
+	test( 'A40: in the scrub\'s own request, a deleted autoloaded AI key is already out of the options cache when the run-once flag is saved', async () => {
+		const s = await site.php( `
+delete_option( 'safety_net_options_scrubbed' );
+update_option( 'connectors_ai_openai_api_key', 'sk-test-same-request' );
+$seen = array( 'cached' => wp_load_alloptions()['connectors_ai_openai_api_key'] ?? null );
+add_action(
+	'add_option_safety_net_options_scrubbed',
+	static function () use ( &$seen ) {
+		$seen['flag_saved'] = get_option( 'connectors_ai_openai_api_key' );
+	}
+);
+SafetyNet\\ScrubOptions\\scrub_options();
+$seen['after'] = get_option( 'connectors_ai_openai_api_key' );
+return $seen;` );
+		assert.equal( s.cached, 'sk-test-same-request', 'The seeded key is not in the autoloaded options cache, so this proves nothing' );
+		assert.ok( 'flag_saved' in s, 'Scrubbing did not add the run-once flag in this request, so this proves nothing' );
+		assert.equal( s.flag_saved, false, 'The deleted AI key was still in the options cache when the run-once flag saved the autoloaded options' );
+		assert.equal( s.after, false, 'get_option() still returns the deleted AI key in the same request' );
 	} );
 
 	test( 'A11: Jetpack secrets are kept on Atomic sites', async () => {

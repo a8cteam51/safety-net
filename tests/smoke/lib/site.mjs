@@ -521,6 +521,13 @@ export function phpAtLeast( site, version ) {
 	return major > wantMajor || ( major === wantMajor && minor >= wantMinor );
 }
 
+// Nightly reports versions such as 7.2-alpha-61234-src.
+export function wpAtLeast( site, version ) {
+	const [ major, minor ] = site.versions.wp.split( /[.-]/ ).map( Number );
+	const [ wantMajor, wantMinor ] = version.split( '.' ).map( Number );
+	return major > wantMajor || ( major === wantMajor && minor >= wantMinor );
+}
+
 export function scrapeNonces( html ) {
 	const nonces = {};
 	for ( const match of html.matchAll( /<button[^>]*id="(safety-net-[a-z-]+)"[^>]*data-nonce="([a-f0-9]+)"/g ) ) {
