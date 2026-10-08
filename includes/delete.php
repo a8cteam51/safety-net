@@ -2,6 +2,8 @@
 
 namespace SafetyNet\Delete;
 
+use function SafetyNet\Integrations\get_integrations;
+use function SafetyNet\Integrations\run_phase;
 use function SafetyNet\Utilities\get_admin_user_ids;
 
 add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders' );
@@ -219,6 +221,9 @@ function delete_users_and_orders() {
 
 	delete_mailpoet_data();
 
+	delete_integration_data();
+	run_phase( 'delete' );
+
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
 
@@ -240,6 +245,65 @@ function delete_users_and_orders() {
 	update_option( 'safety_net_data_deleted', true );
 
 	wp_cache_flush();
+}
+
+/**
+ * Deletes the data every integration declares: its tables, posts, comments, user meta, scheduled actions and uploaded files.
+ *
+ * @return void
+ */
+function delete_integration_data() {
+	global $wpdb;
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct access bypasses the plugins, which may not be loaded; table names come from $wpdb and the integrations.
+	foreach ( get_integrations() as $integration ) {
+		$tables = array_merge(
+			array_map( fn( $table ) => $wpdb->prefix . $table, $integration->tables ),
+			array_map( fn( $table ) => $wpdb->base_prefix . $table, $integration->network_tables )
+		);
+		foreach ( $tables as $table ) {
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ) === $table ) {
+				$wpdb->query( "DELETE FROM {$table}" );
+			}
+		}
+
+		foreach ( $integration->post_types as $post_type ) {
+			$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->postmeta WHERE post_id IN ( SELECT ID FROM {$wpdb->posts} WHERE post_type = %s )", $post_type ) );
+			$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->posts WHERE post_type = %s", $post_type ) );
+		}
+
+		foreach ( $integration->comment_types as $comment_type ) {
+			$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->comments WHERE comment_type = %s", $comment_type ) );
+		}
+
+		foreach ( $integration->usermeta as $pattern ) {
+			$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->usermeta WHERE meta_key LIKE %s", $pattern ) );
+		}
+
+		foreach ( $integration->action_scheduler_hooks as $hook ) {
+			$table_name = $wpdb->prefix . 'actionscheduler_logs';
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+				$wpdb->query( $wpdb->prepare( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook = %s", $hook ) );
+			}
+			$table_name = $wpdb->prefix . 'actionscheduler_actions';
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+				$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook = %s", $hook ) );
+			}
+		}
+
+		foreach ( $integration->upload_globs as $pattern ) {
+			$uploads = wp_upload_dir( null, false )['basedir'];
+			// glob() would read brackets or asterisks in the uploads path as a pattern and find nothing; Windows paths can't be escaped.
+			$base  = '/' === DIRECTORY_SEPARATOR ? addcslashes( $uploads, '\\*?[]' ) : $uploads;
+			$files = glob( $base . '/' . $pattern );
+			foreach ( is_array( $files ) ? $files : array() as $file ) {
+				if ( is_file( $file ) ) {
+					wp_delete_file_from_directory( $file, $uploads );
+				}
+			}
+		}
+	}
+	// phpcs:enable
 }
 
 /**

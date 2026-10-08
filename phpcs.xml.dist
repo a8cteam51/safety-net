@@ -13,4 +13,10 @@
 	<arg value="sp"/>
 
 	<rule ref="WordPress"/>
+
+	<rule ref="WordPress.NamingConventions.ValidHookName">
+		<properties>
+			<property name="additionalWordDelimiters" value="/"/>
+		</properties>
+	</rule>
 </ruleset>

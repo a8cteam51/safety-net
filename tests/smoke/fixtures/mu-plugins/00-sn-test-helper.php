@@ -137,6 +137,54 @@ add_action(
 	}
 );
 
+// A site's own integrations, declared before Safety Net loads: one it must act on, and invalid ones it must log and skip.
+if ( get_option( 'sn_test_extra_integration' ) || get_option( 'sn_test_bad_integration' ) ) {
+	add_filter(
+		'safety_net/integrations',
+		static function ( $integrations ) {
+			if ( get_option( 'sn_test_extra_integration' ) ) {
+				$integrations[] = new SafetyNet\Integrations\Integration(
+					slug: 'sn-test-extra',
+					label: 'SN test extra',
+					plugins: array( 'zz-single-file' ),
+					options: array( 'sn_test_extra_secret' ),
+					partial_options: array( 'sn_test_extra_settings' => array( 'api_key', 'missing_key', 'mode' => 'test' ) ),
+					option_values: array( 'sn_test_extra_env' => 'sandbox' ),
+					delete_options: array( 'sn_test_extra_token' ),
+					delete_option_prefixes: array( 'sn_test_extra_key_' => array( '_secret' ) ),
+					tables: array( 'sn_test_extra' ),
+					network_tables: array( 'sn_test_extra_network' ),
+					post_types: array( 'sn_test_extra' ),
+					comment_types: array( 'sn_test_extra' ),
+					usermeta: array( 'sn_test_extra_meta%' ),
+					upload_globs: array( 'sn-test-extra/export-*.csv' ),
+					scrub: static function () {
+						global $wpdb;
+						error_log( 'SN_TEST integration phase scrub, option ' . sn_test_json( $wpdb->get_row( "SELECT option_value FROM $wpdb->options WHERE option_name = 'sn_test_extra_secret'" )->option_value ?? null ) ); // phpcs:ignore
+					},
+					delete: static function () {
+						global $wpdb;
+						error_log( 'SN_TEST integration phase delete, rows ' . $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sn_test_extra" ) ); // phpcs:ignore
+					},
+					hooks: static function () {
+						error_log( 'SN_TEST integration phase hooks' ); // phpcs:ignore
+					},
+					late: static function () {
+						error_log( 'SN_TEST integration phase late' ); // phpcs:ignore
+					},
+				);
+			}
+			if ( get_option( 'sn_test_bad_integration' ) ) {
+				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'SN Test Bad', label: 'Invalid slug', options: array( 'sn_test_bad_secret' ), tables: array( 'sn_test_bad' ) );
+				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-extra', label: 'Duplicate slug', options: array( 'sn_test_bad_secret' ), tables: array( 'sn_test_bad' ) );
+				$integrations[] = new SafetyNet\Integrations\Integration( slug: 'sn-test-claimed', label: 'Declares an option another integration declares', options: array( 'sn_test_bad_secret', 'sn_test_extra_secret' ), tables: array( 'sn_test_bad' ) );
+				$integrations[] = 'sn-test-not-an-integration';
+			}
+			return $integrations;
+		}
+	);
+}
+
 if ( get_option( 'sn_test_hide_admin' ) ) {
 	add_filter( 'safety_net_hide_admin', '__return_true' );
 }

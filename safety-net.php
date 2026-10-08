@@ -41,6 +41,10 @@ if ( SafetyNet\Utilities\is_production() ) {
 	return;
 }
 
+require_once __DIR__ . '/includes/integrations.php';
+SafetyNet\Integrations\load_integrations();
+SafetyNet\Integrations\run_phase( 'hooks' );
+
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';

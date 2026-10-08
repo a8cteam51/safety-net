@@ -2,8 +2,9 @@
 
 namespace SafetyNet\DeactivatePlugins;
 
-use function SafetyNet\Utilities\get_denylist_array;
+use function SafetyNet\Integrations\plugin_patterns;
 use function SafetyNet\Utilities\get_payment_gateway_plugins;
+use function SafetyNet\Utilities\is_denylisted_plugin;
 use function SafetyNet\Utilities\should_change_network;
 
 add_action( 'safety_net_deactivate_plugins', __NAMESPACE__ . '\deactivate_plugins' );
@@ -31,7 +32,7 @@ function deactivate_plugins() {
 
 	$all_installed_plugins = array_keys( get_plugins() );
 
-	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', get_denylist_array( 'plugins' ) );
+	$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', plugin_patterns() );
 	$gateway_plugins    = get_payment_gateway_plugins();
 
 	$denylisted_matches = array();
@@ -43,14 +44,9 @@ function deactivate_plugins() {
 
 		$should_deactivate = in_array( $installed_plugin, $gateway_plugins, true );
 
-		foreach ( $denylisted_plugins as $denylisted_plugin ) {
-
-			// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
-			if ( stristr( $installed_plugin, $denylisted_plugin ) ) {
-				$should_deactivate    = true;
-				$denylisted_matches[] = $installed_plugin;
-				break;
-			}
+		if ( is_denylisted_plugin( $installed_plugin, $denylisted_plugins ) ) {
+			$should_deactivate    = true;
+			$denylisted_matches[] = $installed_plugin;
 		}
 
 		if ( ! $should_deactivate ) {

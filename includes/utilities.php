@@ -2,6 +2,23 @@
 
 namespace SafetyNet\Utilities;
 
+use function SafetyNet\Integrations\offline_gateways;
+
+// These gateways (and their subclasses) never contact a payment processor, so they shouldn't take the rest of their plugin down with them.
+const OFFLINE_GATEWAY_CLASSES = array(
+	'WC_Gateway_BACS',
+	'WC_Gateway_Cheque',
+	'WC_Gateway_COD',
+	'WC_Pre_Orders_Gateway_Pay_Later',
+	'WC_Bookings_Gateway',
+	'WC_Gateway_Account_Funds',
+	'Kestrel\\Account_Funds\\Gateway',
+	'WC_GZD_Gateway_Invoice',
+	'WC_GZD_Gateway_Direct_Debit',
+	'WCPOS\\WooCommercePOS\\Gateways\\Card',
+	'WCPOS\\WooCommercePOS\\Gateways\\Cash',
+);
+
 /**
  * Return an array of user IDs of site admins, or on multisite, of every site's admins and the super admins.
  *
@@ -196,6 +213,28 @@ function get_denylist_array( $denylist_type ): array {
 }
 
 /**
+ * Whether a plugin matches one of the denylist patterns, which are case-insensitive partial matches.
+ *
+ * @param string $basename Plugin basename, e.g. 'woocommerce-paypal-payments/woocommerce-paypal-payments.php'.
+ * @param mixed  $patterns Denylist patterns, e.g. 'paypal'; a value that is not iterable matches nothing.
+ *
+ * @return bool
+ */
+function is_denylisted_plugin( string $basename, $patterns ): bool {
+	if ( ! is_iterable( $patterns ) ) {
+		return false;
+	}
+
+	foreach ( $patterns as $pattern ) {
+		if ( stristr( $basename, $pattern ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
  * Returns the active plugins that register a WooCommerce payment gateway, other than WooCommerce itself.
  *
  * @return string[] Plugin basenames, e.g. 'woocommerce-gateway-dummy/woocommerce-gateway-dummy.php'.
@@ -206,20 +245,7 @@ function get_payment_gateway_plugins(): array {
 		return array();
 	}
 
-	// These gateways (and their subclasses) never contact a payment processor, so they shouldn't take the rest of their plugin down with them.
-	$offline_gateway_classes = array(
-		'WC_Gateway_BACS',
-		'WC_Gateway_Cheque',
-		'WC_Gateway_COD',
-		'WC_Pre_Orders_Gateway_Pay_Later',
-		'WC_Bookings_Gateway',
-		'WC_Gateway_Account_Funds',
-		'Kestrel\\Account_Funds\\Gateway',
-		'WC_GZD_Gateway_Invoice',
-		'WC_GZD_Gateway_Direct_Debit',
-		'WCPOS\\WooCommercePOS\\Gateways\\Card',
-		'WCPOS\\WooCommercePOS\\Gateways\\Cash',
-	);
+	$offline_gateway_classes = offline_gateways();
 
 	$woocommerce_path = wp_normalize_path( dirname( WC_PLUGIN_FILE ) );
 
