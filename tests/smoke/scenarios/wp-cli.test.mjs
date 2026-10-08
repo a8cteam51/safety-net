@@ -46,10 +46,16 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		assert.match( ( await wpOk( 'help', 'safety-net' ) ).stdout, /^\s+integrations\s/m, 'wp help safety-net does not list integrations' );
 		const table = ( await wpOk( 'safety-net', 'integrations' ) ).stdout;
 		assert.match( table, /^\W*slug\W+label\W+plugins\W+options\W+tables\W+post_types\W+usermeta\W+scrub\W+delete\W+hooks\W+late\W*$/m, `The table has other columns: ${ table }` );
+		assert.match( table, /^\W*ai-connectors\W+AI providers\W+ai\/ai\.php\b.*?\W20\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the AI integration: ${ table }` );
 		assert.match( table, /^\W*mailpoet\W+MailPoet\W+mailpoet\W+0\W+22\W+0\W+0\W+yes\W+yes\W+no\W+no\W*$/m, `The table does not show the MailPoet integration: ${ table }` );
 		const integrations = JSON.parse( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop() );
-		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'mailpoet' ] );
-		const [ mailpoet ] = integrations;
+		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'mailpoet' ] );
+		const [ ai, mailpoet ] = integrations;
+		assert.deepEqual(
+			{ label: ai.label, plugins: ai.plugins, options: ai.options, delete_options: ai.delete_options.length, delete_partial_options: Object.keys( ai.delete_partial_options ).length, delete_option_prefixes: ai.delete_option_prefixes, phases: [ ai.scrub, ai.delete, ai.hooks, ai.late ] },
+			{ label: 'AI providers', plugins: [ 'ai/ai.php', 'ai-engine', 'ai-provider-for-', 'bestony-ai-provider/', 'birbwhale/', 'duetg-ai-connector/', 'duoport-connect-for-opencode/', 'jokiruiz-local-model-connector/', 'koneek-multi-provider-ai-gateway/', 'latentkit-ai-provider/', 'mittwald-ai-provider/', 'modeltrestle-ai-connector-for-nano-gpt/', 'mw-local-ai-connector/', 'mwai', 'onmyodev-connector-for-deepseek/', 'opencode-ai-provider/', 'razhur-connector-for-avalai/', 'sync-to-gpt', 'ultimate-ai-connector-compatible-endpoints/', 'vercel-ai-gateway-provider/', 'zactonz-ai-' ], options: [ 'mwai_options', 'mwai_v2_options' ], delete_options: 8, delete_partial_options: 6, delete_option_prefixes: { connectors_ai_: [ '_api_key', '_application_password' ], '_secret_ai/': [ '_api_key' ], 0: 'koneek_api_key', 1: 'zctz_openrouter_secret_' }, phases: [ false, false, false, false ] },
+			'The JSON output does not describe the AI integration'
+		);
 		assert.deepEqual(
 			{ label: mailpoet.label, plugins: mailpoet.plugins, tables: mailpoet.tables.length, action_scheduler_hooks: mailpoet.action_scheduler_hooks, upload_globs: mailpoet.upload_globs.length, phases: [ mailpoet.scrub, mailpoet.delete, mailpoet.hooks, mailpoet.late ] },
 			{ label: 'MailPoet', plugins: [ 'mailpoet' ], tables: 22, action_scheduler_hooks: [ 'mailpoet/automation/step' ], upload_globs: 4, phases: [ true, true, false, false ] },

@@ -7,12 +7,14 @@
 
 namespace SafetyNet\Integrations;
 
-use function SafetyNet\ScrubOptions\get_ai_options_to_clear;
 use function SafetyNet\Utilities\get_denylist_array;
 
 use const SafetyNet\Utilities\OFFLINE_GATEWAY_CLASSES;
 
 require_once __DIR__ . '/classes/class-integration.php';
+
+// Safety Net's own declarations come first, so a site's declaration that overlaps one of them is the one skipped.
+const BUILT_IN_PRIORITY = PHP_INT_MIN;
 
 /**
  * Loads the integration files, which add their declarations to the safety_net/integrations filter.
@@ -128,7 +130,7 @@ function find_problem( $integration, array $accepted ): ?string {
 		}
 	}
 
-	foreach ( array( 'partial_options', 'option_values' ) as $field ) {
+	foreach ( array( 'partial_options', 'option_values', 'delete_partial_options' ) as $field ) {
 		if ( ! is_name_list( array_keys( $integration->$field ) ) ) {
 			return "$field must be keyed by option name";
 		}
@@ -137,6 +139,12 @@ function find_problem( $integration, array $accepted ): ?string {
 	foreach ( $integration->partial_options as $keys ) {
 		if ( ! is_array( $keys ) || ! $keys || ! is_name_list( partial_option_keys( $keys ) ) ) {
 			return 'partial_options must map each option to the keys to change inside it';
+		}
+	}
+
+	foreach ( $integration->delete_partial_options as $keys ) {
+		if ( ! is_array( $keys ) || ! $keys || ! array_is_list( $keys ) || ! is_name_list( $keys ) ) {
+			return 'delete_partial_options must map each option to the keys to blank inside it';
 		}
 	}
 
@@ -166,6 +174,18 @@ function find_problem( $integration, array $accepted ): ?string {
 		$shared = array_intersect( $plugins, array_map( 'strtolower', $other->plugins ) );
 		if ( $shared ) {
 			return sprintf( 'plugin pattern %s is already declared by integration %s', reset( $shared ), $other->slug );
+		}
+
+		foreach ( $options as $option ) {
+			if ( matches_delete_prefix( $other, $option ) ) {
+				return sprintf( 'option %s falls under the delete_option_prefixes of integration %s', $option, $other->slug );
+			}
+		}
+
+		foreach ( declared_options( $other ) as $option ) {
+			if ( matches_delete_prefix( $integration, $option ) ) {
+				return sprintf( 'its delete_option_prefixes cover option %s, which integration %s declares', $option, $other->slug );
+			}
 		}
 	}
 
@@ -210,7 +230,7 @@ function partial_option_keys( array $keys ): array {
  * @return string[]
  */
 function declared_options( Integration $integration ): array {
-	return array_merge( $integration->options, array_keys( $integration->partial_options ), array_keys( $integration->option_values ), $integration->delete_options );
+	return array_merge( $integration->options, array_keys( $integration->partial_options ), array_keys( $integration->option_values ), $integration->delete_options, array_keys( $integration->delete_partial_options ) );
 }
 
 /**
@@ -276,12 +296,12 @@ function stored_prefix_options( Integration $integration ): array {
 }
 
 /**
- * Returns the options the scrub step goes through: option_scrublist.txt, AI provider credentials and every integration's options.
+ * Returns the options the scrub step goes through: option_scrublist.txt and every integration's options.
  *
  * @return array
  */
 function options_to_clear(): array {
-	$options = array_merge( get_denylist_array( 'options' ), get_ai_options_to_clear() );
+	$options = array_values( get_denylist_array( 'options' ) );
 
 	foreach ( get_integrations() as $integration ) {
 		foreach ( array_merge( declared_options( $integration ), stored_prefix_options( $integration ) ) as $option ) {
@@ -298,7 +318,7 @@ function options_to_clear(): array {
  * Decides how the scrub step treats an option, from the integration that declares it.
  *
  * @param mixed $option Option name.
- * @return array 'mode' is 'blank', 'partial' with the 'keys' to change, 'value' with the 'value' to set, or 'delete'.
+ * @return array 'mode' is 'blank', 'partial' with the 'keys' to change, 'value' with the 'value' to set, 'delete', or 'delete_partial' with the 'keys' to blank.
  */
 function option_treatment( $option ): array {
 	if ( ! is_string( $option ) ) {
@@ -309,6 +329,13 @@ function option_treatment( $option ): array {
 	foreach ( $integrations as $integration ) {
 		if ( in_array( $option, $integration->delete_options, true ) ) {
 			return array( 'mode' => 'delete' );
+		}
+
+		if ( array_key_exists( $option, $integration->delete_partial_options ) ) {
+			return array(
+				'mode' => 'delete_partial',
+				'keys' => $integration->delete_partial_options[ $option ],
+			);
 		}
 
 		if ( array_key_exists( $option, $integration->partial_options ) ) {
@@ -330,7 +357,7 @@ function option_treatment( $option ): array {
 		}
 	}
 
-	// An option declared by name keeps its treatment even when another integration deletes a prefix it starts with.
+	// An option declared by name keeps that treatment even when its own integration's delete_option_prefixes cover it.
 	foreach ( $integrations as $integration ) {
 		if ( matches_delete_prefix( $integration, $option ) ) {
 			return array( 'mode' => 'delete' );

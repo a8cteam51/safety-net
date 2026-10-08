@@ -99,13 +99,13 @@ function sn_test_users(): array {
 }
 
 // Core turns a hyphenated provider ID into underscores; the AI plugin's encrypted keys keep the hyphens.
-const SN_TEST_AI_KEYS = array( 'connectors_ai_anthropic_api_key', 'connectors_ai_google_api_key', 'connectors_ai_openai_api_key', 'connectors_ai_openai_compatible_servers_api_key', 'connectors_ai_provider_acme_application_password', '_secret_ai/openai_api_key', '_secret_ai/openai-compatible-servers_api_key', 'wp_ai_client_provider_credentials', 'aiprfoex_api_key', 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_actual_computer_api_key', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' );
+const SN_TEST_AI_KEYS = array( 'connectors_ai_anthropic_api_key', 'connectors_ai_google_api_key', 'connectors_ai_openai_api_key', 'connectors_ai_openai_compatible_servers_api_key', 'connectors_ai_provider_acme_application_password', '_secret_ai/openai_api_key', '_secret_ai/openai-compatible-servers_api_key', 'wp_ai_client_provider_credentials', 'halawa_chatgpt_tokens', 'jokiruiz_local_model_connector_api_key', 'koneek_api_key', 'koneek_api_key_openai', 'mwlai_actual_computer_api_key', 'mwlai_api_key', 'ultimate_ai_connector_api_key', 'zctz_ollama_ai_connector_cloud_api_key', 'zctz_ollama_ai_connector_self_hosted_api_key', 'zctz_openrouter_secret_api_key' );
 
 // Provider plugins' settings that keep their configuration and lose only the secrets inside.
 const SN_TEST_AI_SETTINGS = array( 'ai_provider_for_cursor_settings', 'aipcf_settings', 'obenweb_openwebui_provider_settings', 'ultimate_ai_connector_providers', 'vercel_ai_gateway_provider_settings', 'wp_ai_client_credentials' );
 
-// Named like AI credentials but not ones: provider endpoints and settings, a non-key row among the AI plugin's secrets, another plugin's secret, the Secrets SDK master key other plugins share, and core's Akismet connector key.
-const SN_TEST_AI_CONTROLS = array( 'connectors_ai_openai_compatible_servers_base_url', 'mwlai_endpoint_url', 'zctz_ollama_ai_connector_settings', 'zctz_openrouter_settings', '_secret_ai/openai_base_url', '_secret_otherplugin/openai_api_key', '_secrets_master_key', 'wordpress_api_key' );
+// Kept although named like AI credentials: provider endpoints and settings, a non-key row among the AI plugin's secrets, another plugin's secret, the Secrets SDK master key other plugins share, core's Akismet connector key, and exo's optional token for a model cluster the site owner runs locally.
+const SN_TEST_AI_CONTROLS = array( 'connectors_ai_openai_compatible_servers_base_url', 'mwlai_endpoint_url', 'zctz_ollama_ai_connector_settings', 'zctz_openrouter_settings', '_secret_ai/openai_base_url', '_secret_otherplugin/openai_api_key', '_secrets_master_key', 'wordpress_api_key', 'aiprfoex_api_key' );
 
 function sn_test_ai_state(): array {
 	global $wpdb;
@@ -254,7 +254,7 @@ function sn_test_set_network( array $plugins, string $admin_email ): array {
 	return sn_test_network_state();
 }
 
-// The registry as plain data (closures as booleans), which integration files declared which slugs, and the data files the census compares them with.
+// The registry as plain data (closures as booleans), which integration files declared which slugs and whether at BUILT_IN_PRIORITY, and the data files the census compares them with.
 function sn_test_integrations_report(): array {
 	global $wp_filter, $wpdb;
 	$dir   = wp_normalize_path( SAFETY_NET_PATH . 'includes/integrations' );
@@ -263,8 +263,9 @@ function sn_test_integrations_report(): array {
 
 	// Each callback runs on its own, so a declaration is credited to the file that holds the callback adding it.
 	$declared = array();
+	$early    = array();
 	$hook     = $wp_filter['safety_net/integrations'] ?? null;
-	foreach ( $hook ? $hook->callbacks : array() as $callbacks ) {
+	foreach ( $hook ? $hook->callbacks : array() as $priority => $callbacks ) {
 		foreach ( $callbacks as $callback ) {
 			$function = $callback['function'];
 			if ( is_string( $function ) && str_contains( $function, '::' ) ) {
@@ -277,8 +278,10 @@ function sn_test_integrations_report(): array {
 			if ( dirname( $file ) !== $dir ) {
 				continue;
 			}
+			$name           = basename( $file, '.php' );
+			$early[ $name ] = ( $early[ $name ] ?? true ) && SafetyNet\Integrations\BUILT_IN_PRIORITY === $priority;
 			foreach ( (array) call_user_func( $function, array() ) as $integration ) {
-				$declared[ basename( $file, '.php' ) ][] = $integration instanceof SafetyNet\Integrations\Integration ? $integration->slug : get_debug_type( $integration );
+				$declared[ $name ][] = $integration instanceof SafetyNet\Integrations\Integration ? $integration->slug : get_debug_type( $integration );
 			}
 		}
 	}
@@ -287,6 +290,7 @@ function sn_test_integrations_report(): array {
 		'integrations' => array_values( array_map( static fn( $integration ) => $integration->to_array(), SafetyNet\Integrations\get_integrations() ) ),
 		'files'        => $files,
 		'declared'     => (object) $declared,
+		'early'        => (object) $early,
 		'list_fields'  => SafetyNet\Integrations\Integration::LIST_FIELDS,
 		'phases'       => SafetyNet\Integrations\Integration::PHASES,
 		'scrublist'    => array_values( SafetyNet\Utilities\get_denylist_array( 'options' ) ),
@@ -295,6 +299,9 @@ function sn_test_integrations_report(): array {
 		'base_prefix'  => $wpdb->base_prefix,
 	);
 }
+
+// AI keys, and their backups, that declarations overlapping the AI integration must not keep.
+const SN_TEST_OVERLAPPED_AI_KEYS = array( 'connectors_ai_openai_api_key', 'connectors_ai_openai_api_key_sn_backup', 'koneek_api_key_openai', 'koneek_api_key_openai_sn_backup' );
 
 // What the sn-test-extra integration in the helper mu-plugin covers, and what it and the invalid declarations must leave alone.
 function sn_test_extra_integration_state(): array {
@@ -325,6 +332,7 @@ function sn_test_extra_integration_state(): array {
 		'usermeta' => $wpdb->get_col( "SELECT meta_key FROM $wpdb->usermeta WHERE user_id = 1 AND meta_key LIKE 'sn\\_test\\_%' ORDER BY meta_key" ),
 		'uploads'  => array_map( 'basename', $uploads ),
 		'active'   => in_array( 'zz-single-file.php', (array) get_option( 'active_plugins' ), true ),
+		'ai'       => array_combine( SN_TEST_OVERLAPPED_AI_KEYS, array_map( 'sn_test_raw_option', SN_TEST_OVERLAPPED_AI_KEYS ) ),
 	);
 }
 
@@ -344,6 +352,8 @@ function sn_test_seed_extra_integration(): array {
 	update_option( 'sn_test_extra_key_a_url', 'https://example.com' );
 	update_option( 'sn_test_extra_key_b_secret_sn_backup', 'old' );
 	update_option( 'sn_test_bad_secret', 'bad' );
+	update_option( 'connectors_ai_openai_api_key', 'sk-test-overlap' );
+	update_option( 'koneek_api_key_openai', 'sk-test-overlap' );
 
 	$post = wp_insert_post( array( 'post_type' => 'sn_test_extra', 'post_status' => 'publish', 'post_title' => 'SN integration record' ) );
 	add_post_meta( $post, '_sn_test_extra', 'customer1@example.com' );
@@ -375,6 +385,9 @@ function sn_test_remove_extra_integration( int $kept_post ) {
 	delete_option( 'sn_test_extra_integration' );
 	delete_option( 'sn_test_bad_integration' );
 	foreach ( $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE 'sn\\_test\\_extra\\_%' OR option_name LIKE 'sn\\_test\\_bad\\_%'" ) as $name ) {
+		delete_option( $name );
+	}
+	foreach ( SN_TEST_OVERLAPPED_AI_KEYS as $name ) {
 		delete_option( $name );
 	}
 	foreach ( array( $wpdb->prefix . 'sn_test_extra', $wpdb->base_prefix . 'sn_test_extra_network', $wpdb->prefix . 'sn_test_bad' ) as $table ) {
