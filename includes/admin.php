@@ -87,9 +87,6 @@ function create_options_menu() {
  */
 function settings_init() {
 	// Register settings for Safety Net
-	register_setting( 'safety-net', 'safety_net_' );
-	register_setting( 'safety-net', 'safety_net_dismiss_bar' );
-	register_setting( 'safety-net', 'safety_net_display_content' );
 	register_setting( 'safety-net', 'safety_net_pause_renewal_actions_toggle' );
 
 	// Register section for the settings
@@ -562,25 +559,6 @@ function add_action_links( $actions ) {
 	);
 
 	return array_merge( $actions, $links );
-}
-
-/**
- * Pause WooCommerce Subscriptions renewal and failed payment retry scheduled actions
- *
- * @return void
- */
-function pause_renewal_actions() {
-	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
-		require_once __DIR__ . '/classes/class-actionscheduler-custom-dbstore.php';
-		add_filter(
-			'action_scheduler_store_class',
-			function ( $class ) {
-				return 'SafetyNet\ActionScheduler_Custom_DBStore';
-			},
-			101,
-			1
-		);
-	}
 }
 
 /**
