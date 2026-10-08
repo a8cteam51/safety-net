@@ -145,9 +145,11 @@ return array(
 		assert.deepEqual( await postAjax( site, 'safety_net_disable_webhooks', nonces[ 'safety-net-disable-webhooks' ] ), { success: true, message: 'Webhooks have been disabled.' } );
 		// Checked before the Scrub Options request, which disables webhooks too.
 		assert.equal( await status( first ), 'disabled', 'The Disable Webhooks tool left the webhook active' );
-		const second = await site.php( ADD_WEBHOOK );
+		// One more than WooCommerce's default webhook search limit of 10.
+		const later = await site.php( `$ids = array(); for ( $i = 0; $i < 11; $i++ ) { $ids[] = ( function () { ${ ADD_WEBHOOK } } )(); } return $ids;` );
 		assert.deepEqual( await postAjax( site, 'safety_net_scrub_options', nonces[ 'safety-net-scrub-options' ] ), { success: true, message: 'Options have been scrubbed.' } );
-		assert.equal( await status( second ), 'disabled', 'The Scrub Options tool left the webhook active' );
+		const statuses = await site.php( `return array_map( fn( $id ) => wc_get_webhook( $id )->get_status(), json_decode( '${ JSON.stringify( later ) }' ) );` );
+		assert.deepEqual( statuses, later.map( () => 'disabled' ), 'The Scrub Options tool left some of 11 webhooks active' );
 	} );
 
 	test( 'W7: the Deactivate Plugins tool itself removes a gateway plugin', async () => {

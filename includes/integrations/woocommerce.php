@@ -73,7 +73,7 @@ function disable_webhooks() {
 	}
 
 	$data_store = WC_Data_Store::load( 'webhook' );
-	$webhooks   = $data_store->search_webhooks();
+	$webhooks   = $data_store->search_webhooks( array( 'limit' => -1 ) );
 
 	if ( ! empty( $webhooks ) ) {
 		foreach ( $webhooks as $webhook_id ) {
