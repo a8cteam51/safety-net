@@ -54,7 +54,6 @@ mailchimp
 mailchimp-for-woocommerce
 mailerlite
 mailgun
-mailpoet
 mailster
 memberful
 metorik

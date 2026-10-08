@@ -42,10 +42,22 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		}
 	} );
 
-	test( 'C8: wp safety-net integrations succeeds and reports that no integration is registered yet', async () => {
+	test( 'C8: wp safety-net integrations lists each integration and what it declares, or that none is registered', async () => {
 		assert.match( ( await wpOk( 'help', 'safety-net' ) ).stdout, /^\s+integrations\s/m, 'wp help safety-net does not list integrations' );
-		assert.match( ( await wpOk( 'safety-net', 'integrations' ) ).stdout, /Success: No integrations registered\./ );
-		assert.equal( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop(), '[]' );
+		const table = ( await wpOk( 'safety-net', 'integrations' ) ).stdout;
+		assert.match( table, /^\W*slug\W+label\W+plugins\W+options\W+tables\W+post_types\W+usermeta\W+scrub\W+delete\W+hooks\W+late\W*$/m, `The table has other columns: ${ table }` );
+		assert.match( table, /^\W*mailpoet\W+MailPoet\W+mailpoet\W+0\W+22\W+0\W+0\W+yes\W+yes\W+no\W+no\W*$/m, `The table does not show the MailPoet integration: ${ table }` );
+		const integrations = JSON.parse( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop() );
+		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'mailpoet' ] );
+		const [ mailpoet ] = integrations;
+		assert.deepEqual(
+			{ label: mailpoet.label, plugins: mailpoet.plugins, tables: mailpoet.tables.length, action_scheduler_hooks: mailpoet.action_scheduler_hooks, upload_globs: mailpoet.upload_globs.length, phases: [ mailpoet.scrub, mailpoet.delete, mailpoet.hooks, mailpoet.late ] },
+			{ label: 'MailPoet', plugins: [ 'mailpoet' ], tables: 22, action_scheduler_hooks: [ 'mailpoet/automation/step' ], upload_globs: 4, phases: [ true, true, false, false ] },
+			'The JSON output does not describe the MailPoet integration'
+		);
+		const none = "--exec=WP_CLI::add_wp_hook( 'safety_net/integrations', '__return_empty_array', 999 );";
+		assert.match( ( await wpOk( 'safety-net', 'integrations', none ) ).stdout, /Success: No integrations registered\./ );
+		assert.equal( ( await wpOk( 'safety-net', 'integrations', '--format=json', none ) ).stdout.trim().split( '\n' ).pop(), '[]' );
 	} );
 
 	test( 'C1/S11: each command succeeds and does its job', async () => {
