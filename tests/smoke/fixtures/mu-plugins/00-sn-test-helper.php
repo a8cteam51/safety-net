@@ -37,6 +37,16 @@ foreach ( array( 'doing_it_wrong_run', 'deprecated_function_run', 'deprecated_ar
 }
 unset( $sn_test_hook );
 
+// Action Scheduler builds its store once per request, so the last filter to run sees the class that request used.
+add_filter(
+	'action_scheduler_store_class',
+	static function ( $store_class ) {
+		$GLOBALS['sn_test_as_store'] = $store_class;
+		return $store_class;
+	},
+	PHP_INT_MAX
+);
+
 register_shutdown_function(
 	static function () {
 		$error = error_get_last();
@@ -59,6 +69,7 @@ register_shutdown_function(
 			'at_load'    => $GLOBALS['sn_test_at_load'] ?? null,
 			'sn_path'    => defined( 'SAFETY_NET_PATH' ) ? SAFETY_NET_PATH : null,
 			'runs'       => $runs,
+			'as_store'   => $GLOBALS['sn_test_as_store'] ?? null,
 			'fatal'      => $fatal ? $error : null,
 		);
 		@file_put_contents( SN_TEST_OUT . '/probe.jsonl', sn_test_json( $line ) . "\n", FILE_APPEND ); // phpcs:ignore
@@ -111,6 +122,37 @@ if ( get_option( 'sn_test_manual_mode' ) ) {
 			}
 		},
 		0
+	);
+}
+
+// Plugins can send mail on plugins_loaded, before init; the capture keeps Safety Net's verdict and sends nothing.
+if ( get_option( 'sn_test_early_mail' ) ) {
+	add_action(
+		'plugins_loaded',
+		static function () {
+			$GLOBALS['sn_test_early_mail'] = array();
+			$capture                       = static function ( $verdict, $atts ) {
+				$GLOBALS['sn_test_early_mail'][ $atts['subject'] ] = $verdict;
+				return false;
+			};
+			add_filter( 'pre_wp_mail', $capture, 11, 2 );
+			wp_mail( 'someone@example.com', 'Early order receipt', 'body' );
+			wp_mail( 'someone@example.com', 'Early Password Reset', 'body' );
+			remove_filter( 'pre_wp_mail', $capture, 11 );
+		}
+	);
+}
+
+// One write of this step flag reports failure and stores nothing, as update_option() does when the database refuses it.
+if ( get_option( 'sn_test_lost_flag' ) ) {
+	add_filter(
+		'pre_update_option_' . get_option( 'sn_test_lost_flag' ),
+		static function ( $value, $old_value ) {
+			delete_option( 'sn_test_lost_flag' );
+			return $old_value;
+		},
+		10,
+		2
 	);
 }
 

@@ -10,8 +10,8 @@ use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
 
-// Register the custom store class filter IMMEDIATELY when this file loads.
-if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
+// Registered as this file loads; a missing toggle counts as on, since maybe_pause_renewal_actions() only saves it later in this request.
+if ( in_array( get_option( 'safety_net_pause_renewal_actions_toggle' ), array( 'on', false ), true ) ) {
 	add_filter(
 		'action_scheduler_store_class',
 		function ( $class ) {
@@ -27,6 +27,9 @@ if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) {
 }
 
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
+
+// wp_mail() can run from plugins_loaded on, well before init.
+add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
 
 /**
  * Registers all the admin hooks.
@@ -48,7 +51,6 @@ function add_admin_hooks() {
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
-	add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
 }
 
 /**
