@@ -74,76 +74,6 @@ function scrub_options() {
 				safety_net_update_option_direct( $option, scrub_option_keys( $option_value, $treatment['keys'] ) );
 			} elseif ( 'value' === $treatment['mode'] ) {
 				safety_net_update_option_direct( $option, $treatment['value'] );
-			} elseif ( is_array( $option_value ) && ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) ) {
-				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
-				$keys_to_scrub = array( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' );
-				$option_array  = $option_value;
-				foreach ( $keys_to_scrub as $key ) {
-					if ( array_key_exists( $key, $option_array ) ) {
-						$option_array[ $key ] = '';
-					}
-				}
-				safety_net_update_option_direct( $option, $option_array );
-			} elseif ( 'jetpack_active_modules' === $option && is_array( $option_value ) ) {
-				// Clear some Jetpack options to disable specific modules.
-				$modules_to_disable = array( 'enhanced-distribution', 'publicize', 'subscriptions' );
-				$modules_array      = array_filter(
-					$option_value,
-					function( $v ) use ( $modules_to_disable ) {
-						return ! in_array( $v, $modules_to_disable, true );
-					},
-				);
-
-				safety_net_update_option_direct( $option, $modules_array );
-			} elseif ( 'wprus' === $option && is_array( $option_value ) ) {
-				// Clear some WP Remote Users Sync options to disable only keys needed for remote connections and keep the remaining settings intact.
-				$keys_to_scrub = array(
-					'encryption' => array(
-						'aes_key',
-						'hmac_key',
-					),
-				);
-				$option_array  = $option_value;
-				foreach ( $keys_to_scrub as $index => $keys ) {
-					if ( array_key_exists( $index, $option_array ) && is_array( $option_array[ $index ] ) ) {
-						foreach ( $keys as $key ) {
-							if ( array_key_exists( $key, $option_array[ $index ] ) ) {
-								$option_array[ $index ][ $key ] = '';
-							}
-						}
-					}
-				}
-				safety_net_update_option_direct( $option, $option_array );
-			} else if ( '_wp_convertkit_settings' === $option && is_array( $option_value ) ) {
-				$option_array  = $option_value;
-
-				$keys_to_scrub = array( 'access_token', 'refresh_token', 'token_expires', 'api_key', 'api_secret' );
-				foreach ( $keys_to_scrub as $key ) {
-					if ( array_key_exists( $key, $option_array ) ) {
-						$option_array[ $key ] = '';
-					}
-				}
-
-				safety_net_update_option_direct( $option, $option_array );
-			} elseif ( 'apple_news_settings' === $option && is_array( $option_value ) ) {
-				$keys_to_scrub = array( 'api_key', 'api_secret', 'api_channel', 'apple_news_admin_email' );
-
-				$option_array = $option_value;
-				foreach ( $keys_to_scrub as $key ) {
-					if ( array_key_exists( $key, $option_array ) ) {
-						$option_array[ $key ] = '';
-					}
-				}
-
-				$option_array['api_autosync'] = 'no';
-				$option_array['api_autosync_update']  = 'no';
-				$option_array['api_autosync_trash'] = 'no';
-				$option_array['api_autosync_delete']  = 'no';
-				$option_array['api_autosync_unpublish'] = 'no';
-
-				$option_array['apple_news_enable_debugging'] = 'no';
-
-				safety_net_update_option_direct( $option, $option_array );
 			} elseif ( 'default_pingback_flag' === $option ) {
 				// Delete all _pingme postmeta to prevent pingbacks from being sent.
 				$wpdb->delete(
@@ -202,13 +132,17 @@ function scrub_options() {
 }
 
 /**
- * Blanks the listed keys an option's array value has, and sets the keys given a value.
+ * Blanks the listed keys an option's array value has, and sets the keys given a value, or has a closure scrub the value.
  *
- * @param array $value The option's value.
- * @param array $keys  Keys to blank, and key => value pairs to set.
+ * @param array          $value The option's value.
+ * @param array|\Closure $keys  Keys to blank, and key => value pairs to set, or a closure that returns the scrubbed value.
  * @return array The scrubbed value.
  */
-function scrub_option_keys( array $value, array $keys ): array {
+function scrub_option_keys( array $value, array|\Closure $keys ): array {
+	if ( $keys instanceof \Closure ) {
+		return $keys( $value );
+	}
+
 	foreach ( $keys as $key => $new_value ) {
 		if ( ! is_int( $key ) ) {
 			$value[ $key ] = $new_value;

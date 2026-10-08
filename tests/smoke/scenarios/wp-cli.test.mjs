@@ -5,6 +5,7 @@ import { seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { bootSite } from '../lib/site.mjs';
 
 const plain = ( text ) => text.replace( /\x1B\[[0-9;]*m/g, '' );
+const GATEWAY_KEYS = [ 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' ];
 const PMPRO_OPTIONS = [ 'pmpro_apipassword', 'pmpro_apisignature', 'pmpro_apiusername', 'pmpro_braintree_encryptionkey', 'pmpro_braintree_merchantid', 'pmpro_braintree_privatekey', 'pmpro_braintree_publickey', 'pmpro_cybersource_merchantid', 'pmpro_cybersource_securitykey', 'pmpro_live_stripe_connect_publishablekey', 'pmpro_live_stripe_connect_secretkey', 'pmpro_live_stripe_connect_user_id', 'pmpro_loginname', 'pmpro_payflow_partner', 'pmpro_payflow_pwd', 'pmpro_payflow_user', 'pmpro_payflow_vendor', 'pmpro_paypal_cardinal_apiidentifier', 'pmpro_paypal_cardinal_apikey', 'pmpro_paypal_cardinal_orgunitid', 'pmpro_recaptcha_privatekey', 'pmpro_recaptcha_publickey', 'pmpro_stripe_billingaddress', 'pmpro_stripe_publishablekey', 'pmpro_stripe_secretkey', 'pmpro_transactionkey', 'pmpro_twocheckout_accountnumber', 'pmpro_twocheckout_apipassword', 'pmpro_twocheckout_apiusername', 'pmpromc_options' ];
 
 describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
@@ -56,9 +57,15 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		assert.match( table, /^\W*pmpro\W+Paid\b.*?\W33\W+6\W+0\W+0\W+yes\W+yes\W+yes\W+no\W*$/m, `The table does not show the PMPro integration: ${ table }` );
 		assert.match( table, /^\W*wp-mail-log\w*\W+WP Mail\b.*?\W0\W+1\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the WP Mail Logging integration: ${ table }` );
 		assert.match( table, /^\W*wpforms\W+WPForms\W+0\W+3\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the WPForms integration: ${ table }` );
+		assert.match( table, /^\W*apple-news\W+Publish\b.*?\W1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the Apple News integration: ${ table }` );
+		assert.match( table, /^\W*convertkit\W+Kit\W+convert.*?\W1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the Kit integration: ${ table }` );
+		assert.match( table, /^\W*jetpack\W+Jetpack\W+jetpack-.*?\W3\W+0\W+0\W+0\W+no\W+no\W+yes\W+no\W*$/m, `The table does not show the Jetpack integration: ${ table }` );
+		assert.match( table, /^\W*paypal\W+PayPal\W+paypal\b.*?\W5\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the PayPal integration: ${ table }` );
+		assert.match( table, /^\W*stripe\W+Stripe\W+stripe\b.*?\W3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the Stripe integration: ${ table }` );
+		assert.match( table, /^\W*wprus\W+WP Remote\b.*?\W1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the WP Remote Users Sync integration: ${ table }` );
 		const integrations = JSON.parse( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop() );
-		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'buddypress', 'givewp', 'jetpack-crm', 'mailpoet', 'newsletter', 'pmpro', 'wp-mail-logging', 'wpforms' ] );
-		const { 'ai-connectors': ai, mailpoet, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
+		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'apple-news', 'buddypress', 'convertkit', 'givewp', 'jetpack-crm', 'jetpack', 'mailpoet', 'newsletter', 'paypal', 'pmpro', 'stripe', 'wp-mail-logging', 'wpforms', 'wprus' ] );
+		const { 'ai-connectors': ai, mailpoet, 'apple-news': appleNews, convertkit, jetpack, paypal, stripe, wprus, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
 		assert.deepEqual(
 			{ label: ai.label, plugins: ai.plugins, options: ai.options, delete_options: ai.delete_options.length, delete_partial_options: Object.keys( ai.delete_partial_options ).length, delete_option_prefixes: ai.delete_option_prefixes, phases: [ ai.scrub, ai.delete, ai.hooks, ai.late ] },
 			{ label: 'AI providers', plugins: [ 'ai/ai.php', 'ai-engine', 'ai-provider-for-', 'bestony-ai-provider/', 'birbwhale/', 'duetg-ai-connector/', 'duoport-connect-for-opencode/', 'jokiruiz-local-model-connector/', 'koneek-multi-provider-ai-gateway/', 'latentkit-ai-provider/', 'mittwald-ai-provider/', 'modeltrestle-ai-connector-for-nano-gpt/', 'mw-local-ai-connector/', 'mwai', 'onmyodev-connector-for-deepseek/', 'opencode-ai-provider/', 'razhur-connector-for-avalai/', 'sync-to-gpt', 'ultimate-ai-connector-compatible-endpoints/', 'vercel-ai-gateway-provider/', 'zactonz-ai-' ], options: [ 'mwai_options', 'mwai_v2_options' ], delete_options: 8, delete_partial_options: 6, delete_option_prefixes: { connectors_ai_: [ '_api_key', '_application_password' ], '_secret_ai/': [ '_api_key' ], 0: 'koneek_api_key', 1: 'zctz_openrouter_secret_' }, phases: [ false, false, false, false ] },
@@ -81,6 +88,18 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 				wpforms: { label: 'WPForms', plugins: [], options: [], option_values: [], tables: [ 'wpforms_entries', 'wpforms_entry_meta', 'wpforms_entry_fields' ], phases: [ false, false, false, false ] },
 			},
 			'The JSON output does not describe the member, donation, CRM and form integrations'
+		);
+		assert.deepEqual(
+			Object.fromEntries( Object.entries( { 'apple-news': appleNews, convertkit, jetpack, paypal, stripe, wprus } ).map( ( [ slug, integration ] ) => [ slug, { label: integration.label, plugins: integration.plugins, options: integration.options, partial_options: integration.partial_options, phases: [ integration.scrub, integration.delete, integration.hooks, integration.late ] } ] ) ),
+			{
+				'apple-news': { label: 'Publish to Apple News', plugins: [ 'publish-to-apple-news' ], options: [], partial_options: { apple_news_settings: { 0: 'api_key', 1: 'api_secret', 2: 'api_channel', 3: 'apple_news_admin_email', api_autosync: 'no', api_autosync_update: 'no', api_autosync_trash: 'no', api_autosync_delete: 'no', api_autosync_unpublish: 'no', apple_news_enable_debugging: 'no' } }, phases: [ false, false, false, false ] },
+				convertkit: { label: 'Kit', plugins: [ 'convertkit' ], options: [], partial_options: { _wp_convertkit_settings: [ 'access_token', 'refresh_token', 'token_expires', 'api_key', 'api_secret' ] }, phases: [ false, false, false, false ] },
+				jetpack: { label: 'Jetpack', plugins: [ 'jetpack-social' ], options: [ 'jetpack_private_options', 'jetpack_secrets' ], partial_options: { jetpack_active_modules: true }, phases: [ false, false, true, false ] },
+				paypal: { label: 'PayPal', plugins: [ 'paypal' ], options: [ 'woocommerce_braintree_credit_card_settings', 'woocommerce_braintree_paypal_settings', 'woocommerce_paypal_settings' ], partial_options: { 'woocommerce_ppcp-gateway_settings': GATEWAY_KEYS, 'woocommerce-ppcp-settings': GATEWAY_KEYS }, phases: [ false, false, false, false ] },
+				stripe: { label: 'Stripe', plugins: [ 'stripe' ], options: [ 'woocommerce_stripe_account_settings', 'woocommerce_stripe_api_settings' ], partial_options: { woocommerce_stripe_settings: GATEWAY_KEYS }, phases: [ false, false, false, false ] },
+				wprus: { label: 'WP Remote Users Sync', plugins: [ 'wp-remote-users-sync' ], options: [], partial_options: { wprus: true }, phases: [ false, false, false, false ] },
+			},
+			'The JSON output does not describe the payment gateway, Jetpack, Kit, Apple News and WP Remote Users Sync integrations'
 		);
 		const none = "--exec=WP_CLI::add_wp_hook( 'safety_net/integrations', '__return_empty_array', 999 );";
 		assert.match( ( await wpOk( 'safety-net', 'integrations', none ) ).stdout, /Success: No integrations registered\./ );

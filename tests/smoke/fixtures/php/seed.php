@@ -73,10 +73,12 @@ function sn_test_seed_base(): array {
 	update_option(
 		'_wp_convertkit_settings',
 		array(
-			'api_key'      => 'k',
-			'api_secret'   => 's',
-			'access_token' => 't',
-			'other'        => 'keep',
+			'api_key'       => 'k',
+			'api_secret'    => 's',
+			'access_token'  => 't',
+			'refresh_token' => 'r',
+			'token_expires' => 1893456000,
+			'other'         => 'keep',
 		)
 	);
 	update_option(
@@ -85,6 +87,7 @@ function sn_test_seed_base(): array {
 			'api_key'                     => 'k',
 			'api_secret'                  => 's',
 			'api_channel'                 => 'c',
+			'apple_news_admin_email'      => 'news@example.com',
 			'api_autosync'                => 'yes',
 			'apple_news_enable_debugging' => 'yes',
 			'other'                       => 'keep',

@@ -69,12 +69,8 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.deepEqual( o.jetpack_secrets, [], 'A11 jetpack_secrets is cleared off Atomic' );
 		assert.equal( o.sn_custom_secret, '', 'A12 safety_net_options_to_clear filter' );
 		assert.deepEqual( o.wprus, { encryption: { aes_key: '', hmac_key: '', other: 'keep' }, keep: 'yes' }, 'A13 wprus' );
-		assert.deepEqual( o._wp_convertkit_settings, { api_key: '', api_secret: '', access_token: '', other: 'keep' }, 'A13 convertkit' );
-		assert.equal( o.apple_news_settings.api_key, '', 'A13 apple news' );
-		assert.equal( o.apple_news_settings.other, 'keep', 'A13 apple news' );
-		for ( const key of [ 'api_autosync', 'api_autosync_update', 'api_autosync_trash', 'api_autosync_delete', 'api_autosync_unpublish', 'apple_news_enable_debugging' ] ) {
-			assert.equal( o.apple_news_settings[ key ], 'no', `A13 apple news ${ key }` );
-		}
+		assert.deepEqual( o._wp_convertkit_settings, { api_key: '', api_secret: '', access_token: '', refresh_token: '', token_expires: '', other: 'keep' }, 'A13 convertkit' );
+		assert.deepEqual( o.apple_news_settings, { api_key: '', api_secret: '', api_channel: '', apple_news_admin_email: '', api_autosync: 'no', apple_news_enable_debugging: 'no', other: 'keep', api_autosync_update: 'no', api_autosync_trash: 'no', api_autosync_delete: 'no', api_autosync_unpublish: 'no' }, 'A13 apple news' );
 	} );
 
 	test( 'A14/A16: denylisted plugins are deactivated and the rest stay active', async () => {
@@ -540,6 +536,31 @@ return $runs;` );
 		} );
 	} );
 
+	test( 'A42: options that integrations scrub with a closure stay in the safety_net_options_to_clear list, so a filter that drops them keeps them', async () => {
+		const s = await site.php( `
+$values = array( 'jetpack_active_modules' => array( 'publicize', 'stats' ), 'wprus' => array( 'encryption' => array( 'aes_key' => 'a' ) ) );
+$before = array();
+foreach ( $values as $name => $value ) {
+	$before[ $name ] = get_option( $name );
+	update_option( $name, $value );
+}
+$listed = array();
+$keep   = static function ( $options ) use ( $values, &$listed ) {
+	$listed = array_values( array_intersect( array_keys( $values ), $options ) );
+	return array_values( array_diff( $options, array_keys( $values ) ) );
+};
+add_filter( 'safety_net_options_to_clear', $keep );
+SafetyNet\\ScrubOptions\\scrub_options();
+remove_filter( 'safety_net_options_to_clear', $keep );
+$after = array();
+foreach ( $values as $name => $value ) {
+	$after[ $name ] = sn_test_raw_option( $name );
+	false === $before[ $name ] ? delete_option( $name ) : update_option( $name, $before[ $name ] );
+}
+return array( 'listed' => $listed, 'after' => $after );` );
+		assert.deepEqual( s, { listed: [ 'jetpack_active_modules', 'wprus' ], after: { jetpack_active_modules: [ 'publicize', 'stats' ], wprus: { encryption: { aes_key: 'a' } } } } );
+	} );
+
 	test( 'A24: safety_net_hide_admin hides the tools but keeps the protection', async () => {
 		const { nonces } = await getToolsPage( site );
 		await site.php( "update_option( 'sn_test_hide_admin', 1 ); return true;" );
@@ -616,7 +637,7 @@ return array( 'error' => $error, 'string_error' => $string_error, 'after' => $af
 			assert.equal( s.after[ name ], '', `${ name } holding a string was not scrubbed` );
 		}
 		assert.deepEqual( s.after.wprus, { encryption: 'not-an-array', keep: 'yes' }, 'wprus with a non-array encryption entry was changed' );
-		assert.deepEqual( site.logEntriesSince( mark ).filter( ( entry ) => /scrub-options\.php/.test( entry ) ), [] );
+		assert.deepEqual( site.logEntriesSince( mark ).filter( ( entry ) => /scrub-options\.php|includes\/integrations\//.test( entry ) ), [] );
 	} );
 
 	test( 'K1: no database error without WooCommerce', async () => {

@@ -13,7 +13,6 @@ blaze-ads
 code-snippets
 console
 constant-contact
-convertkit
 cybersource
 distributor
 donorbox
@@ -32,7 +31,6 @@ hotjar
 hubspot
 in-stock-mailer-for-wc
 internet-archive-wayback-machine-link-fixer
-jetpack-social
 klarna
 klaviyo
 kliken-ads
@@ -52,7 +50,6 @@ optimonk
 paid-member-subscriptions
 payever
 payfast
-paypal
 paysolutions
 paytrace
 pinterest-for-woocommerce
@@ -63,7 +60,6 @@ postmark
 postmatic
 printful
 product-feed
-publish-to-apple-news
 quickbooks
 rank-math
 referralcandy
@@ -77,7 +73,6 @@ smtp
 socketlabs
 sparkpost
 stamps
-stripe
 taxjar
 team-51-donations
 team51-donations
@@ -94,7 +89,6 @@ woocommerce-services
 woocommerce-shipping/
 woocommerce-square
 woocommerce-zapier
-wp-remote-users-sync
 wp-ses
 wp-sync
 wp-to-buffer-pro
