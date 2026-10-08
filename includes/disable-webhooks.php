@@ -22,11 +22,3 @@ function disable_webhooks() {
 
 	wp_cache_flush();
 }
-
-/**
- * Stops PMPro from registering its cron jobs.
- */
-add_filter( 'pre_get_ready_cron_jobs', static function ( $cron_jobs ) {
-	add_filter( 'pmpro_registered_crons', '__return_empty_array', PHP_INT_MAX );
-	return $cron_jobs;
-}, 0 );

@@ -114,15 +114,6 @@ function scrub_options() {
 					}
 				}
 				safety_net_update_option_direct( $option, $option_array );
-			} elseif ( 'pmpro_gateway' === $option ) {
-				safety_net_update_option_direct( $option, '' );
-			} elseif ( 'pmpro_gateway_environment' === $option ) {
-				safety_net_update_option_direct( $option, 'sandbox' );
-			} elseif ( 'pmpro_last_known_url' === $option ) {
-				safety_net_update_option_direct( $option, 'https://safetynetscrubbedthis.com' );
-				if ( function_exists( 'pmpro_clear_crons' ) ) {
-					pmpro_clear_crons();
-				}
 			} else if ( '_wp_convertkit_settings' === $option && is_array( $option_value ) ) {
 				$option_array  = $option_value;
 

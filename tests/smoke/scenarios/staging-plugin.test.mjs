@@ -39,8 +39,10 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 					'stripe'          => sn_test_raw_option( 'woocommerce_stripe_settings_sn_backup' ),
 					'pingback'        => sn_test_raw_option( 'default_pingback_flag_sn_backup' ),
 					'klaviyo_settings' => sn_test_raw_option( 'klaviyo_settings_sn_backup' ),
+					'pmpro_secret'    => sn_test_raw_option( 'pmpro_stripe_secretkey_sn_backup' ),
 				),
 				'klaviyo_settings' => sn_test_raw_option( 'klaviyo_settings' ),
+				'pmpro_secret'     => sn_test_raw_option( 'pmpro_stripe_secretkey' ),
 			);`
 		);
 		const o = s.snapshot.options;
@@ -57,6 +59,8 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.equal( o.pmpro_gateway, '', 'A8' );
 		assert.equal( o.pmpro_gateway_environment, 'sandbox', 'A8' );
 		assert.equal( o.pmpro_last_known_url, 'https://safetynetscrubbedthis.com', 'A8' );
+		assert.equal( s.pmpro_secret, '', 'A8 an option an integration declares is blanked' );
+		assert.equal( s.backups.pmpro_secret, 'sk_live_pmpro', 'A8 backup' );
 		assert.equal( o.default_pingback_flag, '', 'A9' );
 		assert.equal( s.backups.pingback, '1', 'A9 backup' );
 		assert.equal( s.snapshot.pingme, 0, 'A9 _pingme meta' );
@@ -512,6 +516,28 @@ return $seen;` );
 		const s = await site.php( "SafetyNet\\ScrubOptions\\scrub_options(); delete_option( 'sn_test_atomic' ); return array( 'atomic' => jetpack_is_atomic_site(), 'secrets' => sn_test_raw_option( 'jetpack_secrets' ) );" );
 		assert.equal( s.atomic, true );
 		assert.deepEqual( s.secrets, { k: 'atomic' } );
+	} );
+
+	test( 'A41: with PMPro loaded, scrubbing its last known URL clears its crons, and a URL left unscrubbed or unset does not', async () => {
+		const s = await site.php( `
+function pmpro_clear_crons() {
+	$GLOBALS['sn_test_pmpro_cleared']++;
+}
+$keep = static fn( $options ) => array_values( array_diff( $options, array( 'pmpro_last_known_url' ) ) );
+$runs = array();
+foreach ( array( 'filtered' => 'https://example.com', 'unset' => null, 'scrubbed' => 'https://example.com' ) as $case => $url ) {
+	null === $url ? delete_option( 'pmpro_last_known_url' ) : update_option( 'pmpro_last_known_url', $url );
+	'filtered' === $case ? add_filter( 'safety_net_options_to_clear', $keep ) : remove_filter( 'safety_net_options_to_clear', $keep );
+	$GLOBALS['sn_test_pmpro_cleared'] = 0;
+	SafetyNet\\ScrubOptions\\scrub_options();
+	$runs[ $case ] = array( 'cleared' => $GLOBALS['sn_test_pmpro_cleared'], 'url' => sn_test_raw_option( 'pmpro_last_known_url' ) );
+}
+return $runs;` );
+		assert.deepEqual( s, {
+			filtered: { cleared: 0, url: 'https://example.com' },
+			unset: { cleared: 0, url: null },
+			scrubbed: { cleared: 1, url: 'https://safetynetscrubbedthis.com' },
+		} );
 	} );
 
 	test( 'A24: safety_net_hide_admin hides the tools but keeps the protection', async () => {

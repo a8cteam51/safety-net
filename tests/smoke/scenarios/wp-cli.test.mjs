@@ -5,6 +5,7 @@ import { seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { bootSite } from '../lib/site.mjs';
 
 const plain = ( text ) => text.replace( /\x1B\[[0-9;]*m/g, '' );
+const PMPRO_OPTIONS = [ 'pmpro_apipassword', 'pmpro_apisignature', 'pmpro_apiusername', 'pmpro_braintree_encryptionkey', 'pmpro_braintree_merchantid', 'pmpro_braintree_privatekey', 'pmpro_braintree_publickey', 'pmpro_cybersource_merchantid', 'pmpro_cybersource_securitykey', 'pmpro_live_stripe_connect_publishablekey', 'pmpro_live_stripe_connect_secretkey', 'pmpro_live_stripe_connect_user_id', 'pmpro_loginname', 'pmpro_payflow_partner', 'pmpro_payflow_pwd', 'pmpro_payflow_user', 'pmpro_payflow_vendor', 'pmpro_paypal_cardinal_apiidentifier', 'pmpro_paypal_cardinal_apikey', 'pmpro_paypal_cardinal_orgunitid', 'pmpro_recaptcha_privatekey', 'pmpro_recaptcha_publickey', 'pmpro_stripe_billingaddress', 'pmpro_stripe_publishablekey', 'pmpro_stripe_secretkey', 'pmpro_transactionkey', 'pmpro_twocheckout_accountnumber', 'pmpro_twocheckout_apipassword', 'pmpro_twocheckout_apiusername', 'pmpromc_options' ];
 
 describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 	let site;
@@ -48,9 +49,16 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		assert.match( table, /^\W*slug\W+label\W+plugins\W+options\W+tables\W+post_types\W+usermeta\W+scrub\W+delete\W+hooks\W+late\W*$/m, `The table has other columns: ${ table }` );
 		assert.match( table, /^\W*ai-connectors\W+AI providers\W+ai\/ai\.php\b.*?\W20\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the AI integration: ${ table }` );
 		assert.match( table, /^\W*mailpoet\W+MailPoet\W+mailpoet\W+0\W+22\W+0\W+0\W+yes\W+yes\W+no\W+no\W*$/m, `The table does not show the MailPoet integration: ${ table }` );
+		assert.match( table, /^\W*buddypress\W+BuddyPress\W+0\W+0\W+0\W+0\W+no\W+yes\W+no\W+no\W*$/m, `The table does not show the BuddyPress integration: ${ table }` );
+		assert.match( table, /^\W*givewp\W+GiveWP\W+give-, give\/\W+0\W+0\W+0\W+0\W+no\W+yes\W+no\W+no\W*$/m, `The table does not show the GiveWP integration: ${ table }` );
+		assert.match( table, /^\W*jetpack-crm\W+Jetpack CRM\W+0\W+20\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the Jetpack CRM integration: ${ table }` );
+		assert.match( table, /^\W*newsletter\W+Newsletter\W+newsletter\W+0\W+1\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the Newsletter integration: ${ table }` );
+		assert.match( table, /^\W*pmpro\W+Paid\b.*?\W33\W+6\W+0\W+0\W+yes\W+yes\W+yes\W+no\W*$/m, `The table does not show the PMPro integration: ${ table }` );
+		assert.match( table, /^\W*wp-mail-log\w*\W+WP Mail\b.*?\W0\W+1\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the WP Mail Logging integration: ${ table }` );
+		assert.match( table, /^\W*wpforms\W+WPForms\W+0\W+3\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the WPForms integration: ${ table }` );
 		const integrations = JSON.parse( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop() );
-		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'mailpoet' ] );
-		const [ ai, mailpoet ] = integrations;
+		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'buddypress', 'givewp', 'jetpack-crm', 'mailpoet', 'newsletter', 'pmpro', 'wp-mail-logging', 'wpforms' ] );
+		const { 'ai-connectors': ai, mailpoet, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
 		assert.deepEqual(
 			{ label: ai.label, plugins: ai.plugins, options: ai.options, delete_options: ai.delete_options.length, delete_partial_options: Object.keys( ai.delete_partial_options ).length, delete_option_prefixes: ai.delete_option_prefixes, phases: [ ai.scrub, ai.delete, ai.hooks, ai.late ] },
 			{ label: 'AI providers', plugins: [ 'ai/ai.php', 'ai-engine', 'ai-provider-for-', 'bestony-ai-provider/', 'birbwhale/', 'duetg-ai-connector/', 'duoport-connect-for-opencode/', 'jokiruiz-local-model-connector/', 'koneek-multi-provider-ai-gateway/', 'latentkit-ai-provider/', 'mittwald-ai-provider/', 'modeltrestle-ai-connector-for-nano-gpt/', 'mw-local-ai-connector/', 'mwai', 'onmyodev-connector-for-deepseek/', 'opencode-ai-provider/', 'razhur-connector-for-avalai/', 'sync-to-gpt', 'ultimate-ai-connector-compatible-endpoints/', 'vercel-ai-gateway-provider/', 'zactonz-ai-' ], options: [ 'mwai_options', 'mwai_v2_options' ], delete_options: 8, delete_partial_options: 6, delete_option_prefixes: { connectors_ai_: [ '_api_key', '_application_password' ], '_secret_ai/': [ '_api_key' ], 0: 'koneek_api_key', 1: 'zctz_openrouter_secret_' }, phases: [ false, false, false, false ] },
@@ -60,6 +68,19 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 			{ label: mailpoet.label, plugins: mailpoet.plugins, tables: mailpoet.tables.length, action_scheduler_hooks: mailpoet.action_scheduler_hooks, upload_globs: mailpoet.upload_globs.length, phases: [ mailpoet.scrub, mailpoet.delete, mailpoet.hooks, mailpoet.late ] },
 			{ label: 'MailPoet', plugins: [ 'mailpoet' ], tables: 22, action_scheduler_hooks: [ 'mailpoet/automation/step' ], upload_globs: 4, phases: [ true, true, false, false ] },
 			'The JSON output does not describe the MailPoet integration'
+		);
+		assert.deepEqual(
+			Object.fromEntries( Object.entries( others ).map( ( [ slug, integration ] ) => [ slug, { label: integration.label, plugins: integration.plugins, options: integration.options, option_values: integration.option_values, tables: integration.tables, phases: [ integration.scrub, integration.delete, integration.hooks, integration.late ] } ] ) ),
+			{
+				buddypress: { label: 'BuddyPress', plugins: [], options: [], option_values: [], tables: [], phases: [ false, true, false, false ] },
+				givewp: { label: 'GiveWP', plugins: [ 'give-', 'give/' ], options: [], option_values: [], tables: [], phases: [ false, true, false, false ] },
+				'jetpack-crm': { label: 'Jetpack CRM', plugins: [], options: [], option_values: [], tables: [ 'zbs_contacts', 'zbs_contactmeta', 'zbs_companies', 'zbs_companymeta', 'zbs_quotes', 'zbs_quotemeta', 'zbs_invoices', 'zbs_invoicemeta', 'zbs_transactions', 'zbs_transactionmeta', 'zbs_lineitems', 'zbs_events', 'zbs_eventmeta', 'zbs_logs', 'zbs_mail', 'zbs_lists', 'zbs_tags', 'zbs_tagmeta', 'zbs_aliases', 'zbs_objlinks' ], phases: [ false, false, false, false ] },
+				newsletter: { label: 'Newsletter', plugins: [ 'newsletter' ], options: [], option_values: [], tables: [ 'newsletter' ], phases: [ false, false, false, false ] },
+				pmpro: { label: 'Paid Memberships Pro', plugins: [], options: PMPRO_OPTIONS, option_values: { pmpro_gateway: '', pmpro_gateway_environment: 'sandbox', pmpro_last_known_url: 'https://safetynetscrubbedthis.com' }, tables: [ 'pmpro_membership_orders', 'pmpro_membership_ordermeta', 'pmpro_subscriptions', 'pmpro_subscriptionmeta', 'pmpro_memberships_users', 'pmpro_discount_codes_uses' ], phases: [ true, true, true, false ] },
+				'wp-mail-logging': { label: 'WP Mail Logging', plugins: [], options: [], option_values: [], tables: [ 'wpml_mails' ], phases: [ false, false, false, false ] },
+				wpforms: { label: 'WPForms', plugins: [], options: [], option_values: [], tables: [ 'wpforms_entries', 'wpforms_entry_meta', 'wpforms_entry_fields' ], phases: [ false, false, false, false ] },
+			},
+			'The JSON output does not describe the member, donation, CRM and form integrations'
 		);
 		const none = "--exec=WP_CLI::add_wp_hook( 'safety_net/integrations', '__return_empty_array', 999 );";
 		assert.match( ( await wpOk( 'safety-net', 'integrations', none ) ).stdout, /Success: No integrations registered\./ );

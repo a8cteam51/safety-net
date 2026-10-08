@@ -22,8 +22,6 @@ email-subscribers
 facebook-for-woocommerce
 facebook-pixel
 fluentcampaign
-give-
-give/
 givebutter
 google-analytics
 google-listings-and-ads
@@ -50,7 +48,6 @@ metorik
 microsoft-start
 myworks-woo-sync
 nelio-content
-newsletter
 optimonk
 paid-member-subscriptions
 payever
