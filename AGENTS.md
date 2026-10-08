@@ -69,6 +69,59 @@ safety-net/
 
 ---
 
+## Architecture
+
+Safety Net is a fixed pipeline of steps plus a registry of integrations. The pipeline decides when each step runs, in which order and how often; an integration only declares what the steps do for one third-party plugin.
+
+### Pipeline
+
+- `safety-net.php` returns early when another copy already loaded (`SAFETY_NET_PATH`) or WordPress is still installing, loads `utilities.php` and `self-update.php`, and on production only adds the notice and stops. Otherwise it loads `integrations.php`, the integration files and their `hooks` phase, then the step files, the REST route and the WP-CLI command, and fires `safety_net_loaded`. That happens while WordPress is still including plugins: as a regular plugin, before every plugin that sorts after it, WooCommerce among them; as an mu-plugin, before every regular plugin.
+- `bootstrap.php` runs on `safety_net_loaded`, in this order: the renewal pause toggle, scrub (`safety_net_scrub_options`), deactivate (`safety_net_deactivate_plugins`), delete (`safety_net_delete_data`), transients and webhooks. Each step runs once per site and records it in its flag option; the deactivate step refuses to run before the scrub, and the delete step before the deactivate step. On `wp_loaded` it runs the payment gateway pass (once WooCommerce is loaded) and then the integrations' `late` phase.
+- The Tools page buttons and the WP-CLI commands call the step functions directly: they skip the run-once check but keep the order checks.
+
+How the steps use the registry (`includes/integrations.php`):
+
+| Step | File | Reads | Then |
+|------|------|-------|------|
+| Scrub | `scrub-options.php` | `options_to_clear()` (option_scrublist.txt plus every integration's option fields and the stored options under its `delete_option_prefixes`), passed through `safety_net_options_to_clear`; `option_treatment()` picks blank, partial, value, delete or delete_partial per option; `cancel_action_scheduler_hooks` | `run_phase( 'scrub' )` |
+| Deactivate | `deactivate-plugins.php` | `plugin_patterns()` (plugin_denylist.txt plus every integration's `plugins`), passed through `safety_net_denylisted_plugins` | |
+| Gateway pass | `deactivate-plugins.php`, `utilities.php` | `offline_gateways()` | |
+| Delete | `delete.php` | `tables`, `network_tables`, `post_types`, `comment_types`, `usermeta`, `action_scheduler_hooks`, `upload_globs` | `run_phase( 'delete' )`, then posts are reassigned to an administrator and the other users deleted |
+| Transients, webhooks | `delete-transients.php`, `disable-webhooks.php` | nothing | |
+
+The pipeline keeps core WordPress behaviour and shared machinery: the admin email, `default_pingback_flag` and `_pingme`, email blocking, search engines and `robots.txt`, transients, users and post authors, the Atomic exception for Jetpack's secrets, the Jetpack Autoloader workaround (`keep_in_jetpack_autoloader()`), gateway tracing and the multisite network flags, plus the webhooks step, which disables the rows of WooCommerce's `wc_webhooks` table.
+
+### Integrations
+
+- One file per plugin, `includes/integrations/<slug>.php`, adds one `SafetyNet\Integrations\Integration` to the `safety_net/integrations` filter at `BUILT_IN_PRIORITY`. The slug is the file name (`a-z`, `0-9` and hyphens). The constructor's docblock in `includes/classes/class-integration.php` describes every field. Files load in byte order of their names; names starting with `_` or `.` are skipped.
+- Prefer the data fields; use a closure (a phase, or a closure as a `partial_options` value, which gets the option's array value after the backup and returns the new one) only for what data cannot express.
+- `get_integrations()` collects the declarations once per request, when the `hooks` phase runs as Safety Net loads; declarations added later are ignored for the rest of that request, also by the Tools page, WP-CLI and `late`. Invalid declarations are logged (`Safety Net: ignoring integration …`) and skipped, and so is one that declares an option or plugin pattern an earlier one already covers, including an option under another integration's `delete_option_prefixes`. Safety Net's own declarations come first, so a site's overlapping declaration is the one skipped. A declaration built with the wrong types, or a closure that throws, stops the request with a PHP error on purpose, before the step's flag is set, rather than silently leaving that plugin's data.
+- `assets/data/plugin_denylist.txt` keeps the plugins that are only deactivated; a plugin with an integration lists its patterns in `plugins` instead. `option_scrublist.txt` is empty: a known plugin's options belong in its integration. The steps still read both files, and `safety_net_options_to_clear` and `safety_net_denylisted_plugins` receive the files' entries together with the integrations'.
+- Other code can add declarations only from an mu-plugin that loads before Safety Net; when Safety Net itself runs from `mu-plugins/`, from one whose file name sorts before the file that loads Safety Net.
+
+### Phases and timing
+
+- `hooks` runs as Safety Net loads on every non-production request, before the steps: always-on filters, such as PMPro's cron jobs, Jetpack's subscription emails and the paused Action Scheduler store.
+- `scrub` and `delete` run inside their steps, after the declared data has been handled. The automatic pass runs before most plugins are loaded, so these closures, and closures in `partial_options`, use plain SQL through `$wpdb` and may call another plugin's function or class only behind `function_exists()` or `class_exists()` (as in `pmpro.php`, and in `woocommerce.php`, whose webhook pass usually finds WooCommerce loaded only when the scrub runs from the Tools page or WP-CLI).
+- `late` runs on `wp_loaded` of every non-production request, after the gateway pass, and is the only phase that can count on other plugins' classes.
+- Each step runs a phase across all integrations, so the order between integrations must never matter; logic that needs an order belongs in the pipeline.
+
+### Adding an integration
+
+1. Copy the closest existing file: `klaviyo.php` (options and plugins), `jetpack-crm.php` (tables), `stripe.php` (keys inside an option), `pmpro.php` or `mailpoet.php` (closures). Rename the file, slug, label and namespace.
+2. Use exact option names, table names without the table prefix, and plugin patterns checked against real plugin slugs, since a pattern matches any plugin basename that contains it.
+3. Remove the plugin's patterns from `plugin_denylist.txt` and its options from `option_scrublist.txt`; nothing may be in both a data file and an integration.
+4. Add a subsection to "Explanations" in `README.md`.
+5. Seed the plugin's data in `tests/smoke/fixtures/php/` (options the scrub blanks go in `SN_TEST_BLANKED_OPTIONS`, which staging-plugin and staging-mu check) and assert the end state in the scenario that covers the plugin; add the integration to C8 in `wp-cli.test.mjs`; run `staging-plugin` and `wp-cli`.
+
+### Census tests
+
+- `staging-plugin` R1: every file in `includes/integrations/` registers exactly one declaration, at `BUILT_IN_PRIORITY`, whose slug is its file name, in file order; every declaration passes the collector's rules and leaves the table prefix out of its tables; no option or plugin pattern is declared twice, by two integrations or by an integration and a data file, or falls under another integration's `delete_option_prefixes`.
+- `staging-plugin` R2: invalid and overlapping declarations from an mu-plugin are logged and skipped, and a valid one gets everything it declares scrubbed, deactivated and deleted.
+- `wp-cli` C8: `wp safety-net integrations` lists every integration with its counts and phases, and `--format=json` returns the declarations.
+
+---
+
 ## Commands
 
 ### Build / Install
@@ -173,6 +226,7 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
   - `plugin_denylist.txt` — plugin slugs or partial matches (e.g. `smtp` matches any plugin with `smtp` in the path)
 - One entry per line.
 - To add entries: create an issue, submit a PR, or use filters (see Extensibility).
+- A plugin that Safety Net does more for than deactivating gets an integration instead (see Architecture).
 
 ### Version Bumping
 
@@ -189,7 +243,7 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
    Scrub operations use `$wpdb->update` (e.g. `safety_net_update_option_direct`) to avoid `update_option` and its hooks (e.g. notifications). This is intentional.
 
 3. **Action Scheduler customization**  
-   When “Pause renewal actions” is on, the plugin replaces Action Scheduler’s store class with `SafetyNet\ActionScheduler_Custom_DBStore` to skip claiming renewal/payment-retry actions. Other actions still run.
+   When “Pause renewal actions” is on, the plugin replaces Action Scheduler’s store class with `SafetyNet\ActionScheduler_Custom_DBStore` to skip claiming renewal, payment-retry and end-of-prepaid-term actions. Other actions still run.
 
 4. **Environment detection**  
    `get_environment_type()` in `utilities.php` supports `sandbox`, `dev`, `develop` in addition to `staging`, `development`, `local` for hosts like Pressable and WPCOM Studio.
@@ -201,7 +255,7 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
    Each site runs the steps on its own first load, but network-activated plugins and the network admin email are changed only by the first automatic run on the network, which records it in network options (`safety_net_network_plugins_deactivated`, `safety_net_network_gateway_plugins_deactivated` once a gateway pass has run with WooCommerce loaded, and `safety_net_network_admin_email_scrubbed`), so a later site's first run doesn't undo a super admin's changes. `should_change_network()` in `utilities.php` decides this. From the Tools page, only super admins (`manage_network_plugins`, `manage_network_options`) re-apply the network-wide part; a site administrator's buttons change only their own site. The WP-CLI commands always apply it. Single sites never write these flags.
 
 7. **Integrations registry**  
-   What Safety Net does for one third-party plugin belongs in `includes/integrations/<slug>.php`, which adds a `SafetyNet\Integrations\Integration` to the `safety_net/integrations` filter at `BUILT_IN_PRIORITY` (files load in name order; names starting with `_` are skipped). The steps read the registry and call `run_phase()` for the integrations' closures; `wp safety-net integrations` lists them. The automatic pass runs while plugins are still being included, so declarations are data (option names, table suffixes, plugin patterns) and the `scrub`, `delete` and `hooks` closures, like a closure that a `partial_options` entry maps an option to (the scrub step passes it the option's array value after the backup), must not rely on another plugin's code: they may use one of its functions or classes only behind `function_exists()` or `class_exists()`, because that plugin may not be loaded yet (as in `pmpro.php`, and in `woocommerce.php`, whose webhook pass usually finds WooCommerce loaded only when the scrub runs from the Tools page or WP-CLI); only `late`, which runs on `wp_loaded` of every non-production request, can count on its classes. Invalid declarations are logged (`Safety Net: ignoring integration …`) and skipped, and so is one that declares an option or plugin pattern an earlier one already covers, including an option under another integration's `delete_option_prefixes`; Safety Net's own declarations come first, so a site's overlapping declaration is the one skipped. The `staging-plugin` census test (R1) fails on any of these and on an option or plugin pattern that is also in the data files. The registry is collected once per request as Safety Net loads, and declarations added later are ignored for the rest of that request, also by the Tools page, WP-CLI and `late`. Other code must add them from an mu-plugin; when Safety Net itself runs from `mu-plugins/`, from one whose file name sorts before the file that loads Safety Net.
+   Everything Safety Net does for one third-party plugin is declared in `includes/integrations/<slug>.php`, and the steps read those declarations instead of handling the plugin themselves (see Architecture).
 
 ---
 
@@ -223,7 +277,7 @@ Key filters and hooks:
 | `safety_net_delete_data` | Fired to delete users and orders |
 | `safety_net_delete_transients` | Fired to delete transients |
 | `safety_net_disable_webhooks` | Fired to disable webhooks |
-| `safety_net/integrations` | Add `SafetyNet\Integrations\Integration` declarations; collected once as Safety Net loads, so only code that runs before it can add them, and one that overlaps a Safety Net integration is skipped (see Architectural Decisions, 7) |
+| `safety_net/integrations` | Add `SafetyNet\Integrations\Integration` declarations; collected once as Safety Net loads, so only code that runs before it can add them, and one that overlaps a Safety Net integration is skipped (see Architecture) |
 
 Constant:
 
@@ -286,4 +340,5 @@ wp safety-net integrations       # List the integrations and what each one decla
 - **User-facing docs**: `README.md`
 - **Plugin behavior**: `includes/bootstrap.php`, `includes/admin.php`
 - **Data deletion logic**: `includes/delete.php`
+- **What Safety Net does for each third-party plugin**: `includes/integrations/`
 - **Environment detection**: `includes/utilities.php` (`get_environment_type`, `is_production`)

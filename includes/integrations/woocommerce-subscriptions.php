@@ -34,7 +34,7 @@ add_filter(
 );
 
 /**
- * Has Action Scheduler use the store that skips renewal and payment retry actions while the pause is on.
+ * Has Action Scheduler use the store that skips renewal, payment retry and end of prepaid term actions while the pause is on.
  *
  * @return void
  */
@@ -48,7 +48,7 @@ function register_paused_store() {
 }
 
 /**
- * Returns the store class that skips renewal and payment retry actions.
+ * Returns the store class that skips renewal, payment retry and end of prepaid term actions.
  *
  * @return string
  */

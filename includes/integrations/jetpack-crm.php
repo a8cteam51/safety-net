@@ -1,6 +1,6 @@
 <?php
 /**
- * Jetpack CRM: deletes its contacts, companies, quotes, invoices, transactions, events, logs and mail
+ * Jetpack CRM: deletes its contacts, companies, quotes, invoices, transactions, line items, events, logs and tags
  *
  * @package SafetyNet
  */

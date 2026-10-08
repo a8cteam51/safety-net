@@ -614,6 +614,7 @@ return array( 'listed' => $listed, 'after' => $after );` );
 		const toggle = await site.php( "return array( 'value' => get_option( 'safety_net_pause_renewal_actions_toggle' ), 'raw' => sn_test_raw_option( 'safety_net_pause_renewal_actions_toggle' ) );" );
 		assert.notEqual( toggle.value, 'on' );
 		assert.notEqual( toggle.raw, null, 'Saving the form deleted the toggle, which the next load turns back on' );
+		assert.deepEqual( await site.php( "return array_map( 'sn_test_raw_option', array( 'safety_net_', 'safety_net_dismiss_bar', 'safety_net_display_content' ) );" ), [ null, null, null ], 'Saving the form stored settings that nothing reads' );
 		assert.doesNotMatch( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, /scheduled actions are currently paused/ );
 	} );
 
