@@ -219,8 +219,6 @@ function delete_users_and_orders() {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}wpforms_entry_fields" );
 	}
 
-	delete_mailpoet_data();
-
 	delete_integration_data();
 	run_phase( 'delete' );
 
@@ -304,96 +302,6 @@ function delete_integration_data() {
 		}
 	}
 	// phpcs:enable
-}
-
-/**
- * Deletes MailPoet's subscribers and their activity, keeping its forms, lists, emails, templates and automations.
- *
- * @return void
- */
-function delete_mailpoet_data() {
-	global $wpdb;
-
-	delete_mailpoet_export_files();
-
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names come from $wpdb and the allow-list below.
-	// MailPoet's automation storage ignores the mailpoet_db_prefix filter, so its tables always use this prefix.
-	$prefix     = $wpdb->prefix . 'mailpoet_';
-	$table_name = $prefix . 'subscribers';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) !== $table_name ) {
-		return;
-	}
-
-	$mailpoet_tables = array(
-		'subscribers',
-		'subscriber_segment',
-		'subscriber_custom_field',
-		'subscriber_tag',
-		'subscriber_ips',
-		'statistics_newsletters',
-		'statistics_opens',
-		'statistics_clicks',
-		'statistics_bounces',
-		'statistics_unsubscribes',
-		'statistics_forms',
-		'statistics_woocommerce_purchases',
-		'user_agents',
-		'scheduled_tasks',
-		'scheduled_task_subscribers',
-		'sending_queues',
-		'stats_notifications',
-		'newsletter_links',
-		'automation_runs',
-		'automation_run_subjects',
-		'automation_run_logs',
-		'log',
-	);
-	foreach ( $mailpoet_tables as $mailpoet_table ) {
-		$mailpoet_full_table = $prefix . $mailpoet_table;
-		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $mailpoet_full_table ) ) ) === $mailpoet_full_table ) {
-			$wpdb->query( "DELETE FROM {$mailpoet_full_table}" );
-		}
-	}
-
-	// MailPoet cannot unschedule a newsletter whose sending queue is gone, so these get the status its own unschedule and cleanup give.
-	$table_name = $prefix . 'newsletters';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
-		$wpdb->query( "UPDATE {$table_name} SET status = 'draft' WHERE type = 'standard' AND status IN ( 'scheduled', 'sending' )" );
-		$wpdb->query( "UPDATE {$table_name} SET status = 'sent' WHERE type = 'notification_history' AND status IN ( 'scheduled', 'sending' )" );
-	}
-
-	// Each step action points at an automation run deleted above.
-	$table_name = $wpdb->prefix . 'actionscheduler_logs';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE lg FROM {$wpdb->prefix}actionscheduler_logs lg LEFT JOIN {$wpdb->prefix}actionscheduler_actions aa ON aa.action_id = lg.action_id WHERE aa.hook = 'mailpoet/automation/step'" );
-	}
-	$table_name = $wpdb->prefix . 'actionscheduler_actions';
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}actionscheduler_actions WHERE hook = 'mailpoet/automation/step'" );
-	}
-	// phpcs:enable
-}
-
-/**
- * Deletes MailPoet's subscriber and statistics exports, which it otherwise keeps for up to a week.
- *
- * @return void
- */
-function delete_mailpoet_export_files() {
-	$directory = wp_upload_dir( null, false )['basedir'] . '/mailpoet';
-	if ( ! is_dir( $directory ) ) {
-		return;
-	}
-
-	// Older MailPoet versions wrote exports directly into this folder.
-	foreach ( array( $directory, $directory . '/exports' ) as $folder ) {
-		foreach ( array( 'MailPoet_export_*.*', 'MailPoet_stats_export_*.*' ) as $pattern ) {
-			$files = glob( $folder . '/' . $pattern );
-			foreach ( is_array( $files ) ? $files : array() as $file ) {
-				wp_delete_file( $file );
-			}
-		}
-	}
 }
 
 /**

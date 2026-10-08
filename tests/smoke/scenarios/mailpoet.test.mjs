@@ -160,6 +160,8 @@ return true;`,
 
 		const { nonces } = await getToolsPage( site );
 		assert.deepEqual( await postAjax( site, 'safety_net_scrub_options', nonces[ 'safety-net-scrub-options' ] ), { success: true, message: 'Options have been scrubbed.' } );
+		const scrubbed = await site.php( STATE );
+		assert.deepEqual( { key: scrubbed.settings.mta.mailpoet_api_key, premium: scrubbed.settings.premium.premium_key, subscribers: scrubbed.counts.subscribers > 0 }, { key: '', premium: '', subscribers: true }, 'The scrub step on its own did not scrub the MailPoet keys, or it deleted subscribers' );
 		assert.deepEqual( await postAjax( site, 'safety_net_delete_users', nonces[ 'safety-net-delete-users' ] ), { success: true, message: 'Users, orders, and subscriptions have been successfully deleted!' } );
 		const s = await site.php( STATE );
 		assert.equal( s.active.mailpoet, true, 'MailPoet was deactivated, so this did not test the tools with MailPoet active' );
@@ -170,7 +172,7 @@ return true;`,
 		const tables = await site.php( 'return sn_test_mailpoet_tables();' );
 		const known = [ ...DELETED, ...KEPT, 'newsletters', 'settings' ];
 		assert.deepEqual( known.filter( ( table ) => ! tables.includes( table ) ), [], `These tables are listed here but MailPoet does not have them: ${ JSON.stringify( tables ) }` );
-		assert.deepEqual( tables.filter( ( table ) => ! known.includes( table ) ), [], 'MailPoet has tables Safety Net neither empties nor deliberately keeps: add each to the list in delete_mailpoet_data() and to DELETED here if it holds subscriber data, or to KEPT if it holds configuration' );
+		assert.deepEqual( tables.filter( ( table ) => ! known.includes( table ) ), [], 'MailPoet has tables Safety Net neither empties nor deliberately keeps: add each to the tables in includes/integrations/mailpoet.php and to DELETED here if it holds subscriber data, or to KEPT if it holds configuration' );
 	} );
 
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
