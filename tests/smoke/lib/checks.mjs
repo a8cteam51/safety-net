@@ -176,6 +176,14 @@ export function assertAiKeysScrubbed( now, seeded, label ) {
 	assert.deepEqual( now.controls, seeded.controls, `${ label } changed options it must keep` );
 }
 
+// The scrub blanks to '' or array() by the type the option had, and backs up the seeded value.
+export function assertOptionsBlanked( state, label ) {
+	for ( const [ name, { seeded, value, backup } ] of Object.entries( state ) ) {
+		const blank = typeof seeded === 'string' ? '' : [];
+		assert.deepEqual( { value, backup }, { value: blank, backup: seeded }, `${ label }: ${ name } was not blanked with a backup of its value` );
+	}
+}
+
 // Sentinels that each tool would change, to prove a refused AJAX request did nothing.
 export async function seedAjaxSentinels( site, login ) {
 	const seeded = await site.php( `return sn_test_seed_ajax_sentinels( '${ login }' );`, { label: 'seeding AJAX sentinels' } );

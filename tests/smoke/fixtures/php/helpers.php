@@ -107,6 +107,52 @@ const SN_TEST_AI_SETTINGS = array( 'ai_provider_for_cursor_settings', 'aipcf_set
 // Kept although named like AI credentials: provider endpoints and settings, a non-key row among the AI plugin's secrets, another plugin's secret, the Secrets SDK master key other plugins share, core's Akismet connector key, and exo's optional token for a model cluster the site owner runs locally.
 const SN_TEST_AI_CONTROLS = array( 'connectors_ai_openai_compatible_servers_base_url', 'mwlai_endpoint_url', 'zctz_ollama_ai_connector_settings', 'zctz_openrouter_settings', '_secret_ai/openai_base_url', '_secret_otherplugin/openai_api_key', '_secrets_master_key', 'wordpress_api_key', 'aiprfoex_api_key' );
 
+// Settings as arrays and keys as strings, so the scrub's array blank and string blank are both covered.
+const SN_TEST_BLANKED_OPTIONS = array(
+	'iawmlf_archive_api_access'                     => 'sn-wayback-access',
+	'iawmlf_archive_api_secret'                     => 'sn-wayback-secret',
+	'klaviyo_edd_license_key'                       => 'sn-klaviyo-license',
+	'leadin_access_token'                           => 'sn-hubspot-token',
+	'mailchimp-woocommerce'                         => array( 'mailchimp_api_key' => 'sn-mailchimp-us1' ),
+	'mailchimp-woocommerce-cached-api-account-name' => 'SN Store',
+	'mailster_options'                              => array( 'deliverymethod' => 'smtp', 'smtp_pwd' => 'sn-mailster' ),
+	'nelio-content_settings'                        => array( 'license' => 'sn-nelio' ),
+	'northbeam_api_key'                             => 'sn-northbeam-key',
+	'northbeam_client_id'                           => 'sn-northbeam-client',
+	'novos_klaviyo_option_name'                     => array( 'klaviyo_public_api_key' => 'sn-klaviyo-public' ),
+	'passport_api_key'                              => 'sn-passport-key',
+	'passport_api_secret'                           => 'sn-passport-secret',
+	'shareasale_wc_tracker_options'                 => array( 'merchant-id' => '12345', 'api-token' => 'sn-shareasale-token', 'api-secret' => 'sn-shareasale-secret' ),
+	'tt4b_access_token'                             => 'sn-tiktok-token',
+	'tt4b_advertiser_id'                            => 'sn-tiktok-advertiser',
+	'tt4b_app_id'                                   => 'sn-tiktok-app',
+	'tt4b_bc_id'                                    => 'sn-tiktok-bc',
+	'tt4b_catalog_id'                               => 'sn-tiktok-catalog',
+	'tt4b_external_business_id'                     => 'sn-tiktok-business',
+	'tt4b_external_data'                            => 'sn-tiktok-external-data',
+	'tt4b_secret'                                   => 'sn-tiktok-secret',
+	'woocommerce_referralcandy_settings'            => array( 'enabled' => 'yes', 'app_id' => 'sn-referralcandy-app', 'secret_key' => 'sn-referralcandy-secret' ),
+	'woocommerce_shipstation_auth_key'              => 'sn-shipstation-key',
+	'wpmandrill'                                    => array( 'api_key' => 'sn-mandrill', 'from_username' => 'shop' ),
+	'yotpo_settings'                                => array( 'app_key' => 'sn-yotpo-app', 'secret' => 'sn-yotpo-secret' ),
+	'zmail_access_token'                            => 'sn-zoho-access',
+	'zmail_auth_code'                               => 'sn-zoho-code',
+	'zmail_integ_client_secret'                     => 'sn-zoho-secret',
+	'zmail_refresh_token'                           => 'sn-zoho-refresh',
+);
+
+function sn_test_blanked_options(): array {
+	$state = array();
+	foreach ( SN_TEST_BLANKED_OPTIONS as $name => $seeded ) {
+		$state[ $name ] = array(
+			'seeded' => $seeded,
+			'value'  => sn_test_raw_option( $name ),
+			'backup' => sn_test_raw_option( "{$name}_sn_backup" ),
+		);
+	}
+	return $state;
+}
+
 function sn_test_ai_state(): array {
 	global $wpdb;
 	$state = array(

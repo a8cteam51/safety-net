@@ -294,7 +294,7 @@ function stored_prefix_options( Integration $integration ): array {
 }
 
 /**
- * Returns the options the scrub step goes through: option_scrublist.txt and every integration's options.
+ * Returns the options the scrub step goes through besides core's default_pingback_flag: option_scrublist.txt and every integration's options.
  *
  * @return array
  */

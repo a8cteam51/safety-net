@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, httpProbeSince, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertOptionsBlanked, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, httpProbeSince, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite, phpAtLeast, wpAtLeast } from '../lib/site.mjs';
 
@@ -47,6 +47,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 				'pmpro_secret'     => sn_test_raw_option( 'pmpro_stripe_secretkey' ),
 				'afterpay'         => sn_test_raw_option( 'woocommerce_afterpay_settings' ),
 				'woopayments'      => sn_test_raw_option( 'woocommerce_woocommerce_payments_settings' ),
+				'blanked'          => sn_test_blanked_options(),
 			);`
 		);
 		const o = s.snapshot.options;
@@ -79,6 +80,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.deepEqual( o.wprus, { encryption: { aes_key: '', hmac_key: '', other: 'keep' }, keep: 'yes' }, 'A13 wprus' );
 		assert.deepEqual( o._wp_convertkit_settings, { api_key: '', api_secret: '', access_token: '', refresh_token: '', token_expires: '', other: 'keep' }, 'A13 convertkit' );
 		assert.deepEqual( o.apple_news_settings, { api_key: '', api_secret: '', api_channel: '', apple_news_admin_email: '', api_autosync: 'no', apple_news_enable_debugging: 'no', other: 'keep', api_autosync_update: 'no', api_autosync_trash: 'no', api_autosync_delete: 'no', api_autosync_unpublish: 'no' }, 'A13 apple news' );
+		assertOptionsBlanked( s.blanked, 'A3/A4' );
 	} );
 
 	test( 'A14/A16: denylisted plugins are deactivated and the rest stay active', async () => {
@@ -202,10 +204,12 @@ return $state;` );
 	} );
 
 	test( 'A18: transients are deleted and other options are left alone', async () => {
-		const s = await site.php( "return array( 'snapshot' => sn_test_snapshot(), 'timeout' => sn_test_raw_option( '_transient_timeout_sn_seed' ) );" );
+		const s = await site.php( "return array( 'snapshot' => sn_test_snapshot(), 'timeout' => sn_test_raw_option( '_transient_timeout_sn_seed' ), 'nelio_timeout' => sn_test_raw_option( '_transient_timeout_nelio_content_news' ) );" );
 		assert.equal( s.snapshot.options._transient_sn_seed, null );
 		assert.equal( s.timeout, null );
 		assert.equal( s.snapshot.options._transient_nelio_content_news, null );
+		assert.equal( s.nelio_timeout, null );
+		assert.ok( ! s.snapshot.backups.some( ( backup ) => backup.startsWith( '_transient_' ) ), 'The transients step left the backup of a scrubbed transient' );
 		assert.equal( s.snapshot.options.blogname, 'My WordPress Website' );
 	} );
 
@@ -407,9 +411,30 @@ return $seen;` );
 		assert.equal( s.after, false, 'get_option() still returns the deleted AI key in the same request' );
 	} );
 
+	test( 'A43: the scrub alone blanks, with a backup, options the first load cannot show: the Nelio Content news transient and its timeout, which the transients step deletes right after, and klaviyo_settings, which A10 keeps unset', async () => {
+		const s = await site.php( `
+$seeded = array(
+	'_transient_nelio_content_news'         => 'sn-news',
+	'_transient_timeout_nelio_content_news' => '1893456000',
+	'klaviyo_settings'                      => array( 'public_api_key' => 'sn-klaviyo-public' ),
+);
+foreach ( $seeded as $name => $value ) {
+	add_option( $name, $value, '', false );
+}
+SafetyNet\\ScrubOptions\\scrub_options();
+$state = array();
+foreach ( array_keys( $seeded ) as $name ) {
+	$state[ $name ] = array( sn_test_raw_option( $name ), sn_test_raw_option( "{$name}_sn_backup" ) );
+	delete_option( $name );
+	delete_option( "{$name}_sn_backup" );
+}
+return $state;` );
+		assert.deepEqual( s, { _transient_nelio_content_news: [ '', 'sn-news' ], _transient_timeout_nelio_content_news: [ '', '1893456000' ], klaviyo_settings: [ [], { public_api_key: 'sn-klaviyo-public' } ] } );
+	} );
+
 	test( 'R1: every integration is valid, is declared by its own file ahead of a site\'s declarations, and shares no option or plugin pattern with another integration or the data files', async () => {
 		const r = await site.php( 'return sn_test_integrations_report();', { label: 'reading the integrations registry' } );
-		assert.ok( r.scrublist.length > 0 && r.denylist.length > 0, 'The data files read as empty, so the overlap checks prove nothing' );
+		assert.ok( r.denylist.length > 0, 'plugin_denylist.txt reads as empty, so the plugin pattern overlap checks prove nothing' );
 		const files = r.files.filter( ( file ) => ! file.startsWith( '_' ) );
 		assert.deepEqual( r.integrations.map( ( integration ) => integration.slug ), files, 'The registered integrations are not exactly the files in includes/integrations/, in file order' );
 		assert.deepEqual( r.declared, Object.fromEntries( files.map( ( file ) => [ file, [ file ] ] ) ), 'Each integration file must declare exactly one integration, whose slug is the file name' );

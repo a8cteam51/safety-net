@@ -69,9 +69,28 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		assert.match( table, /^\W*woocommerce\W+WooCommerce\W+facebook-.*?\W0\W+17\W+3\W+0\W+yes\W+no\W+no\W+no\W*$/m, `The table does not show the WooCommerce integration: ${ table }` );
 		assert.match( table, /^\W*woocommerce-me\w*\W+WooCommerce\b.*?\W0\W+0\W+1\W+0\W+no\W+no\W+no\W+no\W*$/m, `The table does not show the WooCommerce Memberships integration: ${ table }` );
 		assert.match( table, /^\W*woocommerce-su\w*\W+WooCommerce\b.*?\W0\W+0\W+1\W+1\W+no\W+no\W+yes\W+no\W*$/m, `The table does not show the WooCommerce Subscriptions integration: ${ table }` );
+		for ( const [ row, name ] of [
+			[ /^\W*hubspot\W+HubSpot\W+hubspot, lead\w*\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'HubSpot' ],
+			[ /^\W*klaviyo\W+Klaviyo\W+klaviyo\W+4\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Klaviyo' ],
+			[ /^\W*mailchimp\W+Mailchimp\W+mailchimp\W+3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Mailchimp' ],
+			[ /^\W*mailster\W+Mailster\W+mailster\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Mailster' ],
+			[ /^\W*nelio-content\W+Nelio Content\W+nelio-content\W+3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Nelio Content' ],
+			[ /^\W*northbeam\W+Northbeam\W+2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Northbeam' ],
+			[ /^\W*passport\W+Passport\W+2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Passport' ],
+			[ /^\W*referralcandy\W+ReferralCandy\W+referralcandy\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'ReferralCandy' ],
+			[ /^\W*shareasale\W+ShareASale\W+shareasale\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'ShareASale' ],
+			[ /^\W*shipstation\W+ShipStation\W+shipstation\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'ShipStation' ],
+			[ /^\W*tiktok\W+TikTok\W+tiktok, tiktok[\w-]*\W+8\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'TikTok' ],
+			[ /^\W*wayback-mac\w*\W+Internet\b.*?\W2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Wayback Machine Link Fixer' ],
+			[ /^\W*wpmandrill\W+wpMandrill\W+wpmandrill\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'wpMandrill' ],
+			[ /^\W*yotpo\W+Yotpo\W+yotpo\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Yotpo' ],
+			[ /^\W*zoho-mail\W+Zoho Mail\W+zoho, zoho[\w-]*\W+4\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W*$/m, 'Zoho Mail' ],
+		] ) {
+			assert.match( table, row, `The table does not show the ${ name } integration: ${ table }` );
+		}
 		const integrations = JSON.parse( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop() );
-		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'apple-news', 'automatewoo', 'buddypress', 'convertkit', 'givewp', 'jetpack-crm', 'jetpack', 'mailpoet', 'newsletter', 'offline-gateways', 'payment-gateways', 'paypal', 'pmpro', 'stripe', 'woocommerce-memberships', 'woocommerce-subscriptions', 'woocommerce', 'wp-mail-logging', 'wpforms', 'wprus' ] );
-		const { 'ai-connectors': ai, mailpoet, 'apple-news': appleNews, convertkit, jetpack, paypal, stripe, wprus, automatewoo, 'offline-gateways': offlineGateways, 'payment-gateways': paymentGateways, woocommerce, 'woocommerce-memberships': memberships, 'woocommerce-subscriptions': subscriptions, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
+		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'apple-news', 'automatewoo', 'buddypress', 'convertkit', 'givewp', 'hubspot', 'jetpack-crm', 'jetpack', 'klaviyo', 'mailchimp', 'mailpoet', 'mailster', 'nelio-content', 'newsletter', 'northbeam', 'offline-gateways', 'passport', 'payment-gateways', 'paypal', 'pmpro', 'referralcandy', 'shareasale', 'shipstation', 'stripe', 'tiktok', 'wayback-machine', 'woocommerce-memberships', 'woocommerce-subscriptions', 'woocommerce', 'wp-mail-logging', 'wpforms', 'wpmandrill', 'wprus', 'yotpo', 'zoho-mail' ] );
+		const { 'ai-connectors': ai, mailpoet, 'apple-news': appleNews, convertkit, jetpack, paypal, stripe, wprus, automatewoo, 'offline-gateways': offlineGateways, 'payment-gateways': paymentGateways, woocommerce, 'woocommerce-memberships': memberships, 'woocommerce-subscriptions': subscriptions, hubspot, klaviyo, mailchimp, mailster, 'nelio-content': nelioContent, northbeam, passport, referralcandy, shareasale, shipstation, tiktok, 'wayback-machine': waybackMachine, wpmandrill, yotpo, 'zoho-mail': zohoMail, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
 		assert.deepEqual(
 			{ label: ai.label, plugins: ai.plugins, options: ai.options, delete_options: ai.delete_options.length, delete_partial_options: Object.keys( ai.delete_partial_options ).length, delete_option_prefixes: ai.delete_option_prefixes, phases: [ ai.scrub, ai.delete, ai.hooks, ai.late ] },
 			{ label: 'AI providers', plugins: [ 'ai/ai.php', 'ai-engine', 'ai-provider-for-', 'bestony-ai-provider/', 'birbwhale/', 'duetg-ai-connector/', 'duoport-connect-for-opencode/', 'jokiruiz-local-model-connector/', 'koneek-multi-provider-ai-gateway/', 'latentkit-ai-provider/', 'mittwald-ai-provider/', 'modeltrestle-ai-connector-for-nano-gpt/', 'mw-local-ai-connector/', 'mwai', 'onmyodev-connector-for-deepseek/', 'opencode-ai-provider/', 'razhur-connector-for-avalai/', 'sync-to-gpt', 'ultimate-ai-connector-compatible-endpoints/', 'vercel-ai-gateway-provider/', 'zactonz-ai-' ], options: [ 'mwai_options', 'mwai_v2_options' ], delete_options: 8, delete_partial_options: 6, delete_option_prefixes: { connectors_ai_: [ '_api_key', '_application_password' ], '_secret_ai/': [ '_api_key' ], 0: 'koneek_api_key', 1: 'zctz_openrouter_secret_' }, phases: [ false, false, false, false ] },
@@ -118,6 +137,27 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 				'woocommerce-subscriptions': { label: 'WooCommerce Subscriptions', plugins: [], options: [], tables: [], post_types: [ 'shop_subscription' ], comment_types: [], usermeta: [ '\\_wcs\\_subscription\\_ids\\_cache%' ], action_scheduler_hooks: [ 'woocommerce_scheduled_subscription_payment', 'woocommerce_scheduled_subscription_payment_retry', 'woocommerce_scheduled_subscription_end_of_prepaid_term' ], cancel_action_scheduler_hooks: [], offline_gateways: [], phases: [ false, false, true, false ] },
 			},
 			'The JSON output does not describe the WooCommerce, WooCommerce Subscriptions and Memberships, AutomateWoo, offline gateways and payment gateways integrations'
+		);
+		assert.deepEqual(
+			Object.fromEntries( Object.entries( { hubspot, klaviyo, mailchimp, mailster, 'nelio-content': nelioContent, northbeam, passport, referralcandy, shareasale, shipstation, tiktok, 'wayback-machine': waybackMachine, wpmandrill, yotpo, 'zoho-mail': zohoMail } ).map( ( [ slug, integration ] ) => [ slug, { label: integration.label, plugins: integration.plugins, options: integration.options, partial_options: integration.partial_options, option_values: integration.option_values, delete_options: integration.delete_options, phases: [ integration.scrub, integration.delete, integration.hooks, integration.late ] } ] ) ),
+			{
+				hubspot: { label: 'HubSpot', plugins: [ 'hubspot', 'leadin' ], options: [ 'leadin_access_token' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				klaviyo: { label: 'Klaviyo', plugins: [ 'klaviyo' ], options: [ 'klaviyo_api_key', 'klaviyo_edd_license_key', 'klaviyo_settings', 'novos_klaviyo_option_name' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				mailchimp: { label: 'Mailchimp', plugins: [ 'mailchimp' ], options: [ 'mailchimp-woocommerce', 'mailchimp-woocommerce-cached-api-account-name', 'mc4wp' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				mailster: { label: 'Mailster', plugins: [ 'mailster' ], options: [ 'mailster_options' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				'nelio-content': { label: 'Nelio Content', plugins: [ 'nelio-content' ], options: [ '_transient_nelio_content_news', '_transient_timeout_nelio_content_news', 'nelio-content_settings' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				northbeam: { label: 'Northbeam', plugins: [], options: [ 'northbeam_api_key', 'northbeam_client_id' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				passport: { label: 'Passport', plugins: [], options: [ 'passport_api_key', 'passport_api_secret' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				referralcandy: { label: 'ReferralCandy', plugins: [ 'referralcandy' ], options: [ 'woocommerce_referralcandy_settings' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				shareasale: { label: 'ShareASale', plugins: [ 'shareasale' ], options: [ 'shareasale_wc_tracker_options' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				shipstation: { label: 'ShipStation', plugins: [ 'shipstation' ], options: [ 'woocommerce_shipstation_auth_key' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				tiktok: { label: 'TikTok', plugins: [ 'tiktok', 'tiktok-for-business' ], options: [ 'tt4b_access_token', 'tt4b_advertiser_id', 'tt4b_app_id', 'tt4b_bc_id', 'tt4b_catalog_id', 'tt4b_external_business_id', 'tt4b_external_data', 'tt4b_secret' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				'wayback-machine': { label: 'Internet Archive Wayback Machine Link Fixer', plugins: [ 'internet-archive-wayback-machine-link-fixer' ], options: [ 'iawmlf_archive_api_access', 'iawmlf_archive_api_secret' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				wpmandrill: { label: 'wpMandrill', plugins: [ 'wpmandrill' ], options: [ 'wpmandrill' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				yotpo: { label: 'Yotpo', plugins: [ 'yotpo' ], options: [ 'yotpo_settings' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+				'zoho-mail': { label: 'Zoho Mail', plugins: [ 'zoho', 'zoho-mail' ], options: [ 'zmail_access_token', 'zmail_auth_code', 'zmail_integ_client_secret', 'zmail_refresh_token' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false ] },
+			},
+			'The JSON output does not describe the integrations whose options are only blanked'
 		);
 		const none = "--exec=WP_CLI::add_wp_hook( 'safety_net/integrations', '__return_empty_array', 999 );";
 		assert.match( ( await wpOk( 'safety-net', 'integrations', none ) ).stdout, /Success: No integrations registered\./ );
