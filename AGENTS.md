@@ -39,7 +39,7 @@ safety-net/
 ├── includes/
 │   ├── bootstrap.php       # Registers maybe_* actions on safety_net_loaded
 │   ├── admin.php           # Admin UI, AJAX handlers, email blocking
-│   ├── common.php          # Filters: disable emails, Jetpack, robots.txt
+│   ├── common.php          # Filters: disable emails, robots.txt
 │   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production
 │   ├── scrub-options.php   # Scrubs the options in option_scrublist.txt and those the integrations declare
 │   ├── integrations.php    # Integrations registry: loads includes/integrations/*.php, validates, run_phase()
@@ -170,7 +170,7 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
 
 - Denylists live in `assets/data/`:
   - `option_scrublist.txt` — WordPress option names to scrub
-  - `plugin_denylist.txt` — plugin slugs or partial matches (e.g. `paypal` matches any plugin with `paypal` in the path)
+  - `plugin_denylist.txt` — plugin slugs or partial matches (e.g. `smtp` matches any plugin with `smtp` in the path)
 - One entry per line.
 - To add entries: create an issue, submit a PR, or use filters (see Extensibility).
 
@@ -201,7 +201,7 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
    Each site runs the steps on its own first load, but network-activated plugins and the network admin email are changed only by the first automatic run on the network, which records it in network options (`safety_net_network_plugins_deactivated`, `safety_net_network_gateway_plugins_deactivated` once a gateway pass has run with WooCommerce loaded, and `safety_net_network_admin_email_scrubbed`), so a later site's first run doesn't undo a super admin's changes. `should_change_network()` in `utilities.php` decides this. From the Tools page, only super admins (`manage_network_plugins`, `manage_network_options`) re-apply the network-wide part; a site administrator's buttons change only their own site. The WP-CLI commands always apply it. Single sites never write these flags.
 
 7. **Integrations registry**  
-   What Safety Net does for one third-party plugin belongs in `includes/integrations/<slug>.php`, which adds a `SafetyNet\Integrations\Integration` to the `safety_net/integrations` filter at `BUILT_IN_PRIORITY` (files load in name order; names starting with `_` are skipped). The steps read the registry and call `run_phase()` for the integrations' closures; `wp safety-net integrations` lists them. The automatic pass runs while plugins are still being included, so declarations are data (option names, table suffixes, plugin patterns) and the `scrub`, `delete` and `hooks` closures must not rely on another plugin's code: they may call one of its functions only behind `function_exists()`, because that plugin may not be loaded yet (as in `pmpro.php`); only `late`, which runs on `wp_loaded` of every non-production request, may use its classes. Invalid declarations are logged (`Safety Net: ignoring integration …`) and skipped, and so is one that declares an option or plugin pattern an earlier one already covers, including an option under another integration's `delete_option_prefixes`; Safety Net's own declarations come first, so a site's overlapping declaration is the one skipped. The `staging-plugin` census test (R1) fails on any of these and on an option or plugin pattern that is also in the data files. The registry is collected once per request as Safety Net loads, and declarations added later are ignored for the rest of that request, also by the Tools page, WP-CLI and `late`. Other code must add them from an mu-plugin; when Safety Net itself runs from `mu-plugins/`, from one whose file name sorts before the file that loads Safety Net.
+   What Safety Net does for one third-party plugin belongs in `includes/integrations/<slug>.php`, which adds a `SafetyNet\Integrations\Integration` to the `safety_net/integrations` filter at `BUILT_IN_PRIORITY` (files load in name order; names starting with `_` are skipped). The steps read the registry and call `run_phase()` for the integrations' closures; `wp safety-net integrations` lists them. The automatic pass runs while plugins are still being included, so declarations are data (option names, table suffixes, plugin patterns) and the `scrub`, `delete` and `hooks` closures, like a closure that a `partial_options` entry maps an option to (the scrub step passes it the option's array value after the backup), must not rely on another plugin's code: they may call one of its functions only behind `function_exists()`, because that plugin may not be loaded yet (as in `pmpro.php`); only `late`, which runs on `wp_loaded` of every non-production request, may use its classes. Invalid declarations are logged (`Safety Net: ignoring integration …`) and skipped, and so is one that declares an option or plugin pattern an earlier one already covers, including an option under another integration's `delete_option_prefixes`; Safety Net's own declarations come first, so a site's overlapping declaration is the one skipped. The `staging-plugin` census test (R1) fails on any of these and on an option or plugin pattern that is also in the data files. The registry is collected once per request as Safety Net loads, and declarations added later are ignored for the rest of that request, also by the Tools page, WP-CLI and `late`. Other code must add them from an mu-plugin; when Safety Net itself runs from `mu-plugins/`, from one whose file name sorts before the file that loads Safety Net.
 
 ---
 
@@ -246,8 +246,8 @@ Constant:
    The main plugin file MUST guard with `if ( ! defined( 'ABSPATH' ) ) { exit; }`.
 
 5. **Denylist format**  
-   - Options: exact option name (e.g. `jetpack_active_modules`).
-   - Plugins: slug or partial match (e.g. `paypal` matches `woocommerce-paypal-payments/woocommerce-paypal-payments.php`).
+   - Options: exact option name (e.g. `klaviyo_api_key`).
+   - Plugins: slug or partial match (e.g. `smtp` matches `wp-mail-smtp/wp_mail_smtp.php`).
 
 6. **Atomic / WP.com staging**  
    On Atomic sites (`jetpack_is_atomic_site()` or `wpcomstaging.com`), `jetpack_private_options` and `jetpack_secrets` are NOT scrubbed to avoid disconnecting Jetpack.

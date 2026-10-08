@@ -258,8 +258,10 @@ function sn_test_set_network( array $plugins, string $admin_email ): array {
 function sn_test_integrations_report(): array {
 	global $wp_filter, $wpdb;
 	$dir   = wp_normalize_path( SAFETY_NET_PATH . 'includes/integrations' );
-	$files = array_map( static fn( $file ) => basename( $file, '.php' ), glob( "$dir/*.php" ) ?: array() );
+	$files = glob( "$dir/*.php" ) ?: array();
+	// The loader sorts full file names, so jetpack-crm.php comes before jetpack.php.
 	sort( $files, SORT_STRING );
+	$files = array_map( static fn( $file ) => basename( $file, '.php' ), $files );
 
 	// Each callback runs on its own, so a declaration is credited to the file that holds the callback adding it.
 	$declared = array();

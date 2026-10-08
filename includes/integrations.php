@@ -137,8 +137,8 @@ function find_problem( $integration, array $accepted ): ?string {
 	}
 
 	foreach ( $integration->partial_options as $keys ) {
-		if ( ! is_array( $keys ) || ! $keys || ! is_name_list( partial_option_keys( $keys ) ) ) {
-			return 'partial_options must map each option to the keys to change inside it';
+		if ( ! $keys instanceof \Closure && ( ! is_array( $keys ) || ! $keys || ! is_name_list( partial_option_keys( $keys ) ) ) ) {
+			return 'partial_options must map each option to the keys to change inside it, or to a closure';
 		}
 	}
 
@@ -318,7 +318,7 @@ function options_to_clear(): array {
  * Decides how the scrub step treats an option, from the integration that declares it.
  *
  * @param mixed $option Option name.
- * @return array 'mode' is 'blank', 'partial' with the 'keys' to change, 'value' with the 'value' to set, 'delete', or 'delete_partial' with the 'keys' to blank.
+ * @return array 'mode' is 'blank', 'partial' with the 'keys' to change or a closure, 'value' with the 'value' to set, 'delete', or 'delete_partial' with the 'keys' to blank.
  */
 function option_treatment( $option ): array {
 	if ( ! is_string( $option ) ) {
