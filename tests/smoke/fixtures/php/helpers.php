@@ -253,3 +253,140 @@ function sn_test_set_network( array $plugins, string $admin_email ): array {
 	update_site_option( 'admin_email', $admin_email );
 	return sn_test_network_state();
 }
+
+// The registry as plain data (closures as booleans), which integration files declared which slugs, and the data files the census compares them with.
+function sn_test_integrations_report(): array {
+	global $wp_filter, $wpdb;
+	$dir   = wp_normalize_path( SAFETY_NET_PATH . 'includes/integrations' );
+	$files = array_map( static fn( $file ) => basename( $file, '.php' ), glob( "$dir/*.php" ) ?: array() );
+	sort( $files, SORT_STRING );
+
+	// Each callback runs on its own, so a declaration is credited to the file that holds the callback adding it.
+	$declared = array();
+	$hook     = $wp_filter['safety_net/integrations'] ?? null;
+	foreach ( $hook ? $hook->callbacks : array() as $callbacks ) {
+		foreach ( $callbacks as $callback ) {
+			$function = $callback['function'];
+			if ( is_string( $function ) && str_contains( $function, '::' ) ) {
+				$function = explode( '::', $function, 2 );
+			} elseif ( is_object( $function ) && ! $function instanceof Closure ) {
+				$function = array( $function, '__invoke' );
+			}
+			$reflection = is_array( $function ) ? new ReflectionMethod( $function[0], $function[1] ) : new ReflectionFunction( $function );
+			$file       = wp_normalize_path( (string) $reflection->getFileName() );
+			if ( dirname( $file ) !== $dir ) {
+				continue;
+			}
+			foreach ( (array) call_user_func( $function, array() ) as $integration ) {
+				$declared[ basename( $file, '.php' ) ][] = $integration instanceof SafetyNet\Integrations\Integration ? $integration->slug : get_debug_type( $integration );
+			}
+		}
+	}
+
+	return array(
+		'integrations' => array_values( array_map( static fn( $integration ) => $integration->to_array(), SafetyNet\Integrations\get_integrations() ) ),
+		'files'        => $files,
+		'declared'     => (object) $declared,
+		'list_fields'  => SafetyNet\Integrations\Integration::LIST_FIELDS,
+		'phases'       => SafetyNet\Integrations\Integration::PHASES,
+		'scrublist'    => array_values( SafetyNet\Utilities\get_denylist_array( 'options' ) ),
+		'denylist'     => array_values( SafetyNet\Utilities\get_denylist_array( 'plugins' ) ),
+		'prefix'       => $wpdb->prefix,
+		'base_prefix'  => $wpdb->base_prefix,
+	);
+}
+
+// What the sn-test-extra integration in the helper mu-plugin covers, and what it and the invalid declarations must leave alone.
+function sn_test_extra_integration_state(): array {
+	global $wpdb;
+	$options = array();
+	foreach ( array( 'sn_test_extra_secret', 'sn_test_extra_settings', 'sn_test_extra_env', 'sn_test_extra_token', 'sn_test_extra_key_a_secret', 'sn_test_extra_key_a_url', 'sn_test_bad_secret' ) as $name ) {
+		$options[ $name ] = sn_test_raw_option( $name );
+	}
+	$backups = array();
+	foreach ( $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE 'sn\\_test\\_%\\_sn\\_backup' ORDER BY option_name" ) as $backup ) {
+		$backups[ $backup ] = sn_test_raw_option( $backup );
+	}
+	$uploads = glob( wp_upload_dir( null, false )['basedir'] . '/sn-test-extra/*' ) ?: array();
+	return array(
+		'options'  => $options,
+		'backups'  => (object) $backups,
+		'tables'   => array(
+			'extra'   => sn_test_count( $wpdb->prefix . 'sn_test_extra' ),
+			'network' => sn_test_count( $wpdb->base_prefix . 'sn_test_extra_network' ),
+			'bad'     => sn_test_count( $wpdb->prefix . 'sn_test_bad' ),
+		),
+		'posts'    => sn_test_count( $wpdb->posts, "post_type = 'sn_test_extra'" ),
+		'postmeta' => sn_test_count( $wpdb->postmeta, "meta_key = '_sn_test_extra'" ),
+		'comments' => array(
+			'extra' => sn_test_count( $wpdb->comments, "comment_type = 'sn_test_extra'" ),
+			'kept'  => sn_test_count( $wpdb->comments, "comment_content = 'SN integration comment to keep'" ),
+		),
+		'usermeta' => $wpdb->get_col( "SELECT meta_key FROM $wpdb->usermeta WHERE user_id = 1 AND meta_key LIKE 'sn\\_test\\_%' ORDER BY meta_key" ),
+		'uploads'  => array_map( 'basename', $uploads ),
+		'active'   => in_array( 'zz-single-file.php', (array) get_option( 'active_plugins' ), true ),
+	);
+}
+
+// Seeds one of everything sn-test-extra covers, plus look-alikes it must keep, then registers it and the invalid declarations for the next load.
+function sn_test_seed_extra_integration(): array {
+	global $wpdb;
+	foreach ( array( $wpdb->prefix . 'sn_test_extra', $wpdb->base_prefix . 'sn_test_extra_network', $wpdb->prefix . 'sn_test_bad' ) as $table ) {
+		$wpdb->query( "CREATE TABLE $table ( id INTEGER PRIMARY KEY, data TEXT )" ); // phpcs:ignore
+		$wpdb->insert( $table, array( 'data' => 'customer1@example.com' ) );
+	}
+	update_option( 'sn_test_extra_secret', 'extra-secret' );
+	update_option( 'sn_test_extra_settings', array( 'api_key' => 'k', 'mode' => 'live', 'keep' => 'yes' ) );
+	update_option( 'sn_test_extra_env', 'live' );
+	update_option( 'sn_test_extra_token', 'tok' );
+	update_option( 'sn_test_extra_token_sn_backup', 'old' );
+	update_option( 'sn_test_extra_key_a_secret', 'x' );
+	update_option( 'sn_test_extra_key_a_url', 'https://example.com' );
+	update_option( 'sn_test_extra_key_b_secret_sn_backup', 'old' );
+	update_option( 'sn_test_bad_secret', 'bad' );
+
+	$post = wp_insert_post( array( 'post_type' => 'sn_test_extra', 'post_status' => 'publish', 'post_title' => 'SN integration record' ) );
+	add_post_meta( $post, '_sn_test_extra', 'customer1@example.com' );
+	$kept = wp_insert_post( array( 'post_status' => 'publish', 'post_title' => 'SN integration post' ) );
+	wp_insert_comment( array( 'comment_post_ID' => $kept, 'comment_type' => 'sn_test_extra', 'comment_content' => 'customer1@example.com' ) );
+	wp_insert_comment( array( 'comment_post_ID' => $kept, 'comment_content' => 'SN integration comment to keep' ) );
+
+	update_user_meta( 1, 'sn_test_extra_meta_1', 'x' );
+	update_user_meta( 1, 'sn_test_extra_meta_2', 'x' );
+	update_user_meta( 1, 'sn_test_keep_meta', 'x' );
+
+	$dir = wp_upload_dir( null, false )['basedir'] . '/sn-test-extra';
+	wp_mkdir_p( $dir );
+	foreach ( array( 'export-1.csv', 'export-2.csv', 'keep.txt' ) as $file ) {
+		file_put_contents( "$dir/$file", 'customer1@example.com' ); // phpcs:ignore
+	}
+	sn_test_activate_plugins( array( 'zz-single-file.php' ) );
+
+	update_option( 'sn_test_extra_integration', 1 );
+	update_option( 'sn_test_bad_integration', 1 );
+	return array(
+		'kept_post' => $kept,
+		'state'     => sn_test_extra_integration_state(),
+	);
+}
+
+function sn_test_remove_extra_integration( int $kept_post ) {
+	global $wpdb;
+	delete_option( 'sn_test_extra_integration' );
+	delete_option( 'sn_test_bad_integration' );
+	foreach ( $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE 'sn\\_test\\_extra\\_%' OR option_name LIKE 'sn\\_test\\_bad\\_%'" ) as $name ) {
+		delete_option( $name );
+	}
+	foreach ( array( $wpdb->prefix . 'sn_test_extra', $wpdb->base_prefix . 'sn_test_extra_network', $wpdb->prefix . 'sn_test_bad' ) as $table ) {
+		$wpdb->query( "DROP TABLE IF EXISTS $table" ); // phpcs:ignore
+	}
+	wp_delete_post( $kept_post, true );
+	delete_user_meta( 1, 'sn_test_keep_meta' );
+	$dir = wp_upload_dir( null, false )['basedir'] . '/sn-test-extra';
+	foreach ( glob( "$dir/*" ) ?: array() as $file ) {
+		unlink( $file ); // phpcs:ignore
+	}
+	@rmdir( $dir ); // phpcs:ignore
+	sn_test_activate_plugins( array( 'zz-single-file.php' ) );
+	return true;
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, httpProbeSince, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite, phpAtLeast, wpAtLeast } from '../lib/site.mjs';
 
@@ -394,6 +394,94 @@ return $seen;` );
 		assert.ok( 'flag_saved' in s, 'Scrubbing did not add the run-once flag in this request, so this proves nothing' );
 		assert.equal( s.flag_saved, false, 'The deleted AI key was still in the options cache when the run-once flag saved the autoloaded options' );
 		assert.equal( s.after, false, 'get_option() still returns the deleted AI key in the same request' );
+	} );
+
+	test( 'R1: every integration is valid, is declared by its own file, and shares no option or plugin pattern with another integration or the data files', async () => {
+		const r = await site.php( 'return sn_test_integrations_report();', { label: 'reading the integrations registry' } );
+		assert.ok( r.scrublist.length > 0 && r.denylist.length > 0, 'The data files read as empty, so the overlap checks prove nothing' );
+		const files = r.files.filter( ( file ) => ! file.startsWith( '_' ) );
+		assert.deepEqual( r.integrations.map( ( integration ) => integration.slug ), files, 'The registered integrations are not exactly the files in includes/integrations/, in file order' );
+		assert.deepEqual( r.declared, Object.fromEntries( files.map( ( file ) => [ file, [ file ] ] ) ), 'Each integration file must declare exactly one integration, whose slug is the file name' );
+		const isNameList = ( list ) => Array.isArray( list ) && list.every( ( value ) => typeof value === 'string' && value !== '' );
+		const owners = { option: new Map(), plugin: new Map() };
+		for ( const integration of r.integrations ) {
+			const { slug } = integration;
+			assert.match( slug, /^[a-z0-9-]+$/ );
+			for ( const field of r.list_fields ) {
+				assert.ok( isNameList( integration[ field ] ), `${ slug }: ${ field } may only hold non-empty strings` );
+			}
+			for ( const table of [ ...integration.tables, ...integration.network_tables ] ) {
+				assert.ok( ! table.startsWith( r.prefix ) && ! table.startsWith( r.base_prefix ), `${ slug }: table ${ table } must leave out the table prefix` );
+			}
+			for ( const field of [ 'partial_options', 'option_values' ] ) {
+				assert.deepEqual( Object.keys( integration[ field ] ).filter( ( key ) => /^\d*$/.test( key ) ), [], `${ slug }: ${ field } must be keyed by option name` );
+			}
+			for ( const phase of r.phases ) {
+				assert.equal( typeof integration[ phase ], 'boolean', `${ slug }: ${ phase } must be a closure or null` );
+			}
+			for ( const option of [ ...integration.options, ...Object.keys( integration.partial_options ), ...Object.keys( integration.option_values ), ...integration.delete_options ] ) {
+				assert.ok( ! owners.option.has( option ), `Option ${ option } is declared by both ${ owners.option.get( option ) } and ${ slug }` );
+				assert.ok( ! r.scrublist.includes( option ), `Option ${ option } is declared by ${ slug } and listed in option_scrublist.txt` );
+				owners.option.set( option, slug );
+			}
+			for ( const pattern of integration.plugins.map( ( plugin ) => plugin.toLowerCase() ) ) {
+				assert.ok( ! owners.plugin.has( pattern ), `Plugin pattern ${ pattern } is declared by both ${ owners.plugin.get( pattern ) } and ${ slug }` );
+				assert.ok( ! r.denylist.some( ( entry ) => entry.toLowerCase() === pattern ), `Plugin pattern ${ pattern } is declared by ${ slug } and listed in plugin_denylist.txt` );
+				owners.plugin.set( pattern, slug );
+			}
+		}
+	} );
+
+	test( 'R2: invalid integration declarations are logged and skipped, and a valid one from an mu-plugin gets everything it declares scrubbed, deactivated and deleted', async () => {
+		let seeded;
+		try {
+			seeded = await site.php( "$seeded = sn_test_seed_extra_integration(); foreach ( array( 'safety_net_options_scrubbed', 'safety_net_plugins_deactivated', 'safety_net_data_deleted' ) as $flag ) { delete_option( $flag ); } return $seeded;", { label: 'seeding a test integration and clearing the step flags' } );
+			assert.deepEqual( seeded.state, {
+				options: { sn_test_extra_secret: 'extra-secret', sn_test_extra_settings: { api_key: 'k', mode: 'live', keep: 'yes' }, sn_test_extra_env: 'live', sn_test_extra_token: 'tok', sn_test_extra_key_a_secret: 'x', sn_test_extra_key_a_url: 'https://example.com', sn_test_bad_secret: 'bad' },
+				backups: { sn_test_extra_key_b_secret_sn_backup: 'old', sn_test_extra_token_sn_backup: 'old' },
+				tables: { extra: 1, network: 1, bad: 1 },
+				posts: 1,
+				postmeta: 1,
+				comments: { extra: 1, kept: 1 },
+				usermeta: [ 'sn_test_extra_meta_1', 'sn_test_extra_meta_2', 'sn_test_keep_meta' ],
+				uploads: [ 'export-1.csv', 'export-2.csv', 'keep.txt' ],
+				active: true,
+			}, 'Seeding the test integration\'s data failed, so this proves nothing' );
+
+			const before = site.probe().length;
+			const mark = site.logMark();
+			await site.get( '/' );
+			const log = site.logEntriesSince( mark );
+			const runs = httpProbeSince( site, before ).map( ( line ) => [ line.runs.safety_net_scrub_options, line.runs.safety_net_deactivate_plugins, line.runs.safety_net_delete_data ] );
+			assert.deepEqual( runs, [ [ 1, 1, 1 ] ], 'The page load did not run the scrub, plugins and delete steps again' );
+			// A declaration that is not an Integration has no slug, so the log names its position in the filtered list.
+			assert.deepEqual( log.map( ( entry ) => entry.match( /Safety Net: ignoring integration (.*)/ )?.[ 1 ].replace( /^#\d+:/, '#N:' ) ).filter( Boolean ), [
+				'"SN Test Bad": its slug may only contain a-z, 0-9 and hyphens.',
+				'"sn-test-extra": another integration already uses its slug.',
+				'"sn-test-claimed": option sn_test_extra_secret is already declared by integration sn-test-extra.',
+				'#N: expected a SafetyNet\\Integrations\\Integration, got string.',
+			], 'Each invalid declaration must be logged once and skipped' );
+			assert.deepEqual( log.map( ( entry ) => entry.match( /SN_TEST integration phase (.*)/ )?.[ 1 ] ).filter( Boolean ), [ 'hooks', 'scrub, option ""', 'delete, rows 0', 'late' ], 'The integration\'s closures did not run once each, in phase order, after the declared scrub and deletes' );
+
+			const { res } = await getToolsPage( site );
+			const denyListColumn = ( name ) => res.text.match( new RegExp( `<td>${ name.replace( /[()]/g, '\\$&' ) }</td>\\s*<td>[^<]*</td>\\s*<td><span class="dashicons dashicons-([a-z-]+)"` ) )?.[ 1 ];
+			assert.equal( denyListColumn( 'Barcode Label Printer (fixture)' ), 'dismiss', 'The Tools page does not list a plugin that is not on the deny list as such, so this check proves nothing' );
+			assert.equal( denyListColumn( 'ZZ Single File (fixture)' ), 'yes-alt', 'The Tools page does not show the plugin the integration declares as on the deny list' );
+
+			assert.deepEqual( await site.php( 'return sn_test_extra_integration_state();' ), {
+				options: { sn_test_extra_secret: '', sn_test_extra_settings: { api_key: '', mode: 'test', keep: 'yes' }, sn_test_extra_env: 'sandbox', sn_test_extra_token: null, sn_test_extra_key_a_secret: null, sn_test_extra_key_a_url: 'https://example.com', sn_test_bad_secret: 'bad' },
+				backups: { sn_test_extra_env_sn_backup: 'live', sn_test_extra_secret_sn_backup: 'extra-secret', sn_test_extra_settings_sn_backup: { api_key: 'k', mode: 'live', keep: 'yes' } },
+				tables: { extra: 0, network: 0, bad: 1 },
+				posts: 0,
+				postmeta: 0,
+				comments: { extra: 0, kept: 1 },
+				usermeta: [ 'sn_test_keep_meta' ],
+				uploads: [ 'keep.txt' ],
+				active: false,
+			}, 'The valid integration\'s data was not handled as declared, or an invalid declaration\'s data was touched' );
+		} finally {
+			await site.php( `return sn_test_remove_extra_integration( ${ seeded?.kept_post ?? 0 } );`, { label: 'removing the test integration' } );
+		}
 	} );
 
 	test( 'A11: Jetpack secrets are kept on Atomic sites', async () => {

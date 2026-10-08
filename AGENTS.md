@@ -42,6 +42,7 @@ safety-net/
 │   ├── common.php          # Filters: disable emails, Jetpack, robots.txt
 │   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production
 │   ├── scrub-options.php   # Scrubs options from option_scrublist.txt and deletes AI provider credentials
+│   ├── integrations.php    # Integrations registry: loads includes/integrations/*.php, validates, run_phase()
 │   ├── self-update.php     # Offers GitHub releases as plugin updates (loads on production too)
 │   ├── deactivate-plugins.php
 │   ├── delete.php          # delete_users_and_orders
@@ -49,7 +50,8 @@ safety-net/
 │   ├── disable-webhooks.php
 │   └── classes/
 │       ├── cli/class-safetynet-cli.php
-│       └── class-actionscheduler-custom-dbstore.php
+│       ├── class-actionscheduler-custom-dbstore.php
+│       └── class-integration.php   # SafetyNet\Integrations\Integration: one plugin's declaration
 ├── assets/
 │   ├── css/admin.css
 │   ├── js/safety-net-admin.js
@@ -197,6 +199,9 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
 6. **Multisite: network-wide changes happen once per network**  
    Each site runs the steps on its own first load, but network-activated plugins and the network admin email are changed only by the first automatic run on the network, which records it in network options (`safety_net_network_plugins_deactivated`, `safety_net_network_gateway_plugins_deactivated` once a gateway pass has run with WooCommerce loaded, and `safety_net_network_admin_email_scrubbed`), so a later site's first run doesn't undo a super admin's changes. `should_change_network()` in `utilities.php` decides this. From the Tools page, only super admins (`manage_network_plugins`, `manage_network_options`) re-apply the network-wide part; a site administrator's buttons change only their own site. The WP-CLI commands always apply it. Single sites never write these flags.
 
+7. **Integrations registry**  
+   What Safety Net does for one third-party plugin belongs in `includes/integrations/<slug>.php`, which adds a `SafetyNet\Integrations\Integration` to the `safety_net/integrations` filter (files load in name order; names starting with `_` are skipped). The steps read the registry and call `run_phase()` for the integrations' closures; `wp safety-net integrations` lists them. The automatic pass runs while plugins are still being included, so declarations are data (option names, table suffixes, plugin patterns) and the `scrub`, `delete` and `hooks` closures must not rely on another plugin's code; only `late`, which runs on `wp_loaded` of every non-production request, may use its classes. Invalid declarations are logged (`Safety Net: ignoring integration …`) and skipped, and the `staging-plugin` census test (R1) fails on them and on an option or plugin pattern that is also in the data files. The registry is collected once per request as Safety Net loads, and declarations added later are ignored for the rest of that request, also by the Tools page, WP-CLI and `late`. Other code must add them from an mu-plugin; when Safety Net itself runs from `mu-plugins/`, from one whose file name sorts before the file that loads Safety Net.
+
 ---
 
 ## Extensibility
@@ -217,6 +222,7 @@ Key filters and hooks:
 | `safety_net_delete_data` | Fired to delete users and orders |
 | `safety_net_delete_transients` | Fired to delete transients |
 | `safety_net_disable_webhooks` | Fired to disable webhooks |
+| `safety_net/integrations` | Add `SafetyNet\Integrations\Integration` declarations; collected once as Safety Net loads, so only code that runs before it can add them (see Architectural Decisions, 7) |
 
 Constant:
 
@@ -269,6 +275,7 @@ wp safety-net deactivate-plugins # Deactivate denylisted plugins
 wp safety-net delete             # Delete users and orders
 wp safety-net delete-transients  # Delete transients
 wp safety-net disable-webhooks   # Disable WooCommerce webhooks
+wp safety-net integrations       # List the integrations and what each one declares
 ```
 
 ---

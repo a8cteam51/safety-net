@@ -6,6 +6,7 @@
  */
 namespace SafetyNet\Bootstrap;
 
+use function SafetyNet\Integrations\run_phase;
 use function SafetyNet\Utilities\is_production;
 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_pause_renewal_actions' );
@@ -16,6 +17,7 @@ add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_delete_transients' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_disable_webhooks' );
 // safety_net_loaded fires before WooCommerce and its gateways load, so gateway plugins are handled once everything has.
 add_action( 'wp_loaded', __NAMESPACE__ . '\maybe_deactivate_gateway_plugins' );
+add_action( 'wp_loaded', __NAMESPACE__ . '\run_late_integrations' );
 /**
  * Determines if we should set the 'Pause renewal actions' toggle when first loading the plugin.
  *
@@ -156,4 +158,13 @@ function maybe_deactivate_gateway_plugins() {
 	}
 
 	do_action( 'safety_net_deactivate_gateway_plugins' );
+}
+
+/**
+ * Runs the integrations' late phase, once other plugins' classes are available.
+ *
+ * @return void
+ */
+function run_late_integrations() {
+	run_phase( 'late' );
 }

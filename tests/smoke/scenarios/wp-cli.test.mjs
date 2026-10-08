@@ -42,6 +42,12 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		}
 	} );
 
+	test( 'C8: wp safety-net integrations succeeds and reports that no integration is registered yet', async () => {
+		assert.match( ( await wpOk( 'help', 'safety-net' ) ).stdout, /^\s+integrations\s/m, 'wp help safety-net does not list integrations' );
+		assert.match( ( await wpOk( 'safety-net', 'integrations' ) ).stdout, /Success: No integrations registered\./ );
+		assert.equal( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop(), '[]' );
+	} );
+
 	test( 'C1/S11: each command succeeds and does its job', async () => {
 		await site.php( "sn_test_create_user( 'cli_customer', 'customer' ); set_transient( 'sn_cli', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); update_option( 'connectors_ai_openai_api_key', 'sk-test-cli' ); update_option( '_secret_ai/openai_api_key', base64_encode( 'sn-test-cli' ), false ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php', 'zz-checkout/zz-checkout.php' ) ); return true;", { label: 're-seeding after the automatic pass' } );
 

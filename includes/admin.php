@@ -9,6 +9,8 @@ use function SafetyNet\Utilities\get_environment_type;
 use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
+use function SafetyNet\Integrations\plugin_patterns;
+use function SafetyNet\Utilities\is_denylisted_plugin;
 
 // Registered as this file loads; a missing toggle counts as on, since maybe_pause_renewal_actions() only saves it later in this request.
 if ( in_array( get_option( 'safety_net_pause_renewal_actions_toggle' ), array( 'on', false ), true ) ) {
@@ -249,21 +251,11 @@ function is_plugin_in_denylist( string $plugin_file ): bool {
 	static $denylisted_plugins = null;
 	static $gateway_plugins    = null;
 	if ( null === $denylisted_plugins ) {
-		$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', \SafetyNet\Utilities\get_denylist_array( 'plugins' ) );
+		$denylisted_plugins = apply_filters( 'safety_net_denylisted_plugins', plugin_patterns() );
 		$gateway_plugins    = \SafetyNet\Utilities\get_payment_gateway_plugins();
 	}
 
-	if ( in_array( $plugin_file, $gateway_plugins, true ) ) {
-		return true;
-	}
-
-	foreach ( $denylisted_plugins as $denylisted_plugin ) {
-		// denylist can be partial matches, i.e. 'paypal' will match with any plugin that has 'paypal' in the slug
-		if ( stristr( $plugin_file, $denylisted_plugin ) ) {
-			return true;
-		}
-	}
-	return false;
+	return in_array( $plugin_file, $gateway_plugins, true ) || is_denylisted_plugin( $plugin_file, $denylisted_plugins );
 }
 
 /**

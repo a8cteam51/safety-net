@@ -5,7 +5,10 @@ namespace SafetyNet\ScrubOptions;
 use WC_Data_Store;
 use WC_Webhook;
 
-use function SafetyNet\Utilities\get_denylist_array;
+use function SafetyNet\Integrations\get_integrations;
+use function SafetyNet\Integrations\option_treatment;
+use function SafetyNet\Integrations\options_to_clear;
+use function SafetyNet\Integrations\run_phase;
 use function SafetyNet\Utilities\should_change_network;
 
 const AI_CREDENTIAL_OPTIONS = array(
@@ -61,7 +64,7 @@ function scrub_options() {
 
 	safety_net_update_option_direct( 'admin_email', 'safetynet@scrubbedthis.option' );
 
-	$options_to_clear = array_merge( get_denylist_array( 'options' ), get_ai_options_to_clear() );
+	$options_to_clear = options_to_clear();
 	$options_to_clear = apply_filters( 'safety_net_options_to_clear', $options_to_clear );
 
 	// Check if it’s an Atomic site either via the Jetpack function or URL.
@@ -84,12 +87,23 @@ function scrub_options() {
 			continue;
 		}
 
+		$treatment = option_treatment( $option );
+		if ( 'delete' === $treatment['mode'] ) {
+			delete_option_directly( $option . '_sn_backup' );
+			delete_option_directly( $option );
+			continue;
+		}
+
 		$option_value = get_option( $option );
 		if ( $option_value ) {
 
 			update_option( $option . '_sn_backup', $option_value );
 
-			if ( is_array( $option_value ) && ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) ) {
+			if ( 'partial' === $treatment['mode'] && is_array( $option_value ) ) {
+				safety_net_update_option_direct( $option, scrub_option_keys( $option_value, $treatment['keys'] ) );
+			} elseif ( 'value' === $treatment['mode'] ) {
+				safety_net_update_option_direct( $option, $treatment['value'] );
+			} elseif ( is_array( $option_value ) && ( 'woocommerce_ppcp-gateway_settings' === $option || 'woocommerce-ppcp-settings' === $option || 'woocommerce_stripe_settings' === $option ) ) {
 				// we need to more selectively wipe parts of these options, because the respective plugins will fatal if the entire options are blank
 				$keys_to_scrub = array( 'enabled', 'client_secret_production', 'client_id_production', 'client_secret', 'client_id', 'merchant_id', 'merchant_email', 'merchant_id_production', 'merchant_email_production', 'publishable_key', 'secret_key', 'webhook_secret' );
 				$option_array  = $option_value;
@@ -218,10 +232,57 @@ function scrub_options() {
 		$wpdb->query( "UPDATE {$wpdb->prefix}actionscheduler_actions SET status = 'canceled' WHERE status = 'pending' AND hook LIKE '%automatewoo%'" );
 	}
 
+	cancel_integration_actions();
+	run_phase( 'scrub' );
+
 	update_option( 'safety_net_options_scrubbed', true );
 
 	// Clear object cache since the updates happen directly in the database.
 	wp_cache_flush();
+}
+
+/**
+ * Blanks the listed keys an option's array value has, and sets the keys given a value.
+ *
+ * @param array $value The option's value.
+ * @param array $keys  Keys to blank, and key => value pairs to set.
+ * @return array The scrubbed value.
+ */
+function scrub_option_keys( array $value, array $keys ): array {
+	foreach ( $keys as $key => $new_value ) {
+		if ( ! is_int( $key ) ) {
+			$value[ $key ] = $new_value;
+		} elseif ( array_key_exists( $new_value, $value ) ) {
+			$value[ $new_value ] = '';
+		}
+	}
+
+	return $value;
+}
+
+/**
+ * Cancels the pending scheduled actions whose hooks match the integrations' patterns.
+ *
+ * @return void
+ */
+function cancel_integration_actions() {
+	global $wpdb;
+
+	$patterns = array();
+	foreach ( get_integrations() as $integration ) {
+		$patterns = array_merge( $patterns, $integration->cancel_action_scheduler_hooks );
+	}
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct access bypasses Action Scheduler; the table name comes from $wpdb.
+	$table_name = $wpdb->prefix . 'actionscheduler_actions';
+	if ( ! $patterns || $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) !== $table_name ) {
+		return;
+	}
+
+	foreach ( $patterns as $pattern ) {
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table_name} SET status = 'canceled' WHERE status = 'pending' AND hook LIKE %s", $pattern ) );
+	}
+	// phpcs:enable
 }
 
 /**
