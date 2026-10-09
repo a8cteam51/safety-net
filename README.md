@@ -15,7 +15,7 @@ This public plugin is provided as an example of how such a plugin could be imple
 
 ## Existing Features
 - **Stop Emails**: When Safety Net is activated, WordPress will be blocked from sending emails. (Caution: may not block SMTP or other plugins from doing so. Plugins that Safety Net deactivated, such as MailPoet, can send email or sync data on their own if someone reactivates them; wp-admin then shows an error notice naming them, and the Tools page highlights them.) 
-- **Pause Renewal Actions**: When Safety Net is activated, Action Scheduler will not claim renewal, payment retry or end of prepaid term actions from WooCommerce Subscriptions, effectively pausing them. Other scheduled actions will continue to run. This is toggleable in wp-admin.
+- **Pause Renewal Actions**: When Safety Net is activated, Action Scheduler will not claim renewal, payment retry or end of prepaid term actions from WooCommerce Subscriptions, effectively pausing them. Other scheduled actions will continue to run. This is toggleable in wp-admin, except while `SAFETY_NET_DELETE_DATA` is `false` (see [Keeping data on purpose](#keeping-data-on-purpose)).
 - **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also deactivates any plugin that registers a WooCommerce payment gateway (deactivates the actual plugin, not from the checkout settings). WooCommerce's built-in gateways and a few offline ones (such as Pre-Orders' "Pay Later" and Bookings' availability check) are left alone. To exclude a plugin from this step, use the `safety_net_payment_gateway_plugins` filter; plugins that also match the denylist (Stripe, PayPal, etc.) additionally need `safety_net_denylisted_plugins`.
@@ -58,8 +58,11 @@ While data is kept:
 
 - The other steps still run: options are scrubbed, denylisted and payment gateway plugins deactivated, transients deleted, WooCommerce webhooks disabled, renewals paused, emails blocked and search engines discouraged.
 - A keep step runs instead of the delete step, once per site. It deletes the `{option}_sn_backup` options, the copies scrubbing makes of the original values, so live credentials cannot be restored next to real customer data. Scrubbing, also from Tools > Safety Net or WP-CLI, makes no new backups.
+- The keep step also deletes saved payment methods and WooCommerce REST API keys, which could still charge customers or reach the store from outside. In MailPoet, it empties the sending tasks and queues and sets scheduled emails back to drafts.
+- Renewal actions stay paused even if "Pause renewal actions" was turned off in Tools > Safety Net, where it shows as checked and cannot be changed. WooCommerce Subscriptions also stays in its staging mode, which turns off automatic payments, even if someone clicks its "Enable automatic payments" button.
+- Accounts copied from the live site, that is every account that existed when the keep step ran, cannot log in unless they are administrators. Shop managers, editors and customers are all refused, whether they use a password, a login cookie or an application password. Accounts created on the copy afterwards can log in, so use those to test as a customer.
 - Password Reset emails, which Safety Net otherwise lets through, are only sent when every recipient is an administrator.
-- Users who can manage options see a wp-admin notice saying that the data is kept, and until when. The status route, `/wp-json/safety-net/v1/status`, reports `data_kept` (the keep step ran on this site), `data_deletion_disabled` (the constants currently stop the automatic run from deleting data; `data_deleted` still says whether it was deleted, for example from Tools > Safety Net) and `keep_until` (the date, or `null`).
+- Users who can manage options see a wp-admin notice saying that the data is kept, until when, and what stops the copy from acting on it. The status route, `/wp-json/safety-net/v1/status`, reports `data_kept` (the keep step ran on this site), `data_deletion_disabled` (the constants currently stop the automatic run from deleting data; `data_deleted` still says whether it was deleted, for example from Tools > Safety Net) and `keep_until` (the date, or `null`).
 - The Delete button in Tools > Safety Net and `wp safety-net delete` still delete everything.
 
 Once `SAFETY_NET_DELETE_DATA` is removed, or the `SAFETY_NET_KEEP_UNTIL` date has passed, the data is deleted the next time the site loads, in a browser or with a `wp` command.
@@ -239,6 +242,7 @@ Safety Net keeps MailPoet's configuration and deletes its people, so a staging s
 * Scrubs the MailPoet Sending Service and Premium keys and their cached key checks, the SMTP, Amazon SES and SendGrid credentials, and the reCAPTCHA and Turnstile secret keys. Forms that used reCAPTCHA or Turnstile switch to MailPoet's built-in captcha.
 * Blanks the default sender, reply-to, bounce and notification email addresses, and each email's own sender and reply-to addresses. Emails without a sender use the default one, which a reactivated MailPoet fills in from the scrubbed admin email. Saving an automation copies the sender stored in its email step back to that email.
 * Keeps forms, lists (now empty), segments, custom fields, tags, emails, templates, automations and the other settings. Scheduled and sending newsletters become drafts.
+* While `SAFETY_NET_DELETE_DATA` is `false`, subscribers, their statistics and automation runs are kept, but the keep step empties the sending tasks and queues (`mailpoet_scheduled_tasks`, `mailpoet_scheduled_task_subscribers`, `mailpoet_sending_queues`), turns scheduled and sending newsletters into drafts and cancels the pending automation steps, so a reactivated MailPoet has nothing queued to send. MailPoet is still deactivated and its keys scrubbed.
 
 MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email blocking does not cover a reactivated MailPoet.
 
@@ -326,6 +330,7 @@ MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email bloc
 * Deactivates these WooCommerce extensions: plugins matching `facebook-for-woocommerce`, `google-listings-and-ads`, `in-stock-mailer-for-wc`, `mailchimp-for-woocommerce`, `pinterest-for-woocommerce`, `woocommerce-amazon-fulfillment`, `woocommerce-google-adwords-conversion`, `woocommerce-payments`, `woocommerce-services`, `woocommerce-shipping/`, `woocommerce-square` and `woocommerce-zapier`. WooCommerce itself stays active.
 * Deletes orders and refunds, in both order storages, with their items, addresses, notes and meta, the order statistics and order product lookup tables, the customer lookup table, saved payment tokens, REST API keys, webhooks, download permissions and the download log, customer sessions, and the logs WooCommerce keeps in the database.
 * When Scrub Options runs with WooCommerce loaded, usually only from Tools > Safety Net or WP-CLI, it also disables the webhooks through WooCommerce.
+* While `SAFETY_NET_DELETE_DATA` is `false` (see [Keeping data on purpose](#keeping-data-on-purpose)), orders and customers are kept, but the keep step still deletes the saved payment tokens (`woocommerce_payment_tokens`, `woocommerce_payment_tokenmeta`) and the REST API keys (`woocommerce_api_keys`), and the webhooks are still disabled.
 
 ### WooCommerce Memberships
 
@@ -336,6 +341,7 @@ MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email bloc
 * Deletes subscriptions (`shop_subscription` posts) with their meta, and the subscription IDs cached in the user meta that administrators keep (`_wcs_subscription_ids_cache`).
 * Deletes the scheduled renewal payment, payment retry and end of prepaid term actions, with their logs.
 * While "Pause renewal actions" is on, which it is from the first load until it is turned off in Tools > Safety Net, Action Scheduler does not claim those three kinds of action.
+* While `SAFETY_NET_DELETE_DATA` is `false`, subscriptions and these actions are kept, the pause stays on even if it was turned off, and WooCommerce Subscriptions stays in its staging mode (`woocommerce_subscriptions_is_duplicate_site` returns `true`), which locks subscriptions to manual renewal so nothing is charged automatically, even after someone clicks its "Enable automatic payments" button.
 
 ### WP Mail Logging
 

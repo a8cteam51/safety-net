@@ -1,6 +1,6 @@
 <?php
 /**
- * MailPoet: deletes its subscribers and their activity and scrubs its credentials, keeping its forms, lists, emails, templates and automations
+ * MailPoet: deletes its subscribers and their activity and scrubs its credentials, keeping its forms, lists, emails, templates and automations; while SAFETY_NET_DELETE_DATA keeps data, it keeps the subscribers but empties its sending tasks and queues
  *
  * @package SafetyNet
  */
@@ -54,6 +54,7 @@ add_filter(
 			),
 			scrub: scrub_settings( ... ),
 			delete: unschedule_newsletters( ... ),
+			keep: stop_sending( ... ),
 		);
 
 		return $integrations;
@@ -147,6 +148,31 @@ function unschedule_newsletters() {
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
 		$wpdb->query( "UPDATE {$table_name} SET status = 'draft' WHERE type = 'standard' AND status IN ( 'scheduled', 'sending' )" );
 		$wpdb->query( "UPDATE {$table_name} SET status = 'sent' WHERE type = 'notification_history' AND status IN ( 'scheduled', 'sending' )" );
+	}
+	// phpcs:enable
+}
+
+/**
+ * Empties MailPoet's sending tasks and queues, sets the scheduled emails back to drafts and cancels the pending automation steps, so nothing is sent to the kept subscribers.
+ *
+ * @return void
+ */
+function stop_sending() {
+	global $wpdb;
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct access bypasses MailPoet and Action Scheduler; table names come from $wpdb.
+	foreach ( array( 'mailpoet_scheduled_tasks', 'mailpoet_scheduled_task_subscribers', 'mailpoet_sending_queues' ) as $table ) {
+		$table_name = $wpdb->prefix . $table;
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$table_name}" );
+		}
+	}
+
+	unschedule_newsletters();
+
+	$table_name = $wpdb->prefix . 'actionscheduler_actions';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table_name} SET status = 'canceled' WHERE status = 'pending' AND hook = %s", 'mailpoet/automation/step' ) );
 	}
 	// phpcs:enable
 }

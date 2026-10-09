@@ -6,6 +6,7 @@ use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
 use function SafetyNet\Utilities\get_admin_emails;
+use function SafetyNet\Utilities\get_admin_user_ids;
 use function SafetyNet\Utilities\get_environment_type;
 use function SafetyNet\Utilities\get_keep_config;
 use function SafetyNet\Utilities\is_data_deletion_disabled;
@@ -19,6 +20,10 @@ add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
 // wp_mail() can run from plugins_loaded on, well before init.
 add_filter( 'pre_wp_mail', __NAMESPACE__ . '\stop_emails', 10, 2 );
+
+// Last, after every other way of signing in, including other plugins' own.
+add_filter( 'authenticate', __NAMESPACE__ . '\block_kept_user_login', PHP_INT_MAX );
+add_filter( 'determine_current_user', __NAMESPACE__ . '\block_kept_current_user', PHP_INT_MAX );
 
 /**
  * Registers all the admin hooks.
@@ -178,18 +183,25 @@ function settings_init() {
 		)
 	);
 
+	$pause_args = array(
+		'type'      => 'checkbox',
+		'name'      => 'safety_net_pause_renewal_actions_toggle',
+		'class'     => 'safety-net-pause-renewal-actions-toggle',
+		'label_for' => 'safety_net_pause_renewal_actions_toggle',
+	);
+	if ( is_data_deletion_disabled() ) {
+		$pause_args['value']       = 'on';
+		$pause_args['disabled']    = true;
+		$pause_args['description'] = esc_html__( 'Always on while SAFETY_NET_DELETE_DATA keeps customer data.', 'safety-net' );
+	}
+
 	add_settings_field(
 		'safety_net_pause_renewal_actions_toggle',
 		esc_html__( 'Pause renewal actions', 'safety-net' ),
 		__NAMESPACE__ . '\render_field',
 		'safety_net_options',
 		'safety_net_option',
-		array(
-			'type'      => 'checkbox',
-			'name'      => 'safety_net_pause_renewal_actions_toggle',
-			'class'     => 'safety-net-pause-renewal-actions-toggle',
-			'label_for' => 'safety_net_pause_renewal_actions_toggle',
-		)
+		$pause_args
 	);
 }
 
@@ -207,12 +219,18 @@ function render_field( array $args = array() ) {
 
 	if ( 'checkbox' === $args['type'] ) {
 		printf(
-			'<input id="%s" class="%s" name="%s" type="checkbox"%s />',
+			'<input id="%s" class="%s" name="%s" type="checkbox"%s%s />',
 			esc_attr( $args['name'] ),
 			esc_attr( $args['class'] ),
 			esc_attr( $args['name'] ),
-			checked( 'on', get_option( $args['name'] ), false )
+			checked( 'on', $args['value'] ?? get_option( $args['name'] ), false ),
+			disabled( ! empty( $args['disabled'] ), true, false )
 		);
+
+		// A disabled checkbox is not submitted, so saving the form would otherwise store it as off.
+		if ( ! empty( $args['disabled'] ) ) {
+			printf( '<input type="hidden" name="%s" value="%s" />', esc_attr( $args['name'] ), esc_attr( (string) get_option( $args['name'] ) ) );
+		}
 	}
 
 	if ( 'button' === $args['type'] ) {
@@ -658,7 +676,7 @@ function show_warning() {
 	esc_html_e( 'The Safety Net plugin is currently active', 'safety-net' );
 	echo '<br>';
 	// A site that drops the woocommerce-subscriptions integration keeps the toggle but loses the pause.
-	if ( 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) && false !== has_filter( 'action_scheduler_store_class', 'SafetyNet\Integrations\WooCommerceSubscriptions\paused_store_class' ) ) {
+	if ( ( is_data_deletion_disabled() || 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) && false !== has_filter( 'action_scheduler_store_class', 'SafetyNet\Integrations\WooCommerceSubscriptions\paused_store_class' ) ) {
 		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );
 		echo '<br>';
 	}
@@ -677,14 +695,17 @@ function get_keep_notice_lines(): array {
 	$kept    = (bool) get_option( 'safety_net_data_kept' );
 	$lines   = array();
 
-	if ( $config['disabled'] && ! $deleted && $config['until'] ) {
-		$lines[] = sprintf(
-			/* translators: %s: the SAFETY_NET_KEEP_UNTIL date, e.g. 2026-11-15 */
-			__( 'Users, orders and subscriptions are NOT deleted on this site, because SAFETY_NET_DELETE_DATA is false (until %s). Removing the constant deletes them on the next page load.', 'safety-net' ),
-			$config['until']
-		);
-	} elseif ( $config['disabled'] && ! $deleted ) {
-		$lines[] = __( 'Users, orders and subscriptions are NOT deleted on this site, because SAFETY_NET_DELETE_DATA is false (with no expiry date). Removing the constant deletes them on the next page load.', 'safety-net' );
+	if ( $config['disabled'] && ! $deleted ) {
+		if ( $config['until'] ) {
+			$lines[] = sprintf(
+				/* translators: %s: the SAFETY_NET_KEEP_UNTIL date, e.g. 2026-11-15 */
+				__( 'This site keeps a copy of the live site\'s users, orders and subscriptions, because SAFETY_NET_DELETE_DATA is false (until %s). Removing the constant deletes them on the next page load.', 'safety-net' ),
+				$config['until']
+			);
+		} else {
+			$lines[] = __( 'This site keeps a copy of the live site\'s users, orders and subscriptions, because SAFETY_NET_DELETE_DATA is false (with no expiry date). Removing the constant deletes them on the next page load.', 'safety-net' );
+		}
+		$lines[] = __( 'Safety Net keeps this copy from acting on them: emails are blocked (password resets only reach administrators), subscription renewals are paused, payment gateways are deactivated and their keys and saved payment methods removed, webhooks are disabled, and accounts copied from the live site cannot log in.', 'safety-net' );
 	} elseif ( $config['disabled'] ) {
 		$lines[] = __( 'SAFETY_NET_DELETE_DATA is false, but this site\'s users, orders and subscriptions were already deleted, so nothing is kept.', 'safety-net' );
 	} elseif ( $kept && $deleted ) {
@@ -806,4 +827,67 @@ function get_mail_recipients( $to ): array {
 	}
 
 	return $recipients;
+}
+
+/**
+ * Refuses the login of an account copied from the live site while SAFETY_NET_DELETE_DATA keeps customer data.
+ *
+ * @param \WP_User|\WP_Error|null $user The authenticated user, or the error or null so far.
+ *
+ * @return \WP_User|\WP_Error|null
+ */
+function block_kept_user_login( $user ) {
+	if ( $user instanceof \WP_User && is_blocked_kept_user( $user->ID ) ) {
+		return new \WP_Error( 'safety_net_kept_user', __( '<strong>Error:</strong> This is a copy of the live site that keeps its customer data, so accounts copied from the live site cannot log in here. Administrators can.', 'safety-net' ) );
+	}
+
+	return $user;
+}
+
+/**
+ * Treats a request signed in as an account copied from the live site as logged out while SAFETY_NET_DELETE_DATA keeps customer data.
+ *
+ * @param int|false $user_id The user ID determined so far, or false.
+ *
+ * @return int|false
+ */
+function block_kept_current_user( $user_id ) {
+	if ( $user_id && is_blocked_kept_user( (int) $user_id ) ) {
+		return false;
+	}
+
+	return $user_id;
+}
+
+/**
+ * Whether a user is one SAFETY_NET_DELETE_DATA kept from the live site and not an administrator, so must not be signed in.
+ *
+ * @param int $user_id The user ID.
+ *
+ * @return bool
+ */
+function is_blocked_kept_user( int $user_id ): bool {
+	static $admin_ids = null;
+
+	if ( ! is_data_deletion_disabled() || $user_id <= 0 ) {
+		return false;
+	}
+
+	// The delete step leaves only administrators, so every other account was made on this copy.
+	if ( get_option( 'safety_net_data_deleted' ) ) {
+		return false;
+	}
+
+	// Without the recorded ID, every account may be a kept customer.
+	if ( $user_id > (int) get_option( 'safety_net_kept_users_max_id', PHP_INT_MAX ) ) {
+		return false;
+	}
+
+	if ( null === $admin_ids ) {
+		// A filter inside get_admin_user_ids() that asks for the current user lands here again, and is refused.
+		$admin_ids = array();
+		$admin_ids = get_admin_user_ids();
+	}
+
+	return ! in_array( $user_id, $admin_ids, true );
 }
