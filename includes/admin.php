@@ -735,7 +735,7 @@ function show_keep_notice() {
 }
 
 /**
- * Stop all emails except password resets
+ * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data
  *
  * @param boolean|null $return WP_Mail short-circuit return value.
  * @param array        $args   The wp_mail() arguments.

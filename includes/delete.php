@@ -64,7 +64,7 @@ function keep_data() {
 	global $wpdb;
 
 	// Backups hold the live credentials the scrub removed, which must not be restorable next to real customer data.
-	foreach ( $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE '%\\_sn\\_backup'" ) as $option ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	foreach ( $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE %s", '%' . $wpdb->esc_like( '_sn_backup' ) ) ) as $option ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		delete_option_directly( $option );
 	}
 
