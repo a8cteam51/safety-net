@@ -7,6 +7,7 @@
 namespace SafetyNet\Bootstrap;
 
 use function SafetyNet\Integrations\run_phase;
+use function SafetyNet\Utilities\get_keep_config;
 use function SafetyNet\Utilities\is_production;
 
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_pause_renewal_actions' );
@@ -94,7 +95,7 @@ function maybe_deactivate_plugins() {
 }
 
 /**
- * Determines if data should be deleted.
+ * Determines if data should be deleted, or kept because SAFETY_NET_DELETE_DATA is false.
  *
  * Data will be deleted if we're on staging, development, or local AND it hasn't already been deleted.
  */
@@ -113,6 +114,22 @@ function maybe_delete_data() {
 	if ( ! get_option( 'safety_net_plugins_deactivated' ) ) {
 		error_log( sprintf( 'Safety Net: safety_net_plugins_deactivated is not set on site %d, so data deletion is postponed.', get_current_blog_id() ) ); // phpcs:ignore -- Logging is okay here.
 		return;
+	}
+
+	$config = get_keep_config();
+	if ( $config['disabled'] ) {
+		if ( ! get_option( 'safety_net_data_kept' ) ) {
+			do_action( 'safety_net_keep_data' );
+		}
+		return;
+	}
+
+	foreach ( $config['errors'] as $error ) {
+		error_log( 'Safety Net: ' . $error ); // phpcs:ignore -- Logging is okay here.
+	}
+
+	if ( $config['expired'] ) {
+		error_log( sprintf( 'Safety Net: SAFETY_NET_KEEP_UNTIL (%s) has passed, so data is deleted.', $config['until'] ) ); // phpcs:ignore -- Logging is okay here.
 	}
 
 	// Fire hooks to let plugin know to delete data.

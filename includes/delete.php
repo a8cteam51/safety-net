@@ -4,9 +4,12 @@ namespace SafetyNet\Delete;
 
 use function SafetyNet\Integrations\get_integrations;
 use function SafetyNet\Integrations\run_phase;
+use function SafetyNet\ScrubOptions\delete_option_directly;
 use function SafetyNet\Utilities\get_admin_user_ids;
+use function SafetyNet\Utilities\get_keep_config;
 
 add_action( 'safety_net_delete_data', __NAMESPACE__ . '\delete_users_and_orders' );
+add_action( 'safety_net_keep_data', __NAMESPACE__ . '\keep_data' );
 
 /**
  * Deletes all users and their data, except administrators.
@@ -48,6 +51,29 @@ function delete_users_and_orders() {
 
 	// Set option so this function doesn't run again.
 	update_option( 'safety_net_data_deleted', true );
+
+	wp_cache_flush();
+}
+
+/**
+ * Runs instead of the delete step while SAFETY_NET_DELETE_DATA is false: keeps users, orders and subscriptions but removes the scrubbed options' backups and whatever the integrations' keep phase removes.
+ *
+ * @return void
+ */
+function keep_data() {
+	global $wpdb;
+
+	// Backups hold the live credentials the scrub removed, which must not be restorable next to real customer data.
+	foreach ( $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE '%\\_sn\\_backup'" ) as $option ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		delete_option_directly( $option );
+	}
+
+	run_phase( 'keep' );
+
+	update_option( 'safety_net_data_kept', true );
+
+	$until = get_keep_config()['until'];
+	error_log( sprintf( 'Safety Net: users, orders and subscriptions are kept on site %d because SAFETY_NET_DELETE_DATA is false (%s).', get_current_blog_id(), $until ? "until $until" : 'no expiry date' ) ); // phpcs:ignore -- Logging is okay here.
 
 	wp_cache_flush();
 }

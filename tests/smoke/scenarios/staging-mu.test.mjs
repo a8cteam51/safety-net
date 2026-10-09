@@ -70,6 +70,7 @@ describe( 'staging-mu: mu-plugin on a development site without WooCommerce, keep
 		const status = JSON.parse( rest.text );
 		assert.equal( status.environment, 'development' );
 		assert.equal( status.data_deleted, true );
+		assert.equal( status.data_kept, false );
 	} );
 
 	test( 'S5/S6: the dashboard notice and the must-use plugin list', async () => {

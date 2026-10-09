@@ -3,6 +3,7 @@
 namespace SafetyNet\RestStatus;
 
 use function SafetyNet\Utilities\get_environment_type;
+use function SafetyNet\Utilities\get_keep_config;
 
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_status_route' );
 
@@ -22,7 +23,7 @@ function register_status_route() {
 }
 
 /**
- * Reports Safety Net's run state: the environment plus each scrub step's completion flag.
+ * Reports Safety Net's run state: the environment, each scrub step's completion flag and whether SAFETY_NET_DELETE_DATA keeps data.
  *
  * This file only loads on non-production sites (safety-net.php bails before requiring it on production), so the
  * route's mere presence already signals Safety Net is active here. It is meant to be polled until the scrub
@@ -34,6 +35,8 @@ function get_status() {
 		define( 'DONOTCACHEPAGE', true );
 	}
 
+	$keep = get_keep_config();
+
 	$response = new \WP_REST_Response(
 		array(
 			'active'                      => true,
@@ -42,6 +45,9 @@ function get_status() {
 			'plugins_deactivated'         => (bool) get_option( 'safety_net_plugins_deactivated' ),
 			'gateway_plugins_deactivated' => (bool) get_option( 'safety_net_gateway_plugins_deactivated' ),
 			'data_deleted'                => (bool) get_option( 'safety_net_data_deleted' ),
+			'data_kept'                   => (bool) get_option( 'safety_net_data_kept' ),
+			'data_deletion_disabled'      => $keep['disabled'],
+			'keep_until'                  => $keep['until'],
 			'transients_deleted'          => (bool) get_option( 'safety_net_transients_deleted' ),
 			'webhooks_disabled'           => (bool) get_option( 'safety_net_webhooks_disabled' ),
 		)

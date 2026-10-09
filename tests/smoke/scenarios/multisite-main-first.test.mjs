@@ -108,7 +108,9 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 
 	test( 'M4: front ends, REST routes, network admin and the subsite Tools page load', async () => {
 		const [ , , , status ] = await site.getAll( [ '/', '/shop/', '/empty/', '/shop/wp-json/safety-net/v1/status', '/shop/?rest_route=/safety-net/v1/status' ] );
-		assert.equal( JSON.parse( status.text ).data_deleted, true );
+		const shopStatus = JSON.parse( status.text );
+		assert.equal( shopStatus.data_deleted, true );
+		assert.equal( shopStatus.data_kept, false );
 		const jar = await site.login();
 		const [ , , , , shopDashboard ] = await site.getAll( [ '/wp-admin/network/', '/wp-admin/network/plugins.php', '/wp-admin/network/sites.php', '/wp-admin/network/users.php', '/shop/wp-admin/', '/shop/wp-admin/plugins.php' ].map( ( path ) => ( { path, jar } ) ) );
 		assert.match( shopDashboard.text, /Safety Net Activated/ );

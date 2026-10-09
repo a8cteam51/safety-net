@@ -38,7 +38,7 @@ export function githubRelease( tag, { asset = true } = {} ) {
 const describeProbe = ( line ) => `${ line.wp_cli ? 'wp-cli' : line.uri || '(PHP run)' } (blog ${ line.blog_id })`;
 
 // Only the call under test counts, since any later request would also run the pass if this one had not.
-export function assertAutomaticPassSince( site, before, { label, match, code = 200 } ) {
+export function assertAutomaticPassSince( site, before, { label, match, code = 200, kept = false } ) {
 	const fresh = site.probe().slice( before ).filter( match );
 	const ran = fresh.find( ( line ) => line.runs?.safety_net_scrub_options > 0 );
 	assert.ok( ran, `${ label } did not run Safety Net's automatic pass (${ site.where() }). Its probe lines: ${ fresh.map( describeProbe ).join( ', ' ) || 'none' }` );
@@ -48,18 +48,19 @@ export function assertAutomaticPassSince( site, before, { label, match, code = 2
 		assert.equal( ran.code, code, `The request that ran Safety Net returned ${ ran.code } (${ site.where() })` );
 	}
 	assert.equal( ran.fatal, null, `The request that ran Safety Net hit a fatal error: ${ JSON.stringify( ran.fatal ) }` );
-	for ( const hook of [ 'safety_net_deactivate_plugins', 'safety_net_delete_data', 'safety_net_delete_transients', 'safety_net_disable_webhooks' ] ) {
-		assert.equal( ran.runs[ hook ], 1, `${ hook } did not fire on the first load` );
+	const expected = { safety_net_deactivate_plugins: 1, safety_net_delete_data: kept ? 0 : 1, safety_net_keep_data: kept ? 1 : 0, safety_net_delete_transients: 1, safety_net_disable_webhooks: 1 };
+	for ( const [ hook, times ] of Object.entries( expected ) ) {
+		assert.equal( ran.runs[ hook ], times, `${ hook } fired ${ ran.runs[ hook ] } times on the first load, expected ${ times }${ kept ? ' with SAFETY_NET_DELETE_DATA false' : '' }` );
 	}
 	return ran;
 }
 
 export const isHttpProbe = ( line ) => ! line.php_run && ! line.wp_cli;
 
-export async function firstLoad( site, path = '/' ) {
+export async function firstLoad( site, path = '/', { kept = false } = {} ) {
 	const before = site.probe().length;
 	const res = await site.get( path );
-	return { res, probe: assertAutomaticPassSince( site, before, { label: `GET ${ path }`, match: isHttpProbe } ) };
+	return { res, probe: assertAutomaticPassSince( site, before, { label: `GET ${ path }`, match: isHttpProbe, kept } ) };
 }
 
 // The probe lines of HTTP requests made since `before`, for checks that must not be satisfied by a later PHP run.
@@ -67,9 +68,15 @@ export function httpProbeSince( site, before ) {
 	return site.probe().slice( before ).filter( isHttpProbe );
 }
 
-export function assertStepFlags( flags, { woocommerce } ) {
-	for ( const step of STEP_FLAGS ) {
+export function assertStepFlags( flags, { woocommerce, kept = false } ) {
+	for ( const step of STEP_FLAGS.filter( ( name ) => ! kept || name !== 'data_deleted' ) ) {
 		assert.equal( flags[ `safety_net_${ step }` ], '1', `safety_net_${ step } is not set; flags: ${ JSON.stringify( flags ) }` );
+	}
+	if ( kept ) {
+		assert.equal( flags.safety_net_data_deleted, undefined, `Data was deleted although SAFETY_NET_DELETE_DATA is false; flags: ${ JSON.stringify( flags ) }` );
+		assert.equal( flags.safety_net_data_kept, '1', `The keep step did not run although SAFETY_NET_DELETE_DATA is false; flags: ${ JSON.stringify( flags ) }` );
+	} else {
+		assert.equal( flags.safety_net_data_kept, undefined, `The keep step ran although SAFETY_NET_DELETE_DATA is not false; flags: ${ JSON.stringify( flags ) }` );
 	}
 	assert.equal( flags.safety_net_pause_renewal_actions_toggle, 'on' );
 	if ( woocommerce ) {

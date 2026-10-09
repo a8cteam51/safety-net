@@ -94,6 +94,95 @@ function is_production() {
 }
 
 /**
+ * Reads SAFETY_NET_DELETE_DATA and SAFETY_NET_KEEP_UNTIL, which keep users, orders and subscriptions on a non-production site.
+ *
+ * @return array{disabled: bool, until: ?string, expired: bool, errors: string[]}
+ */
+function get_keep_config(): array {
+	$errors  = array();
+	$until   = null;
+	$expired = false;
+
+	$delete_defined = defined( 'SAFETY_NET_DELETE_DATA' );
+	$keep           = $delete_defined && false === constant( 'SAFETY_NET_DELETE_DATA' );
+
+	if ( $delete_defined && ! $keep ) {
+		$errors[] = sprintf( 'SAFETY_NET_DELETE_DATA is %s instead of the boolean false, so it is ignored and data is deleted.', export_constant_value( constant( 'SAFETY_NET_DELETE_DATA' ) ) );
+	}
+
+	if ( defined( 'SAFETY_NET_KEEP_UNTIL' ) ) {
+		$value = constant( 'SAFETY_NET_KEEP_UNTIL' );
+
+		if ( ! $keep ) {
+			$errors[] = 'SAFETY_NET_KEEP_UNTIL does nothing unless SAFETY_NET_DELETE_DATA is the boolean false.';
+		} elseif ( ! is_string( $value ) || ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $matches ) || ! checkdate( (int) $matches[2], (int) $matches[3], (int) $matches[1] ) ) {
+			$errors[] = sprintf( 'SAFETY_NET_KEEP_UNTIL (%s) is not a YYYY-MM-DD date, so SAFETY_NET_DELETE_DATA is ignored and data is deleted.', export_constant_value( $value ) );
+			$keep     = false;
+		} else {
+			$until   = $value;
+			$expired = time() > strtotime( $value . ' 23:59:59 UTC' );
+		}
+	}
+
+	return array(
+		'disabled' => $keep && ! $expired,
+		'until'    => $until,
+		'expired'  => $expired,
+		'errors'   => $errors,
+	);
+}
+
+/**
+ * Describes a constant's value in a few words for an error message.
+ *
+ * @param mixed $value The constant's value.
+ *
+ * @return string
+ */
+function export_constant_value( $value ): string {
+	if ( is_array( $value ) ) {
+		return 'an array';
+	}
+
+	if ( ! is_scalar( $value ) && null !== $value ) {
+		return 'an object';
+	}
+
+	$export = var_export( $value, true ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export
+
+	// mb_substr(): a cut inside a UTF-8 character would make esc_html() print nothing.
+	return mb_strlen( $export ) > 40 ? mb_substr( $export, 0, 40 ) . '…' : $export;
+}
+
+/**
+ * Whether SAFETY_NET_DELETE_DATA keeps this site's users, orders and subscriptions from being deleted automatically.
+ *
+ * @return bool
+ */
+function is_data_deletion_disabled(): bool {
+	return get_keep_config()['disabled'];
+}
+
+/**
+ * Returns the email addresses of the users get_admin_user_ids() keeps, lowercased.
+ *
+ * @return string[]
+ */
+function get_admin_emails(): array {
+	global $wpdb;
+
+	$admin_ids = get_admin_user_ids();
+	if ( ! $admin_ids ) {
+		return array();
+	}
+
+	$placeholders = implode( ',', array_fill( 0, count( $admin_ids ), '%d' ) );
+	$emails       = $wpdb->get_col( $wpdb->prepare( "SELECT user_email FROM $wpdb->users WHERE ID IN ($placeholders)", ...$admin_ids ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+	return array_values( array_unique( array_map( 'strtolower', array_filter( $emails ) ) ) );
+}
+
+/**
  * Whether this run should change a network-wide setting on multisite, which automatic runs do once per network.
  *
  * @param string $automatic_hook The action that fires the automatic run.
@@ -328,6 +417,9 @@ function show_production_notice() {
 				);
 				?>
 			</p>
+			<?php if ( get_keep_config()['disabled'] ) : ?>
+				<p><?php esc_html_e( 'SAFETY_NET_DELETE_DATA is false in this site\'s configuration, so non-production copies that inherit it keep users, orders and subscriptions.', 'safety-net' ); ?></p>
+			<?php endif; ?>
 		</div>
 		<?php
 }

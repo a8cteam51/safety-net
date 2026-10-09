@@ -122,7 +122,7 @@ return array(
 
 	test( 'S9: the REST status route reports every step as done', async () => {
 		const status = JSON.parse( ( await site.get( '/wp-json/safety-net/v1/status' ) ).text );
-		assert.deepEqual( status, { active: true, environment: 'staging', options_scrubbed: true, plugins_deactivated: true, gateway_plugins_deactivated: true, data_deleted: true, transients_deleted: true, webhooks_disabled: true } );
+		assert.deepEqual( status, { active: true, environment: 'staging', options_scrubbed: true, plugins_deactivated: true, gateway_plugins_deactivated: true, data_deleted: true, data_kept: false, data_deletion_disabled: false, keep_until: null, transients_deleted: true, webhooks_disabled: true } );
 	} );
 
 	test( 'S12: wp-cron.php runs with the paused store', async () => {
