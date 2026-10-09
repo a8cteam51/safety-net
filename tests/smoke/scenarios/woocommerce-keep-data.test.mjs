@@ -123,7 +123,7 @@ return array(
 		assert.match( dashboard.text, /safety-net-keep-data/, 'The dashboard has no notice about kept data' );
 		// esc_html() turns the apostrophe into &#039;.
 		assert.match( dashboard.text, /<p>This site keeps a copy of the live site(?:'|&#0?39;)s users, orders and subscriptions, because SAFETY_NET_DELETE_DATA is false \(with no expiry date\)\. Removing the constant deletes them on the next page load\.<\/p>/ );
-		assert.match( dashboard.text, /<p>Safety Net keeps this copy from acting on them: emails are blocked \(password resets only reach administrators\), subscription renewals are paused, payment gateways are deactivated and their keys and saved payment methods removed, webhooks are disabled, and accounts copied from the live site cannot log in\.<\/p>/, 'The notice does not say what keeps the copy from acting on the kept data' );
+		assert.match( dashboard.text, /<p>Safety Net keeps this copy from acting on them: emails are blocked and MailPoet(?:'|&#0?39;)s sending is paused \(password resets only reach administrators\), subscription renewals are paused, payment gateways are deactivated and their keys and saved payment methods removed, webhooks are disabled, and accounts copied from the live site cannot log in\.<\/p>/, 'The notice does not say what keeps the copy from acting on the kept data' );
 		const { res } = assertToolsPage( tools );
 		assert.match( res.text, /this button deletes everything anyway/ );
 		const before = site.probe().length;
@@ -207,6 +207,20 @@ return array(
 			assert.equal( ( await me( await passwordFor( 'customer1' ), [ 401, 403 ] ) ).id, undefined, 'An application password still logs in customer1, copied from the live site' );
 		} finally {
 			await site.php( "delete_option( 'sn_test_application_passwords' ); return true;", { label: 'withdrawing application passwords' } );
+		}
+	} );
+
+	test( 'KD19: a reactivated MailPoet keeps its sending paused while data is kept, also after Resume', async () => {
+		const paused = "return array( 'paused' => \\MailPoet\\Mailer\\MailerLog::isSendingPaused(), 'error' => \\MailPoet\\Mailer\\MailerLog::getError() );";
+		const expected = { paused: true, error: { operation: 'migration', error_message: 'Safety Net paused sending: this site is a copy of the live site and keeps its real subscribers, because SAFETY_NET_DELETE_DATA is false. Sending stays paused until that data is deleted.' } };
+		try {
+			// Activating MailPoet resets its sending log, which would clear any pause stored before.
+			await site.php( "require_once ABSPATH . 'wp-admin/includes/plugin.php'; $result = activate_plugin( 'mailpoet/mailpoet.php' ); if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); } return true;", { label: 'reactivating MailPoet' } );
+			assert.deepEqual( await site.php( paused, { label: 'reading MailPoet\'s sending state' } ), expected, 'MailPoet can send to the kept subscribers after it was reactivated' );
+			assert.equal( await site.php( 'return \\MailPoet\\Mailer\\MailerLog::resumeSending()["status"] ?? null;', { label: 'resuming MailPoet\'s sending' } ), null, 'Resuming MailPoet\'s sending failed, so this proves nothing' );
+			assert.deepEqual( await site.php( paused, { label: 'reading MailPoet\'s sending state again' } ), expected, 'MailPoet\'s Resume lets it send to the kept subscribers' );
+		} finally {
+			await site.php( "require_once ABSPATH . 'wp-admin/includes/plugin.php'; deactivate_plugins( 'mailpoet/mailpoet.php', true ); return true;", { label: 'deactivating MailPoet again' } );
 		}
 	} );
 

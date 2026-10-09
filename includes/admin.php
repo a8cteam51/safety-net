@@ -705,7 +705,7 @@ function get_keep_notice_lines(): array {
 		} else {
 			$lines[] = __( 'This site keeps a copy of the live site\'s users, orders and subscriptions, because SAFETY_NET_DELETE_DATA is false (with no expiry date). Removing the constant deletes them on the next page load.', 'safety-net' );
 		}
-		$lines[] = __( 'Safety Net keeps this copy from acting on them: emails are blocked (password resets only reach administrators), subscription renewals are paused, payment gateways are deactivated and their keys and saved payment methods removed, webhooks are disabled, and accounts copied from the live site cannot log in.', 'safety-net' );
+		$lines[] = __( 'Safety Net keeps this copy from acting on them: emails are blocked and MailPoet\'s sending is paused (password resets only reach administrators), subscription renewals are paused, payment gateways are deactivated and their keys and saved payment methods removed, webhooks are disabled, and accounts copied from the live site cannot log in.', 'safety-net' );
 	} elseif ( $config['disabled'] ) {
 		$lines[] = __( 'SAFETY_NET_DELETE_DATA is false, but this site\'s users, orders and subscriptions were already deleted, so nothing is kept.', 'safety-net' );
 	} elseif ( $kept && $deleted ) {

@@ -101,7 +101,7 @@ The pipeline keeps core WordPress behaviour and shared machinery: the admin emai
 
 ### Phases and timing
 
-- `hooks` runs as Safety Net loads on every non-production request, before the steps: always-on filters, such as PMPro's cron jobs, Jetpack's subscription emails and the paused Action Scheduler store.
+- `hooks` runs as Safety Net loads on every non-production request, before the steps: always-on filters, such as PMPro's cron jobs, Jetpack's subscription emails and the paused Action Scheduler store, and, while data is kept, MailPoet's sending pause.
 - `scrub` and `delete` run inside their steps, after the declared data has been handled. The automatic pass runs before most plugins are loaded, so these closures, and closures in `partial_options`, use plain SQL through `$wpdb` and may call another plugin's function or class only behind `function_exists()` or `class_exists()` (as in `pmpro.php`, and in `woocommerce.php`, whose webhook pass usually finds WooCommerce loaded only when the scrub runs from the Tools page or WP-CLI).
 - `keep` runs inside the keep step, instead of `delete`, only while data is kept, after the option backups are deleted. Its closures remove what could still charge, send or sign in next to the kept data: `woocommerce.php` empties the payment token and REST API key tables, and `mailpoet.php` empties the sending tasks and queues, sets scheduled newsletters back to drafts and cancels pending `mailpoet/automation/step` actions, keeping the subscribers. They follow the same plain-SQL rules as `scrub` and `delete`.
 - `late` runs on `wp_loaded` of every non-production request, after the gateway pass, and is the only phase that can count on other plugins' classes.
