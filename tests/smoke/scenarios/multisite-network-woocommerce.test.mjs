@@ -65,6 +65,11 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 	test( 'K5/K11: the first site\'s run, gateway pass included, applies the network-wide changes once, and then a super admin reverts them', async () => {
 		assertNetworkChanged( await site.php( 'return sn_test_network_state();' ), 'The main site\'s first run' );
 		assertNetworkUntouched( await site.php( `return sn_test_set_network( array( '${ NETWORK_DENIED.join( "', '" ) }' ), '${ OWNER_EMAIL }' );`, { label: 'reverting the network-wide changes' } ), 'Reverting the network-wide changes' );
+		const jar = await site.login();
+		const [ network, dashboard ] = await site.getAll( [ '/wp-admin/network/', '/wp-admin/' ].map( ( path ) => ( { path, jar } ) ) );
+		for ( const [ label, res ] of [ [ 'network admin', network ], [ 'site dashboard', dashboard ] ] ) {
+			assert.match( res.text, /safety-net-active-denylisted"><p><strong>Safety Net:<\/strong> these plugins are deactivated by Safety Net but active again: MC4WP stub \(fixture\), ZZ Checkout \(fixture\)\./, `The ${ label } does not name the network-activated denylisted and gateway plugins` );
+		}
 	} );
 
 	test( 'M5/M7: each site runs on its own first load', async () => {

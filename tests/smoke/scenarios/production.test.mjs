@@ -61,6 +61,7 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 		const shown = await site.get( '/wp-admin/', { jar: site.adminJar } );
 		assert.match( shown.text, /Safety Net is active on a production site[^<]*remove the plugin or switch the site/ );
 		assert.doesNotMatch( shown.text, /Safety Net Activated/ );
+		assert.doesNotMatch( shown.text, /safety-net-active-denylisted/, 'Production warns about denylisted plugins, which it keeps active on purpose' );
 		await site.php( "update_option( 'sn_test_hide_production_notice', 1 ); return true;" );
 		try {
 			const hidden = await site.get( '/wp-admin/', { jar: site.adminJar } );
