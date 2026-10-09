@@ -361,6 +361,17 @@ MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email bloc
 * Deactivates plugins matching `wpmandrill`.
 * Scrubs its settings (`wpmandrill`).
 
+### Xero
+
+* Deactivates plugins matching `-xero`: WooCommerce Xero and most plugins on WordPress.org that sync a store to Xero, though not Xelation or Data Sync for Xero by Wbsync. Plugins that only have "xero" in their name, such as Xero Addons for Elementor, stay active. Only WooCommerce Xero's credentials are scrubbed.
+* Scrubs the Xero app's client ID and secret (`wc_xero_client_id`, `wc_xero_client_secret`).
+* Deletes WooCommerce Xero's access token, refresh token and Xero organisation ID (`xero_oauth_options`) without a backup, and any backup an earlier run left. Xero replaces the refresh token each time it is used, so a staging site that used its copy would disconnect the live store from Xero.
+* Cancels the pending scheduled actions that would send an invoice or a payment to Xero or void an invoice there (hooks starting with `woocommerce_xero_`).
+* Deletes WooCommerce Xero's log files (`uploads/wc-logs/xero-*.log`): with its debug logging filter on, versions before 1.9.15 wrote the tokens to them in plain text.
+* The connection is not removed in Xero, because the live store shares it. Orders keep their Xero invoice and payment IDs, which nothing can use once the tokens are gone.
+* If a copy used the token before Safety Net ran, the live store shows "Cannot request the access token, please connect your application again!" and has to be connected to Xero again.
+* Staging sites that an earlier version of Safety Net already processed keep WooCommerce Xero active, with its tokens, until Scrub Options and Deactivate Plugins run again, from Tools > Safety Net or with `wp safety-net scrub-options` and `wp safety-net deactivate-plugins`. Do not open WooCommerce > Xero on such a site first: loading that page can refresh the token.
+
 ### Yotpo
 
 * Deactivates plugins matching `yotpo`.

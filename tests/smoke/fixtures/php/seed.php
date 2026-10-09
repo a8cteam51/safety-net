@@ -119,6 +119,14 @@ function sn_test_seed_base(): array {
 	if ( array_filter( sn_test_blanked_options(), static fn( $option ) => $option['value'] !== $option['seeded'] || null !== $option['backup'] ) ) {
 		throw new RuntimeException( 'Seeding the options integrations blank failed: ' . wp_json_encode( sn_test_blanked_options() ) );
 	}
+	update_option( 'xero_oauth_options', SN_TEST_XERO_TOKENS, false );
+	foreach ( SN_TEST_XERO_SETTINGS as $name => $value ) {
+		update_option( $name, $value );
+	}
+	$xero = sn_test_xero_state();
+	if ( array( 'tokens' => SN_TEST_XERO_TOKENS, 'backup' => null, 'settings' => SN_TEST_XERO_SETTINGS ) !== $xero ) {
+		throw new RuntimeException( 'Seeding WooCommerce Xero failed: ' . wp_json_encode( $xero ) );
+	}
 	$ai = sn_test_seed_ai_keys( 'site' );
 
 	sn_test_install_fixture_plugins();
@@ -131,7 +139,9 @@ function sn_test_seed_base(): array {
 			'barcode-label-printer/barcode-label-printer.php',
 			'mailchimp-for-wp/mailchimp-for-wp.php',
 			'my-stripe-addon/my-stripe-addon.php',
+			'woocommerce-xero/woocommerce-xero.php',
 			'wp-mail-smtp/wp_mail_smtp.php',
+			'xero-addons/xero-addons.php',
 			'zz-checkout/zz-checkout.php',
 			'zz-extra-denied/zz-extra-denied.php',
 			'zz-keep-gateway/zz-keep-gateway.php',
@@ -145,6 +155,7 @@ function sn_test_seed_base(): array {
 		'posts'       => $posts,
 		'admin_email' => get_option( 'admin_email' ),
 		'ai'          => $ai,
+		'xero'        => $xero,
 	);
 }
 
@@ -790,5 +801,16 @@ function sn_test_seed_automatewoo(): array {
 		'workflow' => $workflow,
 		'action'   => as_schedule_single_action( time() - HOUR_IN_SECONDS, 'automatewoo/sn_seed_event', array( 'seed' => 1 ) ),
 		'other'    => as_schedule_single_action( time() - HOUR_IN_SECONDS, 'sn_other_pending_hook', array( 'seed' => 1 ) ),
+	);
+}
+
+// Due in an hour, so no queue run in the scenario claims the control action, which has no callback.
+function sn_test_seed_xero_actions(): array {
+	$due = time() + HOUR_IN_SECONDS;
+	return array(
+		'invoice' => as_schedule_single_action( $due, 'woocommerce_xero_schedule_invoice', array( 1, false ), 'wc_xero' ),
+		'payment' => as_schedule_single_action( $due, 'woocommerce_xero_schedule_send_payment', array( 1 ), 'wc_xero' ),
+		'void'    => as_schedule_single_action( $due, 'woocommerce_xero_schedule_void_invoice', array( 1 ), 'wc_xero' ),
+		'control' => as_schedule_single_action( $due, 'woocommerce-xero-sn-control', array( 1 ) ),
 	);
 }

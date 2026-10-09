@@ -30,6 +30,7 @@ describe( 'woocommerce-keep-data: SAFETY_NET_DELETE_DATA false on a WooCommerce 
 	let baseline;
 	let mailpoetIds;
 	let mailpoetSeed;
+	let xero;
 
 	// Each request defines the constants anew from this option, so a change applies from the next request on.
 	const setConstants = ( constants ) => site.php( `update_option( 'sn_test_constants', json_decode( '${ JSON.stringify( constants ) }', true ) ); return true;`, { label: `setting the constants ${ JSON.stringify( constants ) }` } );
@@ -43,6 +44,8 @@ describe( 'woocommerce-keep-data: SAFETY_NET_DELETE_DATA false on a WooCommerce 
 		baseline = await site.php( `update_option( 'sn_test_old_secret_sn_backup', 'live' ); update_option( 'sn_test_keep_integration', 1 ); wp_set_password( 'password', ${ seed.base.users.customer1 } ); return array( 'counts' => sn_test_wc_counts(), 'users' => sn_test_users(), 'cache' => get_user_meta( 1, '_wcs_subscription_ids_cache', true ), 'backup' => sn_test_raw_option( 'sn_test_old_secret_sn_backup' ) );`, { label: 'seeding an option backup, giving customer1 a known password and reading the baseline' } );
 		assert.equal( baseline.backup, 'live', 'Seeding an option backup failed, so its removal could not be tested' );
 		assert.deepEqual( baseline.cache, [ 101 ], 'Seeding the subscription cache failed, so keeping it could not be tested' );
+		xero = await site.php( 'return sn_test_seed_xero_actions();', { label: 'seeding WooCommerce Xero actions' } );
+		assert.deepEqual( await site.php( `return sn_test_action_statuses( json_decode( '${ JSON.stringify( xero ) }', true ) );` ), { invoice: 'pending', payment: 'pending', void: 'pending', control: 'pending' }, 'Seeding WooCommerce Xero actions failed' );
 		await setConstants( { SAFETY_NET_DELETE_DATA: false } );
 		// MailPoet schedules more tasks at the end of the seeding request, so the seed is read in a request of its own.
 		mailpoetSeed = await site.php( MAILPOET_STATE, { label: 'reading the seeded MailPoet data' } );
@@ -147,6 +150,13 @@ return array(
 		assert.deepEqual( newsletterStatuses( s ), [ 'draft', 'draft', 'sent' ], 'The scheduled and sending emails did not become drafts, or the sending post notification did not become sent' );
 		assert.deepEqual( s.steps, { pending: 0, canceled: 1 }, 'The pending MailPoet automation step was not canceled, or was deleted' );
 		assert.deepEqual( s.state.active, { mailpoet: false, premium: false }, 'MailPoet or MailPoet Premium is still active' );
+	} );
+
+	test( 'KD21: WooCommerce Xero\'s pending actions are canceled, its tokens deleted and its client secret blanked while data is kept', async () => {
+		const s = await site.php( `return array( 'actions' => sn_test_action_statuses( json_decode( '${ JSON.stringify( xero ) }', true ) ), 'tokens' => sn_test_raw_option( 'xero_oauth_options' ), 'secret' => sn_test_raw_option( 'wc_xero_client_secret' ) );` );
+		assert.deepEqual( s.actions, { invoice: 'canceled', payment: 'canceled', void: 'canceled', control: 'pending' }, 'A WooCommerce Xero action can still send the kept orders to Xero, or an unrelated pending action was canceled' );
+		assert.equal( s.tokens, null, 'The Xero tokens are kept next to the kept orders' );
+		assert.equal( s.secret, '', 'The Xero client secret was not blanked' );
 	} );
 
 	test( 'KD16: WooCommerce Subscriptions stays in its staging mode, which takes no automatic renewal payments', async () => {
