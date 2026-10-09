@@ -1,6 +1,6 @@
 <?php
 /**
- * WooCommerce: deletes its orders, customers, payment tokens, API keys, webhooks, sessions, downloads and logs, disables its webhooks and deactivates its marketing, shipping and payment extensions
+ * WooCommerce: deletes its orders, customers, payment tokens, API keys, webhooks, sessions, downloads and logs (only the payment tokens and API keys while SAFETY_NET_DELETE_DATA keeps data), disables its webhooks and deactivates its marketing, shipping and payment extensions
  *
  * @package SafetyNet
  */
@@ -55,6 +55,7 @@ add_filter(
 			post_types: array( 'shop_order', 'shop_order_refund', 'shop_order_placehold' ),
 			comment_types: array( 'order_note' ),
 			scrub: disable_webhooks( ... ),
+			keep: delete_credentials( ... ),
 		);
 
 		return $integrations;
@@ -82,4 +83,22 @@ function disable_webhooks() {
 			$webhook->save();
 		}
 	}
+}
+
+/**
+ * Empties the saved payment methods and REST API keys, which could still charge customers or reach the store from outside, so they go even while orders are kept.
+ *
+ * @return void
+ */
+function delete_credentials() {
+	global $wpdb;
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct access bypasses WooCommerce, which may not be loaded; table names come from $wpdb.
+	foreach ( array( 'woocommerce_payment_tokens', 'woocommerce_payment_tokenmeta', 'woocommerce_api_keys' ) as $table ) {
+		$table_name = $wpdb->prefix . $table;
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$table_name}" );
+		}
+	}
+	// phpcs:enable
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * WooCommerce Subscriptions: deletes its subscriptions and their renewal actions and pauses renewals while the Tools page toggle is on
+ * WooCommerce Subscriptions: deletes its subscriptions and their renewal actions and pauses renewals while the Tools page toggle is on; while SAFETY_NET_DELETE_DATA keeps data, renewals stay paused and WooCommerce Subscriptions stays in its staging mode
  *
  * @package SafetyNet
  */
@@ -8,6 +8,8 @@
 namespace SafetyNet\Integrations\WooCommerceSubscriptions;
 
 use SafetyNet\Integrations\Integration;
+
+use function SafetyNet\Utilities\is_data_deletion_disabled;
 
 use const SafetyNet\Integrations\BUILT_IN_PRIORITY;
 
@@ -34,17 +36,24 @@ add_filter(
 );
 
 /**
- * Has Action Scheduler use the store that skips renewal, payment retry and end of prepaid term actions while the pause is on.
+ * Has Action Scheduler use the store that skips renewal, payment retry and end of prepaid term actions while the pause is on; while SAFETY_NET_DELETE_DATA keeps data, it always does and keeps WooCommerce Subscriptions in its staging mode.
  *
  * @return void
  */
 function register_paused_store() {
+	$kept = is_data_deletion_disabled();
+
 	// A missing toggle counts as on, since maybe_pause_renewal_actions() only saves it later in this request.
-	if ( ! in_array( get_option( 'safety_net_pause_renewal_actions_toggle' ), array( 'on', false ), true ) ) {
+	if ( ! $kept && ! in_array( get_option( 'safety_net_pause_renewal_actions_toggle' ), array( 'on', false ), true ) ) {
 		return;
 	}
 
 	add_filter( 'action_scheduler_store_class', __NAMESPACE__ . '\paused_store_class', 101 );
+
+	if ( $kept ) {
+		// Last, so a site's own filter cannot turn automatic payments back on for the kept subscriptions.
+		add_filter( 'woocommerce_subscriptions_is_duplicate_site', '__return_true', PHP_INT_MAX );
+	}
 }
 
 /**

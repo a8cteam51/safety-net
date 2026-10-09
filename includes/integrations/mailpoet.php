@@ -1,6 +1,6 @@
 <?php
 /**
- * MailPoet: deletes its subscribers and their activity and scrubs its credentials, keeping its forms, lists, emails, templates and automations
+ * MailPoet: deletes its subscribers and their activity and scrubs its credentials, keeping its forms, lists, emails, templates and automations; while SAFETY_NET_DELETE_DATA keeps data, it keeps the subscribers but empties its sending tasks and queues and keeps its sending paused
  *
  * @package SafetyNet
  */
@@ -8,6 +8,8 @@
 namespace SafetyNet\Integrations\MailPoet;
 
 use SafetyNet\Integrations\Integration;
+
+use function SafetyNet\Utilities\is_data_deletion_disabled;
 
 use const SafetyNet\Integrations\BUILT_IN_PRIORITY;
 
@@ -54,6 +56,8 @@ add_filter(
 			),
 			scrub: scrub_settings( ... ),
 			delete: unschedule_newsletters( ... ),
+			keep: stop_sending( ... ),
+			hooks: keep_sending_paused( ... ),
 		);
 
 		return $integrations;
@@ -149,4 +153,100 @@ function unschedule_newsletters() {
 		$wpdb->query( "UPDATE {$table_name} SET status = 'sent' WHERE type = 'notification_history' AND status IN ( 'scheduled', 'sending' )" );
 	}
 	// phpcs:enable
+}
+
+/**
+ * Empties MailPoet's sending tasks and queues, sets the scheduled emails back to drafts and cancels the pending automation steps, so nothing is sent to the kept subscribers.
+ *
+ * @return void
+ */
+function stop_sending() {
+	global $wpdb;
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct access bypasses MailPoet and Action Scheduler; table names come from $wpdb.
+	foreach ( array( 'mailpoet_scheduled_tasks', 'mailpoet_scheduled_task_subscribers', 'mailpoet_sending_queues' ) as $table ) {
+		$table_name = $wpdb->prefix . $table;
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+			$wpdb->query( "DELETE FROM {$table_name}" );
+		}
+	}
+
+	unschedule_newsletters();
+
+	$table_name = $wpdb->prefix . 'actionscheduler_actions';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table_name} SET status = 'canceled' WHERE status = 'pending' AND hook = %s", 'mailpoet/automation/step' ) );
+	}
+	// phpcs:enable
+}
+
+/**
+ * While SAFETY_NET_DELETE_DATA keeps the subscribers, keeps MailPoet's sending paused on every request, since some of its sending methods bypass wp_mail(); once the kept data is deleted, lifts that pause.
+ *
+ * @return void
+ */
+function keep_sending_paused() {
+	if ( ! get_option( 'safety_net_data_kept' ) ) {
+		return;
+	}
+
+	if ( ! is_data_deletion_disabled() || get_option( 'safety_net_data_deleted' ) ) {
+		add_action( 'init', __NAMESPACE__ . '\resume_sending', PHP_INT_MIN + 1 );
+		return;
+	}
+
+	// Just after MailPoet's own activator on init, which resets the pause on activation and on every update, and before its cron runs.
+	add_action( 'init', __NAMESPACE__ . '\pause_sending', PHP_INT_MIN + 1 );
+	add_action( 'activated_plugin', __NAMESPACE__ . '\pause_sending' );
+}
+
+/**
+ * Returns the reason Safety Net gives MailPoet for pausing its sending.
+ *
+ * @return string
+ */
+function pause_message(): string {
+	return __( 'Safety Net paused sending: this site is a copy of the live site and keeps its real subscribers, because SAFETY_NET_DELETE_DATA is false. Sending stays paused until that data is deleted.', 'safety-net' );
+}
+
+/**
+ * Pauses MailPoet's sending the way MailPoet does after a sending error, with a message saying why.
+ *
+ * @return void
+ */
+function pause_sending() {
+	if ( ! class_exists( '\MailPoet\Mailer\MailerLog' ) ) {
+		return;
+	}
+
+	try {
+		if ( \MailPoet\Mailer\MailerLog::isSendingPaused() && \MailPoet\Mailer\MailerLog::getError() ) {
+			return;
+		}
+
+		// MailPoet shows a 'migration' error as a notice without a Resume button.
+		\MailPoet\Mailer\MailerLog::pauseSending( \MailPoet\Mailer\MailerLog::setError( \MailPoet\Mailer\MailerLog::getMailerLog(), 'migration', pause_message() ) );
+	} catch ( \Throwable $error ) {
+		error_log( 'Safety Net: could not pause MailPoet sending: ' . $error->getMessage() ); // phpcs:ignore -- Logging is okay here.
+	}
+}
+
+/**
+ * Resumes MailPoet's sending once the kept data is gone, if Safety Net's own pause is what stops it.
+ *
+ * @return void
+ */
+function resume_sending() {
+	if ( ! class_exists( '\MailPoet\Mailer\MailerLog' ) ) {
+		return;
+	}
+
+	try {
+		$error = \MailPoet\Mailer\MailerLog::getError();
+		if ( \MailPoet\Mailer\MailerLog::isSendingPaused() && 'migration' === ( $error['operation'] ?? null ) && pause_message() === ( $error['error_message'] ?? null ) ) {
+			\MailPoet\Mailer\MailerLog::resumeSending();
+		}
+	} catch ( \Throwable $error ) {
+		error_log( 'Safety Net: could not resume MailPoet sending: ' . $error->getMessage() ); // phpcs:ignore -- Logging is okay here.
+	}
 }

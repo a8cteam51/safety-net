@@ -10,7 +10,7 @@ Safety Net is a WordPress plugin by WordPress.com Special Projects that secures 
 - Scrubs denylisted options (API keys, secrets), deletes AI provider credentials, and scrubs MailPoet's service keys, mail credentials and sender addresses
 - Deactivates denylisted plugins and WooCommerce payment gateways
 - Blocks outgoing emails
-- Pauses WooCommerce Subscriptions renewal actions (toggleable)
+- Pauses WooCommerce Subscriptions renewal actions (toggleable, except while `SAFETY_NET_DELETE_DATA` keeps data)
 - Discourages search engines and disallows all user agents in `robots.txt`
 - Disables WooCommerce webhooks
 
@@ -38,7 +38,7 @@ safety-net/
 ├── safety-net.php          # Main plugin entry point
 ├── includes/
 │   ├── bootstrap.php       # Registers maybe_* actions on safety_net_loaded
-│   ├── admin.php           # Admin UI, AJAX handlers, email blocking
+│   ├── admin.php           # Admin UI, AJAX handlers, email blocking, login block for kept users
 │   ├── common.php          # Filters: disable emails, robots.txt
 │   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production, get_keep_config
 │   ├── scrub-options.php   # Scrubs the options in option_scrublist.txt and those the integrations declare
@@ -76,7 +76,7 @@ Safety Net is a fixed pipeline of steps plus a registry of integrations. The pip
 ### Pipeline
 
 - `safety-net.php` returns early when another copy already loaded (`SAFETY_NET_PATH`) or WordPress is still installing, loads `utilities.php` and `self-update.php`, and on production only adds the notice and stops. Otherwise it loads `integrations.php`, the integration files and their `hooks` phase, then the step files, the REST route and the WP-CLI command, and fires `safety_net_loaded`. That happens while WordPress is still including plugins: as a regular plugin, before every plugin that sorts after it, WooCommerce among them; as an mu-plugin, before every regular plugin.
-- `bootstrap.php` runs on `safety_net_loaded`, in this order: the renewal pause toggle, scrub (`safety_net_scrub_options`), deactivate (`safety_net_deactivate_plugins`), delete (`safety_net_delete_data`), transients and webhooks. Each step runs once per site and records it in its flag option; the deactivate step refuses to run before the scrub, and the delete step before the deactivate step. While `SAFETY_NET_DELETE_DATA` is `false` and `SAFETY_NET_KEEP_UNTIL`, if set, has not passed (`get_keep_config()` in `utilities.php`), the delete step runs the keep step (`safety_net_keep_data`, flag `safety_net_data_kept`) instead, and `stop_emails()` lets a Password Reset through only when every recipient is an administrator. When the kept data is deleted later, automatically or from the Tools page or WP-CLI, both flags stay set. On `wp_loaded` it runs the payment gateway pass (once WooCommerce is loaded) and then the integrations' `late` phase.
+- `bootstrap.php` runs on `safety_net_loaded`, in this order: the renewal pause toggle, scrub (`safety_net_scrub_options`), deactivate (`safety_net_deactivate_plugins`), delete (`safety_net_delete_data`), transients and webhooks. Each step runs once per site and records it in its flag option; the deactivate step refuses to run before the scrub, and the delete step before the deactivate step. While `SAFETY_NET_DELETE_DATA` is `false` and `SAFETY_NET_KEEP_UNTIL`, if set, has not passed (`get_keep_config()` in `utilities.php`), the delete step runs the keep step (`safety_net_keep_data`, flag `safety_net_data_kept`) instead, and `stop_emails()` lets a Password Reset through only when every recipient is an administrator. When the kept data is deleted later, automatically or from the Tools page or WP-CLI, both flags stay set. The keep step also saves the highest user ID as `safety_net_kept_users_max_id`. While the constants keep data (`is_data_deletion_disabled()`, never the flag alone), `admin.php` refuses users up to that ID who are not in `get_admin_user_ids()` on `authenticate` and logs them out on `determine_current_user`, both at `PHP_INT_MAX` so other plugins' sign-in code cannot undo it, which covers passwords, auth cookies and application passwords; a missing option blocks every non-admin, and WP-CLI's `--user` sets the user directly, so it is not blocked. In the same state `register_paused_store()` in `woocommerce-subscriptions.php` holds the renewal pause on whatever the toggle says (the Tools page shows the checkbox checked and disabled) and filters `woocommerce_subscriptions_is_duplicate_site` to `true`, so WooCommerce Subscriptions stays in its staging mode. On `wp_loaded` it runs the payment gateway pass (once WooCommerce is loaded) and then the integrations' `late` phase.
 - The Tools page buttons and the WP-CLI commands call the step functions directly: they skip the run-once check but keep the order checks.
 
 How the steps use the registry (`includes/integrations.php`):
@@ -86,7 +86,7 @@ How the steps use the registry (`includes/integrations.php`):
 | Scrub | `scrub-options.php` | `options_to_clear()` (option_scrublist.txt plus every integration's option fields and the stored options under its `delete_option_prefixes`), passed through `safety_net_options_to_clear`; `option_treatment()` picks blank, partial, value, delete or delete_partial per option; `cancel_action_scheduler_hooks` | `run_phase( 'scrub' )` |
 | Deactivate | `deactivate-plugins.php` | `plugin_patterns()` (plugin_denylist.txt plus every integration's `plugins`), passed through `safety_net_denylisted_plugins` | |
 | Gateway pass | `deactivate-plugins.php`, `utilities.php` | `offline_gateways()` | |
-| Delete | `delete.php` | `tables`, `network_tables`, `post_types`, `comment_types`, `usermeta`, `action_scheduler_hooks`, `upload_globs` | `run_phase( 'delete' )`, then posts are reassigned to an administrator and the other users deleted. While data is kept, the keep step (`keep_data()`) runs instead: it reads none of these fields, deletes every `{option}_sn_backup` option (the scrub writes none meanwhile) and runs `run_phase( 'keep' )` |
+| Delete | `delete.php` | `tables`, `network_tables`, `post_types`, `comment_types`, `usermeta`, `action_scheduler_hooks`, `upload_globs` | `run_phase( 'delete' )`, then posts are reassigned to an administrator and the other users deleted. While data is kept, the keep step (`keep_data()`) runs instead: it reads none of these fields, deletes every `{option}_sn_backup` option (the scrub writes none meanwhile) and runs `run_phase( 'keep' )` (WooCommerce's `delete_credentials()`, MailPoet's `stop_sending()`) |
 | Transients, webhooks | `delete-transients.php`, `disable-webhooks.php` | nothing | |
 
 The pipeline keeps core WordPress behaviour and shared machinery: the admin email, `default_pingback_flag` and `_pingme`, email blocking, search engines and `robots.txt`, transients, users and post authors, the Atomic exception for Jetpack's secrets, the Jetpack Autoloader workaround (`keep_in_jetpack_autoloader()`), gateway tracing and the multisite network flags, plus the webhooks step, which disables the rows of WooCommerce's `wc_webhooks` table.
@@ -101,9 +101,9 @@ The pipeline keeps core WordPress behaviour and shared machinery: the admin emai
 
 ### Phases and timing
 
-- `hooks` runs as Safety Net loads on every non-production request, before the steps: always-on filters, such as PMPro's cron jobs, Jetpack's subscription emails and the paused Action Scheduler store.
+- `hooks` runs as Safety Net loads on every non-production request, before the steps: always-on filters, such as PMPro's cron jobs, Jetpack's subscription emails and the paused Action Scheduler store, and, while data is kept, MailPoet's sending pause.
 - `scrub` and `delete` run inside their steps, after the declared data has been handled. The automatic pass runs before most plugins are loaded, so these closures, and closures in `partial_options`, use plain SQL through `$wpdb` and may call another plugin's function or class only behind `function_exists()` or `class_exists()` (as in `pmpro.php`, and in `woocommerce.php`, whose webhook pass usually finds WooCommerce loaded only when the scrub runs from the Tools page or WP-CLI).
-- `keep` runs inside the keep step, instead of `delete`, only while data is kept, after the option backups are deleted. Its closures remove what could still charge, send or sign in next to the kept data, and follow the same plain-SQL rules as `scrub` and `delete`.
+- `keep` runs inside the keep step, instead of `delete`, only while data is kept, after the option backups are deleted. Its closures remove what could still charge, send or sign in next to the kept data: `woocommerce.php` empties the payment token and REST API key tables, and `mailpoet.php` empties the sending tasks and queues, sets scheduled newsletters back to drafts and cancels pending `mailpoet/automation/step` actions, keeping the subscribers. They follow the same plain-SQL rules as `scrub` and `delete`.
 - `late` runs on `wp_loaded` of every non-production request, after the gateway pass, and is the only phase that can count on other plugins' classes.
 - Each step runs a phase across all integrations, so the order between integrations must never matter; logic that needs an order belongs in the pipeline.
 
@@ -244,7 +244,7 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
    Scrub operations use `$wpdb->update` (e.g. `safety_net_update_option_direct`) to avoid `update_option` and its hooks (e.g. notifications). This is intentional.
 
 3. **Action Scheduler customization**  
-   When “Pause renewal actions” is on, the plugin replaces Action Scheduler’s store class with `SafetyNet\ActionScheduler_Custom_DBStore` to skip claiming renewal, payment-retry and end-of-prepaid-term actions. Other actions still run.
+   When “Pause renewal actions” is on, and always while `SAFETY_NET_DELETE_DATA` keeps data, the plugin replaces Action Scheduler’s store class with `SafetyNet\ActionScheduler_Custom_DBStore` to skip claiming renewal, payment-retry and end-of-prepaid-term actions. Other actions still run.
 
 4. **Environment detection**  
    `get_environment_type()` in `utilities.php` supports `sandbox`, `dev`, `develop` in addition to `staging`, `development`, `local` for hosts like Pressable and WPCOM Studio.

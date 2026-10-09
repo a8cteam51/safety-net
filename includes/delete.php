@@ -56,7 +56,7 @@ function delete_users_and_orders() {
 }
 
 /**
- * Runs instead of the delete step while SAFETY_NET_DELETE_DATA is false: keeps users, orders and subscriptions but removes the scrubbed options' backups and whatever the integrations' keep phase removes.
+ * Runs instead of the delete step while SAFETY_NET_DELETE_DATA is false: keeps users, orders and subscriptions but removes the scrubbed options' backups and whatever the integrations' keep phase removes, and records the highest user ID so the kept users can be told from accounts created later.
  *
  * @return void
  */
@@ -69,6 +69,8 @@ function keep_data() {
 	}
 
 	run_phase( 'keep' );
+
+	update_option( 'safety_net_kept_users_max_id', (int) $wpdb->get_var( "SELECT MAX(ID) FROM $wpdb->users" ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 	update_option( 'safety_net_data_kept', true );
 

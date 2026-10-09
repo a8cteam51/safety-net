@@ -208,6 +208,11 @@ if ( get_option( 'sn_test_hide_production_notice' ) ) {
 	add_filter( 'safety_net_show_production_notice', '__return_false' );
 }
 
+// Core offers application passwords only over HTTPS or on a local site, and test sites are neither.
+if ( get_option( 'sn_test_application_passwords' ) ) {
+	add_filter( 'wp_is_application_passwords_available', '__return_true' );
+}
+
 // Hosts can set the environment type as an environment variable instead of a constant.
 if ( get_option( 'sn_test_env' ) ) {
 	putenv( 'WP_ENVIRONMENT_TYPE=' . get_option( 'sn_test_env' ) );
