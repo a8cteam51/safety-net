@@ -19,12 +19,58 @@ This public plugin is provided as an example of how such a plugin could be imple
 - **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
 - **Deactivate Plugins**: Deactivates denylisted plugins. Also deactivates any plugin that registers a WooCommerce payment gateway (deactivates the actual plugin, not from the checkout settings). WooCommerce's built-in gateways and a few offline ones (such as Pre-Orders' "Pay Later" and Bookings' availability check) are left alone. To exclude a plugin from this step, use the `safety_net_payment_gateway_plugins` filter; plugins that also match the denylist (Stripe, PayPal, etc.) additionally need `safety_net_denylisted_plugins`.
-- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions, and the personal data some plugins keep in their own tables (see [Explanations](#explanations)).
+- **Delete**: Deletes all non-admin users, WooCommerce orders and subscriptions, and the personal data some plugins keep in their own tables (see [Explanations](#explanations)), unless `SAFETY_NET_DELETE_DATA` is `false` (see [Keeping data on purpose](#keeping-data-on-purpose)).
 
 #### Advanced features
 - **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
 
-### Skipping GiveWP Data Deletion
+### Keeping data on purpose
+
+Safety Net deletes users, orders and subscriptions on a site's first non-production load. To keep them, for example on a staging copy used to look into a customer's orders, define `SAFETY_NET_DELETE_DATA` as the boolean `false` in the site's `wp-config.php`:
+
+```php
+define( 'SAFETY_NET_DELETE_DATA', false );
+```
+
+Or, with WP-CLI:
+
+```bash
+wp config set SAFETY_NET_DELETE_DATA false --raw --type=constant
+```
+
+`--raw` is what makes it the boolean `false`. Without it, WP-CLI writes the string `'false'`, which Safety Net ignores, so the data is deleted.
+
+The whole delete step is skipped, so the personal data other plugins keep in their own tables (see [Explanations](#explanations)) is kept too. There is no expiry date: the data is kept until the constant is removed. To keep it until a date instead, also define `SAFETY_NET_KEEP_UNTIL` as a `YYYY-MM-DD` string. The data is then kept until the end of that day, UTC:
+
+```php
+define( 'SAFETY_NET_KEEP_UNTIL', '2026-11-15' );
+```
+
+```bash
+wp config set SAFETY_NET_KEEP_UNTIL 2026-11-15 --type=constant
+```
+
+Leave out `--raw` here, so the date stays a string.
+
+Define the constants before the site's first non-production load: before `WP_ENVIRONMENT_TYPE` is set to a non-production type, before Safety Net is activated, and before any `wp` command that loads WordPress (`wp config set` itself does not). Data that was already deleted does not come back.
+
+While data is kept:
+
+- The other steps still run: options are scrubbed, denylisted and payment gateway plugins deactivated, transients deleted, WooCommerce webhooks disabled, renewals paused, emails blocked and search engines discouraged.
+- A keep step runs instead of the delete step, once per site. It deletes the `{option}_sn_backup` options, the copies scrubbing makes of the original values, so live credentials cannot be restored next to real customer data. Scrubbing, also from Tools > Safety Net or WP-CLI, makes no new backups.
+- Password Reset emails, which Safety Net otherwise lets through, are only sent when every recipient is an administrator.
+- Users who can manage options see a wp-admin notice saying that the data is kept, and until when. The status route, `/wp-json/safety-net/v1/status`, reports `data_kept` (the keep step ran on this site), `data_deletion_disabled` (the constants currently stop the automatic run from deleting data; `data_deleted` still says whether it was deleted, for example from Tools > Safety Net) and `keep_until` (the date, or `null`).
+- The Delete button in Tools > Safety Net and `wp safety-net delete` still delete everything.
+
+Once `SAFETY_NET_DELETE_DATA` is removed, or the `SAFETY_NET_KEEP_UNTIL` date has passed, the data is deleted the next time the site loads, in a browser or with a `wp` command.
+
+Only the boolean `false` and a real date count. Safety Net ignores `SAFETY_NET_DELETE_DATA` when it has any other value, such as `'false'`, `0`, `''` or `true`, or when `SAFETY_NET_KEEP_UNTIL` is not a real `YYYY-MM-DD` date, and deletes the data; the wp-admin notice and the PHP error log say why. `SAFETY_NET_KEEP_UNTIL` does nothing unless `SAFETY_NET_DELETE_DATA` is `false`. A date that has already passed when the site first loads keeps nothing; the notice and the error log say so.
+
+On multisite, `wp-config.php` applies to the whole network, so every site keeps its data, including sites created later. Each site runs its own keep step and has its own notice and status. Users are shared by the whole network, so Tools > Safety Net > Delete or `wp safety-net delete` on any one site deletes the customers of every site, while the other sites still report their data as kept.
+
+On production the constants change nothing, but the production notice adds a line while `SAFETY_NET_DELETE_DATA` is `false` (and `SAFETY_NET_KEEP_UNTIL`, if set, has not passed), because non-production copies that inherit that `wp-config.php` keep their data.
+
+#### Skipping GiveWP Data Deletion
 
 By default, Safety Net will delete GiveWP donor data, payment records, and subscriptions when running the data deletion process. If you want to **preserve GiveWP data on a staging site**, you can define the following constant in your `wp-config.php` file:
 
@@ -44,7 +90,7 @@ Activating the plugin on a non-production site will:
 
 1. Scrub denylisted options.*
 2. Deactivate denylisted plugins.*
-3. Delete users, orders, and subscriptions.*
+3. Delete users, orders, and subscriptions.* (skipped while `SAFETY_NET_DELETE_DATA` is `false`, see [Keeping data on purpose](#keeping-data-on-purpose))
 4. Stop emails. You can still test and view emails by activating the [WP Mail Logging plugin](https://wordpress.org/plugins/wp-mail-logging/). 
 5. Pause Renewal Actions.
 6. Discourage search engines.
@@ -110,7 +156,7 @@ If your site is on Pressable, you can also achieve this by [setting the site as 
 It's possible that there is another copy of the plugin active on the site. Check in the `mu-plugins` folder.
 
 ### I don't want the functions to automatically run on my non-production site
-There is no setting for this yet: [#65](https://github.com/a8cteam51/safety-net/issues/65) plans constants, such as `SAFETY_NET_DELETE_DATA` and `SAFETY_NET_SCRUB_OPTIONS`, that turn single steps off. Until then, you can comment out steps in `includes/bootstrap.php`; the change is lost when Safety Net is updated:
+To keep users, orders and subscriptions, define `SAFETY_NET_DELETE_DATA` as `false` (see [Keeping data on purpose](#keeping-data-on-purpose)). There is deliberately no constant for the scrub and deactivate steps, since skipping them is what lets a copy charge customers or sync with third parties. To skip steps anyway, you can comment them out in `includes/bootstrap.php`; the change is lost when Safety Net is updated:
 ```php
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_scrub_options' );
 add_action( 'safety_net_loaded', __NAMESPACE__ . '\maybe_deactivate_plugins' );
@@ -120,7 +166,7 @@ Each step only runs after the one before it, so comment them out from the bottom
 
 ## Explanations
 
-What Safety Net does for each plugin it knows about is declared in one file per plugin in `includes/integrations/`, and `wp safety-net integrations` lists those declarations on a site. Plugins that Safety Net only deactivates are listed in `assets/data/plugin_denylist.txt` instead. Below, "plugins matching `stripe`" means every plugin whose path (`folder/file.php`) contains `stripe`, ignoring case. Scrubbed options are blanked, or set to the value given, after their value is copied to `{option}_sn_backup`, unless noted otherwise.
+What Safety Net does for each plugin it knows about is declared in one file per plugin in `includes/integrations/`, and `wp safety-net integrations` lists those declarations on a site. Plugins that Safety Net only deactivates are listed in `assets/data/plugin_denylist.txt` instead. Below, "plugins matching `stripe`" means every plugin whose path (`folder/file.php`) contains `stripe`, ignoring case. Scrubbed options are blanked, or set to the value given, after their value is copied to `{option}_sn_backup`, unless noted otherwise or `SAFETY_NET_DELETE_DATA` is `false`.
 
 ### AI providers
 

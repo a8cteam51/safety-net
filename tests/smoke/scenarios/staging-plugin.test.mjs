@@ -285,6 +285,9 @@ return $state;` );
 				plugins_deactivated: true,
 				gateway_plugins_deactivated: false,
 				data_deleted: true,
+				data_kept: false,
+				data_deletion_disabled: false,
+				keep_until: null,
 				transients_deleted: true,
 				webhooks_disabled: true,
 			} );
@@ -308,6 +311,7 @@ return $state;` );
 		assert.match( res.text, /environment type is set to "staging"/ );
 		assert.match( res.text, /WooCommerce Subscriptions scheduled actions are currently paused\./ );
 		assert.doesNotMatch( res.text, /safety-net-active-denylisted/, 'The warning about reactivated plugins shows while none is active' );
+		assert.doesNotMatch( res.text, /safety-net-keep-data/, 'The notice about kept data shows on a site without SAFETY_NET_DELETE_DATA' );
 	} );
 
 	test( 'A44: a reactivated denylisted plugin is named in an error notice and highlighted on the Tools page, for admins only', async () => {
@@ -355,6 +359,7 @@ return $state;` );
 
 	test( 'S7: the Tools page renders every tool, the pause toggle and its assets', async () => {
 		const { res } = await getToolsPage( site );
+		assert.doesNotMatch( res.text, /deletes everything anyway/, 'The Tools page says automatic deletion is off on a site without SAFETY_NET_DELETE_DATA' );
 		assert.match( res.text, /<input id="safety_net_pause_renewal_actions_toggle"[^>]*checked='checked'/ );
 		assert.match( res.text, /Installed Plugins/ );
 		await assertToolsAssets( site, res.text, '/wp-content/plugins/safety-net/' );

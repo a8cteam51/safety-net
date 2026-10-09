@@ -14,7 +14,7 @@ final class Integration {
 
 	const LIST_FIELDS = array( 'plugins', 'options', 'delete_options', 'tables', 'network_tables', 'post_types', 'comment_types', 'usermeta', 'action_scheduler_hooks', 'cancel_action_scheduler_hooks', 'upload_globs', 'offline_gateways' );
 
-	const PHASES = array( 'scrub', 'delete', 'hooks', 'late' );
+	const PHASES = array( 'scrub', 'delete', 'keep', 'hooks', 'late' );
 
 	/**
 	 * Declares an integration.
@@ -41,6 +41,7 @@ final class Integration {
 	 * @param \Closure|null $delete                        Runs in the delete step after the declared deletes; may run before other plugins load.
 	 * @param \Closure|null $hooks                         Runs while Safety Net loads on every non-production request.
 	 * @param \Closure|null $late                          Runs on wp_loaded of every non-production request, when other plugins' classes are available.
+	 * @param \Closure|null $keep                          Runs in the keep step, which replaces the delete step while SAFETY_NET_DELETE_DATA is false; removes what could still charge, send or sign in next to the kept data; may run before other plugins load.
 	 */
 	public function __construct(
 		public readonly string $slug,
@@ -65,6 +66,7 @@ final class Integration {
 		public readonly ?\Closure $delete = null,
 		public readonly ?\Closure $hooks = null,
 		public readonly ?\Closure $late = null,
+		public readonly ?\Closure $keep = null,
 	) {}
 
 	/**

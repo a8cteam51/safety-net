@@ -5,7 +5,10 @@ namespace SafetyNet\Admin;
 use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\Utilities\get_admin_emails;
 use function SafetyNet\Utilities\get_environment_type;
+use function SafetyNet\Utilities\get_keep_config;
+use function SafetyNet\Utilities\is_data_deletion_disabled;
 use function SafetyNet\Utilities\is_production;
 use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
@@ -37,6 +40,7 @@ function add_admin_hooks() {
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
+	add_action( 'admin_notices', __NAMESPACE__ . '\show_keep_notice' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_active_denylisted_warning' );
 	add_action( 'network_admin_notices', __NAMESPACE__ . '\show_active_denylisted_warning' );
 }
@@ -141,6 +145,11 @@ function settings_init() {
 		)
 	);
 
+	$delete_description = __( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' );
+	if ( is_data_deletion_disabled() ) {
+		$delete_description .= ' ' . __( 'Automatic deletion is off on this site (SAFETY_NET_DELETE_DATA is false); this button deletes everything anyway.', 'safety-net' );
+	}
+
 	add_settings_field(
 		'safety_net_delete_users',
 		esc_html__( 'Delete Users, Orders, and Subscriptions', 'safety-net' ),
@@ -151,7 +160,7 @@ function settings_init() {
 			'type'        => 'button',
 			'id'          => 'safety-net-delete-users',
 			'button_text' => esc_html__( 'Delete', 'safety-net' ),
-			'description' => esc_html__( 'Deletes all non-admin users, as well as WooCommerce orders and subscriptions.', 'safety-net' ),
+			'description' => esc_html( $delete_description ),
 		)
 	);
 
@@ -658,7 +667,75 @@ function show_warning() {
 }
 
 /**
- * Stop all emails except password resets
+ * Returns the lines of the notice about SAFETY_NET_DELETE_DATA and SAFETY_NET_KEEP_UNTIL, as plain text.
+ *
+ * @return string[]
+ */
+function get_keep_notice_lines(): array {
+	$config  = get_keep_config();
+	$deleted = (bool) get_option( 'safety_net_data_deleted' );
+	$kept    = (bool) get_option( 'safety_net_data_kept' );
+	$lines   = array();
+
+	if ( $config['disabled'] && ! $deleted && $config['until'] ) {
+		$lines[] = sprintf(
+			/* translators: %s: the SAFETY_NET_KEEP_UNTIL date, e.g. 2026-11-15 */
+			__( 'Users, orders and subscriptions are NOT deleted on this site, because SAFETY_NET_DELETE_DATA is false (until %s). Removing the constant deletes them on the next page load.', 'safety-net' ),
+			$config['until']
+		);
+	} elseif ( $config['disabled'] && ! $deleted ) {
+		$lines[] = __( 'Users, orders and subscriptions are NOT deleted on this site, because SAFETY_NET_DELETE_DATA is false (with no expiry date). Removing the constant deletes them on the next page load.', 'safety-net' );
+	} elseif ( $config['disabled'] ) {
+		$lines[] = __( 'SAFETY_NET_DELETE_DATA is false, but this site\'s users, orders and subscriptions were already deleted, so nothing is kept.', 'safety-net' );
+	} elseif ( $kept && $deleted ) {
+		$line = __( 'The users, orders and subscriptions that SAFETY_NET_DELETE_DATA kept have been deleted.', 'safety-net' );
+		if ( $config['expired'] ) {
+			$line .= ' ' . sprintf(
+				/* translators: %s: the SAFETY_NET_KEEP_UNTIL date, e.g. 2026-11-15 */
+				__( 'SAFETY_NET_KEEP_UNTIL (%s) has passed.', 'safety-net' ),
+				$config['until']
+			);
+		}
+		$lines[] = $line;
+	} elseif ( $config['expired'] ) {
+		$lines[] = sprintf(
+			/* translators: %s: the SAFETY_NET_KEEP_UNTIL date, e.g. 2026-11-15 */
+			__( 'SAFETY_NET_KEEP_UNTIL (%s) has passed, so SAFETY_NET_DELETE_DATA no longer keeps users, orders and subscriptions.', 'safety-net' ),
+			$config['until']
+		);
+	}
+
+	return array_merge( $lines, $config['errors'] );
+}
+
+/**
+ * Shows whether SAFETY_NET_DELETE_DATA keeps this site's users, orders and subscriptions, and which of its values are ignored.
+ *
+ * @return void
+ */
+function show_keep_notice() {
+	if ( is_production() ) {
+		return;
+	}
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$lines = get_keep_notice_lines();
+	if ( ! $lines ) {
+		return;
+	}
+
+	echo '<div class="notice notice-warning safety-net-keep-data">';
+	foreach ( $lines as $line ) {
+		echo '<p>' . esc_html( $line ) . '</p>';
+	}
+	echo '</div>';
+}
+
+/**
+ * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data
  *
  * @param boolean|null $return WP_Mail short-circuit return value.
  * @param array        $args   The wp_mail() arguments.
@@ -670,6 +747,9 @@ function stop_emails( $return, $args ) {
 		error_log( "Email blocked: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning false says "short-circuit the wp_mail() function and indicate we did not send the email"
 		$return = false;
+	} elseif ( is_data_deletion_disabled() && ! is_sent_only_to_admins( $args ) ) {
+		error_log( 'Email blocked: ' . $args['subject'] . ' (not every recipient is an administrator while SAFETY_NET_DELETE_DATA keeps customer data)' ); // phpcs:ignore -- Logging is okay here.
+		$return = false;
 	} else {
 		error_log( "Email sent: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning null says "don't short circuit the wp_mail function"
@@ -677,4 +757,53 @@ function stop_emails( $return, $args ) {
 	}
 
 	return $return;
+}
+
+/**
+ * Whether every To, Cc and Bcc recipient of an email is an administrator that Safety Net keeps.
+ *
+ * @param array $args The wp_mail() arguments.
+ *
+ * @return bool
+ */
+function is_sent_only_to_admins( array $args ): bool {
+	$recipients = get_mail_recipients( $args['to'] ?? '' );
+
+	// Split as wp_mail() does, so every Cc and Bcc it would send to is checked.
+	$headers = $args['headers'] ?? array();
+	foreach ( is_array( $headers ) ? $headers : explode( "\n", str_replace( "\r\n", "\n", (string) $headers ) ) as $header ) {
+		if ( ! str_contains( (string) $header, ':' ) ) {
+			continue;
+		}
+
+		list( $name, $content ) = explode( ':', trim( (string) $header ), 2 );
+		if ( in_array( strtolower( trim( $name ) ), array( 'cc', 'bcc' ), true ) ) {
+			$recipients = array_merge( $recipients, get_mail_recipients( trim( $content ) ) );
+		}
+	}
+
+	return $recipients && ! array_diff( $recipients, get_admin_emails() );
+}
+
+/**
+ * Returns the lowercased addresses in a wp_mail() recipient list, whose entries may read "Name <address>".
+ *
+ * @param string|string[] $to Comma-separated recipients, or an array of them.
+ *
+ * @return string[]
+ */
+function get_mail_recipients( $to ): array {
+	$recipients = array();
+	foreach ( is_array( $to ) ? $to : explode( ',', (string) $to ) as $recipient ) {
+		if ( preg_match( '/(.*)<(.+)>/', (string) $recipient, $matches ) ) {
+			$recipient = $matches[2];
+		}
+
+		$recipient = strtolower( trim( (string) $recipient ) );
+		if ( '' !== $recipient ) {
+			$recipients[] = $recipient;
+		}
+	}
+
+	return $recipients;
 }

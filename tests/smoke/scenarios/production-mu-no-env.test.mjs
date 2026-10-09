@@ -36,6 +36,7 @@ describe( 'production-mu-no-env: mu-plugin with WP_ENVIRONMENT_TYPE undefined st
 	test( 'P2: the notice asks to remove the mu-plugin', async () => {
 		const res = await site.get( '/wp-admin/', { jar: site.adminJar } );
 		assert.match( res.text, /Safety Net is active on a production site[^<]*remove the mu-plugin or switch the site/ );
+		assert.doesNotMatch( res.text, /inherit it keep/, 'The production notice mentions SAFETY_NET_DELETE_DATA, which this site does not define' );
 	} );
 
 	test( 'P4: the REST route and the Tools page do not exist', async () => {

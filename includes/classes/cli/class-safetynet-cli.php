@@ -24,6 +24,10 @@ class SafetyNet_CLI extends WP_CLI_Command {
 			WP_CLI::error( __( 'Plugins need to be deactivated first. Run "wp safety-net deactivate-plugins".', 'safety-net' ) );
 		}
 
+		if ( \SafetyNet\Utilities\is_data_deletion_disabled() ) {
+			WP_CLI::log( __( 'SAFETY_NET_DELETE_DATA is false, so the automatic run keeps data; this command deletes it anyway.', 'safety-net' ) );
+		}
+
 		delete_users_and_orders();
 
 		WP_CLI::success( __( 'Users and their data have been deleted' ) );

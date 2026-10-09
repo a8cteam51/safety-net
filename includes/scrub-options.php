@@ -6,6 +6,7 @@ use function SafetyNet\Integrations\get_integrations;
 use function SafetyNet\Integrations\option_treatment;
 use function SafetyNet\Integrations\options_to_clear;
 use function SafetyNet\Integrations\run_phase;
+use function SafetyNet\Utilities\is_data_deletion_disabled;
 use function SafetyNet\Utilities\should_change_network;
 
 add_action( 'safety_net_scrub_options', __NAMESPACE__ . '\scrub_options' );
@@ -48,6 +49,9 @@ function scrub_options() {
 		$options_to_clear    = array_diff( $options_to_clear, $unset_wpcom_options );
 	}
 
+	// A restorable copy of a live credential must not sit next to kept customer data.
+	$keep_backups = ! is_data_deletion_disabled();
+
 	foreach ( $options_to_clear as $option ) {
 		$treatment = option_treatment( $option );
 		if ( 'delete' === $treatment['mode'] ) {
@@ -65,7 +69,9 @@ function scrub_options() {
 		$option_value = get_option( $option );
 		if ( $option_value ) {
 
-			update_option( $option . '_sn_backup', $option_value );
+			if ( $keep_backups ) {
+				update_option( $option . '_sn_backup', $option_value );
+			}
 
 			if ( 'partial' === $treatment['mode'] && is_array( $option_value ) ) {
 				safety_net_update_option_direct( $option, scrub_option_keys( $option_value, $treatment['keys'] ) );

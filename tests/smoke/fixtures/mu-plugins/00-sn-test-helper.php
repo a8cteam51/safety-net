@@ -52,7 +52,7 @@ register_shutdown_function(
 		$error = error_get_last();
 		$fatal = $error && in_array( $error['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR ), true );
 		$runs  = array();
-		foreach ( array( 'safety_net_loaded', 'safety_net_scrub_options', 'safety_net_deactivate_plugins', 'safety_net_deactivate_gateway_plugins', 'safety_net_delete_data', 'safety_net_delete_transients', 'safety_net_disable_webhooks' ) as $hook ) {
+		foreach ( array( 'safety_net_loaded', 'safety_net_scrub_options', 'safety_net_deactivate_plugins', 'safety_net_deactivate_gateway_plugins', 'safety_net_delete_data', 'safety_net_keep_data', 'safety_net_delete_transients', 'safety_net_disable_webhooks' ) as $hook ) {
 			$runs[ $hook ] = function_exists( 'did_action' ) ? did_action( $hook ) : null;
 		}
 		$line = array(
@@ -137,8 +137,8 @@ add_action(
 	}
 );
 
-// A site's own integrations, declared before Safety Net loads: one it must act on, and invalid ones it must log and skip.
-if ( get_option( 'sn_test_extra_integration' ) || get_option( 'sn_test_bad_integration' ) ) {
+// A site's own integrations, declared before Safety Net loads: ones it must act on, and invalid ones it must log and skip.
+if ( get_option( 'sn_test_extra_integration' ) || get_option( 'sn_test_keep_integration' ) || get_option( 'sn_test_bad_integration' ) ) {
 	add_filter(
 		'safety_net/integrations',
 		static function ( $integrations ) {
@@ -166,11 +166,23 @@ if ( get_option( 'sn_test_extra_integration' ) || get_option( 'sn_test_bad_integ
 						global $wpdb;
 						error_log( 'SN_TEST integration phase delete, rows ' . $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}sn_test_extra" ) ); // phpcs:ignore
 					},
+					keep: static function () {
+						error_log( 'SN_TEST integration phase keep' ); // phpcs:ignore
+					},
 					hooks: static function () {
 						error_log( 'SN_TEST integration phase hooks' ); // phpcs:ignore
 					},
 					late: static function () {
 						error_log( 'SN_TEST integration phase late' ); // phpcs:ignore
+					},
+				);
+			}
+			if ( get_option( 'sn_test_keep_integration' ) ) {
+				$integrations[] = new SafetyNet\Integrations\Integration(
+					slug: 'sn-test-keep',
+					label: 'SN test keep',
+					keep: static function () {
+						error_log( 'SN_TEST integration phase keep' ); // phpcs:ignore
 					},
 				);
 			}
@@ -200,6 +212,14 @@ if ( get_option( 'sn_test_hide_production_notice' ) ) {
 if ( get_option( 'sn_test_env' ) ) {
 	putenv( 'WP_ENVIRONMENT_TYPE=' . get_option( 'sn_test_env' ) );
 }
+
+// Constants that Safety Net reads, set per scenario; every request is a new PHP process.
+foreach ( (array) get_option( 'sn_test_constants', array() ) as $sn_test_name => $sn_test_value ) {
+	if ( ! defined( $sn_test_name ) ) {
+		define( $sn_test_name, $sn_test_value );
+	}
+}
+unset( $sn_test_name, $sn_test_value );
 
 // The README's way to stop the automatic run: drop the safety_net_loaded callbacks.
 if ( get_option( 'sn_test_manual_mode' ) ) {

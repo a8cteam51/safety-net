@@ -398,7 +398,7 @@ function offline_gateways(): array {
 /**
  * Runs one phase's closure of every integration, in order.
  *
- * @param string $phase 'scrub', 'delete', 'hooks' or 'late'.
+ * @param string $phase 'scrub', 'delete', 'keep', 'hooks' or 'late'.
  * @return void
  */
 function run_phase( string $phase ): void {

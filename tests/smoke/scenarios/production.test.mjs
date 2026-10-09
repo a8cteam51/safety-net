@@ -14,6 +14,7 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 		site = await bootSite( { name: 'production', env: 'production', mode: 'plugin', wpCli: true } );
 		const seed = await site.php( 'return sn_test_seed_base();', { label: 'seeding the site' } );
 		await site.php( `wp_set_password( 'password', ${ seed.users.editor1 } ); return true;`, { label: 'giving the editor a known password' } );
+		await site.php( "update_option( 'sn_test_constants', array( 'SAFETY_NET_DELETE_DATA' => false ) ); return true;", { label: 'defining SAFETY_NET_DELETE_DATA' } );
 		baseline = await site.php( 'return sn_test_snapshot();', { label: 'baseline snapshot' } );
 		await site.enableSafetyNet();
 	} );
@@ -60,14 +61,24 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 	test( 'P2: admins see the production notice, unless it is filtered away', async () => {
 		const shown = await site.get( '/wp-admin/', { jar: site.adminJar } );
 		assert.match( shown.text, /Safety Net is active on a production site[^<]*remove the plugin or switch the site/ );
+		assert.match( shown.text, /non-production copies that inherit it keep users, orders and subscriptions/ );
 		assert.doesNotMatch( shown.text, /Safety Net Activated/ );
 		assert.doesNotMatch( shown.text, /safety-net-active-denylisted/, 'Production warns about denylisted plugins, which it keeps active on purpose' );
+		assert.doesNotMatch( shown.text, /safety-net-keep-data/, 'Production shows the notice about kept data, which only non-production copies keep' );
 		await site.php( "update_option( 'sn_test_hide_production_notice', 1 ); return true;" );
 		try {
 			const hidden = await site.get( '/wp-admin/', { jar: site.adminJar } );
 			assert.doesNotMatch( hidden.text, /Safety Net is active on a production site/ );
 		} finally {
 			await site.php( "delete_option( 'sn_test_hide_production_notice' ); return true;" );
+		}
+		await site.php( "update_option( 'sn_test_constants', array( 'SAFETY_NET_DELETE_DATA' => 'false' ) ); return true;", { label: 'defining SAFETY_NET_DELETE_DATA as a string' } );
+		try {
+			const invalid = await site.get( '/wp-admin/', { jar: site.adminJar } );
+			assert.match( invalid.text, /Safety Net is active on a production site/ );
+			assert.doesNotMatch( invalid.text, /non-production copies that inherit it keep/, 'The production notice says copies keep data although SAFETY_NET_DELETE_DATA is the string \'false\'' );
+		} finally {
+			await site.php( "update_option( 'sn_test_constants', array( 'SAFETY_NET_DELETE_DATA' => false ) ); return true;", { label: 'defining SAFETY_NET_DELETE_DATA again' } );
 		}
 	} );
 

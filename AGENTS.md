@@ -40,13 +40,13 @@ safety-net/
 │   ├── bootstrap.php       # Registers maybe_* actions on safety_net_loaded
 │   ├── admin.php           # Admin UI, AJAX handlers, email blocking
 │   ├── common.php          # Filters: disable emails, robots.txt
-│   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production
+│   ├── utilities.php       # get_admin_user_ids, get_environment_type, get_denylist_array, is_production, get_keep_config
 │   ├── scrub-options.php   # Scrubs the options in option_scrublist.txt and those the integrations declare
 │   ├── integrations.php    # Integrations registry: loads includes/integrations/*.php, validates, run_phase()
 │   ├── integrations/       # One file per third-party plugin, e.g. ai-connectors.php, mailpoet.php
 │   ├── self-update.php     # Offers GitHub releases as plugin updates (loads on production too)
 │   ├── deactivate-plugins.php
-│   ├── delete.php          # delete_users_and_orders
+│   ├── delete.php          # delete_users_and_orders, keep_data
 │   ├── delete-transients.php
 │   ├── disable-webhooks.php
 │   └── classes/
@@ -76,7 +76,7 @@ Safety Net is a fixed pipeline of steps plus a registry of integrations. The pip
 ### Pipeline
 
 - `safety-net.php` returns early when another copy already loaded (`SAFETY_NET_PATH`) or WordPress is still installing, loads `utilities.php` and `self-update.php`, and on production only adds the notice and stops. Otherwise it loads `integrations.php`, the integration files and their `hooks` phase, then the step files, the REST route and the WP-CLI command, and fires `safety_net_loaded`. That happens while WordPress is still including plugins: as a regular plugin, before every plugin that sorts after it, WooCommerce among them; as an mu-plugin, before every regular plugin.
-- `bootstrap.php` runs on `safety_net_loaded`, in this order: the renewal pause toggle, scrub (`safety_net_scrub_options`), deactivate (`safety_net_deactivate_plugins`), delete (`safety_net_delete_data`), transients and webhooks. Each step runs once per site and records it in its flag option; the deactivate step refuses to run before the scrub, and the delete step before the deactivate step. On `wp_loaded` it runs the payment gateway pass (once WooCommerce is loaded) and then the integrations' `late` phase.
+- `bootstrap.php` runs on `safety_net_loaded`, in this order: the renewal pause toggle, scrub (`safety_net_scrub_options`), deactivate (`safety_net_deactivate_plugins`), delete (`safety_net_delete_data`), transients and webhooks. Each step runs once per site and records it in its flag option; the deactivate step refuses to run before the scrub, and the delete step before the deactivate step. While `SAFETY_NET_DELETE_DATA` is `false` and `SAFETY_NET_KEEP_UNTIL`, if set, has not passed (`get_keep_config()` in `utilities.php`), the delete step runs the keep step (`safety_net_keep_data`, flag `safety_net_data_kept`) instead, and `stop_emails()` lets a Password Reset through only when every recipient is an administrator. When the kept data is deleted later, automatically or from the Tools page or WP-CLI, both flags stay set. On `wp_loaded` it runs the payment gateway pass (once WooCommerce is loaded) and then the integrations' `late` phase.
 - The Tools page buttons and the WP-CLI commands call the step functions directly: they skip the run-once check but keep the order checks.
 
 How the steps use the registry (`includes/integrations.php`):
@@ -86,7 +86,7 @@ How the steps use the registry (`includes/integrations.php`):
 | Scrub | `scrub-options.php` | `options_to_clear()` (option_scrublist.txt plus every integration's option fields and the stored options under its `delete_option_prefixes`), passed through `safety_net_options_to_clear`; `option_treatment()` picks blank, partial, value, delete or delete_partial per option; `cancel_action_scheduler_hooks` | `run_phase( 'scrub' )` |
 | Deactivate | `deactivate-plugins.php` | `plugin_patterns()` (plugin_denylist.txt plus every integration's `plugins`), passed through `safety_net_denylisted_plugins` | |
 | Gateway pass | `deactivate-plugins.php`, `utilities.php` | `offline_gateways()` | |
-| Delete | `delete.php` | `tables`, `network_tables`, `post_types`, `comment_types`, `usermeta`, `action_scheduler_hooks`, `upload_globs` | `run_phase( 'delete' )`, then posts are reassigned to an administrator and the other users deleted |
+| Delete | `delete.php` | `tables`, `network_tables`, `post_types`, `comment_types`, `usermeta`, `action_scheduler_hooks`, `upload_globs` | `run_phase( 'delete' )`, then posts are reassigned to an administrator and the other users deleted. While data is kept, the keep step (`keep_data()`) runs instead: it reads none of these fields, deletes every `{option}_sn_backup` option (the scrub writes none meanwhile) and runs `run_phase( 'keep' )` |
 | Transients, webhooks | `delete-transients.php`, `disable-webhooks.php` | nothing | |
 
 The pipeline keeps core WordPress behaviour and shared machinery: the admin email, `default_pingback_flag` and `_pingme`, email blocking, search engines and `robots.txt`, transients, users and post authors, the Atomic exception for Jetpack's secrets, the Jetpack Autoloader workaround (`keep_in_jetpack_autoloader()`), gateway tracing and the multisite network flags, plus the webhooks step, which disables the rows of WooCommerce's `wc_webhooks` table.
@@ -103,6 +103,7 @@ The pipeline keeps core WordPress behaviour and shared machinery: the admin emai
 
 - `hooks` runs as Safety Net loads on every non-production request, before the steps: always-on filters, such as PMPro's cron jobs, Jetpack's subscription emails and the paused Action Scheduler store.
 - `scrub` and `delete` run inside their steps, after the declared data has been handled. The automatic pass runs before most plugins are loaded, so these closures, and closures in `partial_options`, use plain SQL through `$wpdb` and may call another plugin's function or class only behind `function_exists()` or `class_exists()` (as in `pmpro.php`, and in `woocommerce.php`, whose webhook pass usually finds WooCommerce loaded only when the scrub runs from the Tools page or WP-CLI).
+- `keep` runs inside the keep step, instead of `delete`, only while data is kept, after the option backups are deleted. Its closures remove what could still charge, send or sign in next to the kept data, and follow the same plain-SQL rules as `scrub` and `delete`.
 - `late` runs on `wp_loaded` of every non-production request, after the gateway pass, and is the only phase that can count on other plugins' classes.
 - Each step runs a phase across all integrations, so the order between integrations must never matter; logic that needs an order belongs in the pipeline.
 
@@ -118,7 +119,7 @@ The pipeline keeps core WordPress behaviour and shared machinery: the admin emai
 
 - `staging-plugin` R1: every file in `includes/integrations/` registers exactly one declaration, at `BUILT_IN_PRIORITY`, whose slug is its file name, in file order; every declaration passes the collector's rules and leaves the table prefix out of its tables; no option or plugin pattern is declared twice, by two integrations or by an integration and a data file, or falls under another integration's `delete_option_prefixes`.
 - `staging-plugin` R2: invalid and overlapping declarations from an mu-plugin are logged and skipped, and a valid one gets everything it declares scrubbed, deactivated and deleted.
-- `wp-cli` C8: `wp safety-net integrations` lists every integration with its counts and phases, and `--format=json` returns the declarations.
+- `wp-cli` C8: `wp safety-net integrations` lists every integration with its counts and phases (`scrub`, `delete`, `keep`, `hooks`, `late`), and `--format=json` returns the declarations.
 
 ---
 
@@ -257,6 +258,9 @@ CI (`.github/workflows/tests.yml`) runs on pull requests and trunk: `php -l` on 
 7. **Integrations registry**  
    Everything Safety Net does for one third-party plugin is declared in `includes/integrations/<slug>.php`, and the steps read those declarations instead of handling the plugin themselves (see Architecture).
 
+8. **Keeping data narrows only the delete step**  
+   `SAFETY_NET_DELETE_DATA` and `SAFETY_NET_KEEP_UNTIL` are constants, not options or filters, because the automatic run fires on a site's first request of any kind, while plugins are still loading, and a constant in `wp-config.php` is the one setting certain to exist by then. They fail closed: anything other than the boolean `false` and a valid `YYYY-MM-DD` date is ignored and the data is deleted. They never skip the scrub or deactivate steps, which stop a copy from charging customers or syncing with third parties, and the Tools page and `wp safety-net delete` always delete everything.
+
 ---
 
 ## Extensibility
@@ -275,12 +279,15 @@ Key filters and hooks:
 | `safety_net_deactivate_plugins` | Fired to deactivate plugins |
 | `safety_net_deactivate_gateway_plugins` | Fired on `wp_loaded` (once WooCommerce has loaded) to deactivate plugins that register a payment gateway |
 | `safety_net_delete_data` | Fired to delete users and orders |
+| `safety_net_keep_data` | Fired instead of `safety_net_delete_data` while `SAFETY_NET_DELETE_DATA` is `false`, to delete the option backups and run the integrations' `keep` phase |
 | `safety_net_delete_transients` | Fired to delete transients |
 | `safety_net_disable_webhooks` | Fired to disable webhooks |
 | `safety_net/integrations` | Add `SafetyNet\Integrations\Integration` declarations; collected once as Safety Net loads, so only code that runs before it can add them, and one that overlaps a Safety Net integration is skipped (see Architecture) |
 
-Constant:
+Constants:
 
+- `SAFETY_NET_DELETE_DATA` — When exactly `false`, the automatic run keeps users, orders and subscriptions: the keep step replaces the delete step. Any other value is ignored, so data is deleted, and reported in the wp-admin notice and the error log.
+- `SAFETY_NET_KEEP_UNTIL` — A `YYYY-MM-DD` date, read only when `SAFETY_NET_DELETE_DATA` is `false`; once that day has ended (UTC), the next load deletes the data. An invalid date makes Safety Net ignore `SAFETY_NET_DELETE_DATA`.
 - `SAFETY_NET_SKIP_GIVEWP` — When `true`, skip GiveWP data during deletion.
 
 ---
@@ -294,7 +301,7 @@ Constant:
    The plugin intentionally does nothing on production. Do not add behavior that bypasses `is_production()`. The only exception is `self-update.php`, which loads first so production installs keep receiving updates.
 
 3. **Do not change execution order**  
-   Scrubbing → deactivating plugins → deleting data must stay in that order. The code enforces this with option checks.
+   Scrubbing → deactivating plugins → deleting data must stay in that order. The code enforces this with option checks. Do not add a way to skip the scrub or deactivate step; only the delete step has an alternative, the keep step (see Architectural Decisions 8).
 
 4. **Do not remove `ABSPATH` check**  
    The main plugin file MUST guard with `if ( ! defined( 'ABSPATH' ) ) { exit; }`.
