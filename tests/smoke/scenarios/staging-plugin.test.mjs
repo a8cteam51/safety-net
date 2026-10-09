@@ -9,12 +9,16 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 	let seed;
 	let thirdParty;
 	let ai;
+	let xeroBackup;
+	let xeroLogs;
 
 	before( async () => {
 		site = await bootSite( { name: 'staging-plugin', env: 'staging', mode: 'plugin' } );
 		seed = await site.php( 'return sn_test_seed_base();', { label: 'seeding the site' } );
 		thirdParty = await site.php( 'return sn_test_seed_third_party();', { label: 'seeding third-party plugin tables' } );
 		ai = await site.php( "return array( 'plugins' => sn_test_seed_ai_provider_plugins(), 'backups' => sn_test_seed_ai_backups(), 'rest' => sn_test_write_ai_keys_through_rest(), 'core' => sn_test_ai_core_view() );", { label: 'seeding AI provider plugins, stale AI backups and AI keys through the settings endpoint' } );
+		xeroBackup = await site.php( "update_option( 'xero_oauth_options_sn_backup', array( 'refresh_token' => 'sn-xero-refresh-old' ), false ); return sn_test_xero_state()['backup'];", { label: 'seeding a stale backup of the Xero tokens' } );
+		xeroLogs = await site.php( 'return sn_test_seed_xero_logs();', { label: 'seeding a WooCommerce Xero log file and another log file' } );
 		await site.enableSafetyNet();
 	} );
 
@@ -85,13 +89,21 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 
 	test( 'A14/A16: denylisted plugins are deactivated and the rest stay active', async () => {
 		const active = await site.php( "return get_option( 'active_plugins' );" );
-		for ( const plugin of [ 'mailchimp-for-wp/mailchimp-for-wp.php', 'wp-mail-smtp/wp_mail_smtp.php', 'my-stripe-addon/my-stripe-addon.php', 'zz-extra-denied/zz-extra-denied.php' ] ) {
+		for ( const plugin of [ 'mailchimp-for-wp/mailchimp-for-wp.php', 'wp-mail-smtp/wp_mail_smtp.php', 'my-stripe-addon/my-stripe-addon.php', 'zz-extra-denied/zz-extra-denied.php', 'woocommerce-xero/woocommerce-xero.php' ] ) {
 			assert.ok( ! active.includes( plugin ), `${ plugin } is still active` );
 		}
 		// Without WooCommerce no gateway is registered, so gateway plugins stay until the pass can run.
-		for ( const plugin of [ 'barcode-label-printer/barcode-label-printer.php', 'zz-single-file.php', 'safety-net/safety-net.php', 'zz-checkout/zz-checkout.php', 'zz-offline-cod/zz-offline-cod.php' ] ) {
+		for ( const plugin of [ 'barcode-label-printer/barcode-label-printer.php', 'zz-single-file.php', 'safety-net/safety-net.php', 'zz-checkout/zz-checkout.php', 'zz-offline-cod/zz-offline-cod.php', 'xero-addons/xero-addons.php' ] ) {
 			assert.ok( active.includes( plugin ), `${ plugin } was deactivated` );
 		}
+	} );
+
+	test( 'A45: WooCommerce Xero\'s tokens and log files are deleted without a backup, a stale backup of the tokens goes too, and its other settings stay', async () => {
+		assert.deepEqual( xeroBackup, { refresh_token: 'sn-xero-refresh-old' }, 'Seeding the stale backup of the Xero tokens failed, so this proves nothing' );
+		assert.deepEqual( await site.php( 'return sn_test_xero_state();' ), { ...seed.xero, tokens: null, backup: null }, 'The Xero tokens or a backup of them were kept, or WooCommerce Xero\'s other settings changed' );
+		assert.deepEqual( xeroLogs, { xero: true, other: true }, 'Seeding the log files failed, so this proves nothing' );
+		const logs = await site.php( 'return sn_test_xero_logs();' );
+		assert.deepEqual( logs, { xero: false, other: true }, 'WooCommerce Xero\'s log file, which can hold its tokens, was kept, or another log file was deleted' );
 	} );
 
 	test( 'A33: AI provider credentials are deleted without a backup, stale AI backups go too, and look-alike options and other backups stay', async () => {

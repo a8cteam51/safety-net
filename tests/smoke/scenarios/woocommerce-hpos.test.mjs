@@ -12,6 +12,7 @@ describe( 'woocommerce-hpos: regular plugin on a WooCommerce store (HPOS)', () =
 	let site;
 	let seed;
 	let automateWoo;
+	let xero;
 	let firstProbe;
 
 	before( async () => {
@@ -19,6 +20,8 @@ describe( 'woocommerce-hpos: regular plugin on a WooCommerce store (HPOS)', () =
 		seed = await seedWooCommerceSite( site, { hpos: true } );
 		automateWoo = await site.php( 'return sn_test_seed_automatewoo();', { label: 'seeding AutomateWoo data' } );
 		assert.deepEqual( await site.php( `return sn_test_automatewoo_state( json_decode( '${ JSON.stringify( automateWoo ) }', true ) );` ), { workflow: 'publish', queue: 1, meta: 1, action: 'pending', other: 'pending' }, 'Seeding AutomateWoo data failed' );
+		xero = await site.php( 'return sn_test_seed_xero_actions();', { label: 'seeding WooCommerce Xero actions' } );
+		assert.deepEqual( await site.php( `return sn_test_action_statuses( json_decode( '${ JSON.stringify( xero ) }', true ) );` ), { invoice: 'pending', payment: 'pending', void: 'pending', control: 'pending' }, 'Seeding WooCommerce Xero actions failed' );
 		await site.enableSafetyNet();
 	} );
 
@@ -66,6 +69,11 @@ describe( 'woocommerce-hpos: regular plugin on a WooCommerce store (HPOS)', () =
 		assert.equal( s.meta, 0, 'automatewoo_queue_meta still has rows' );
 		assert.equal( s.action, 'canceled', 'The AutomateWoo action does not have Action Scheduler\'s canceled status' );
 		assert.equal( s.other, 'pending', 'An unrelated pending action was taken out of the queue' );
+	} );
+
+	test( 'A46: WooCommerce Xero\'s pending invoice, payment and void actions are canceled, and a hook its pattern only matches with "_" as a wildcard is not', async () => {
+		const s = await site.php( `return sn_test_action_statuses( json_decode( '${ JSON.stringify( xero ) }', true ) );` );
+		assert.deepEqual( s, { invoice: 'canceled', payment: 'canceled', void: 'canceled', control: 'pending' }, 'A WooCommerce Xero action can still send to Xero, or an unrelated pending action was canceled' );
 	} );
 
 	test( 'K7: sessions, download permissions and logs, and order placeholders from before the run are cleared', async () => {

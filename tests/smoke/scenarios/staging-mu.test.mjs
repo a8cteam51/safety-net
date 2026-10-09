@@ -30,11 +30,13 @@ describe( 'staging-mu: mu-plugin on a development site without WooCommerce, keep
 		const s = await site.php( "return array( 'snapshot' => sn_test_snapshot(), 'ai' => sn_test_ai_state(), 'blanked' => sn_test_blanked_options(), 'active' => get_option( 'active_plugins' ), 'path' => SAFETY_NET_PATH );" );
 		assert.equal( s.path, '/wordpress/wp-content/mu-plugins/safety-net/' );
 		assert.ok( ! s.active.includes( 'mailchimp-for-wp/mailchimp-for-wp.php' ) );
+		assert.ok( ! s.active.includes( 'woocommerce-xero/woocommerce-xero.php' ) );
 		assert.ok( ! s.active.includes( 'safety-net/safety-net.php' ) );
 		assert.ok( s.active.includes( 'barcode-label-printer/barcode-label-printer.php' ) );
 		assert.deepEqual( s.snapshot.users, { admin: 1, admin2: seed.users.admin2 } );
 		assert.equal( s.snapshot.options.admin_email, 'safetynet@scrubbedthis.option' );
 		assert.equal( s.snapshot.options.klaviyo_api_key, '' );
+		assert.equal( s.snapshot.options.xero_oauth_options, null );
 		assertOptionsBlanked( s.blanked, 'The first load in mu-plugin mode' );
 		assertAiKeysScrubbed( s.ai, seed.ai, 'The first load in mu-plugin mode' );
 		for ( const plugin of [ 'ai/ai.php', 'ai-provider-for-anthropic/plugin.php', 'aslams-ai-provider-for-grok/ai-provider-for-grok.php' ] ) {

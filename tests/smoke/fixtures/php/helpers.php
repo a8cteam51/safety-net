@@ -131,6 +131,8 @@ const SN_TEST_BLANKED_OPTIONS = array(
 	'tt4b_external_business_id'                     => 'sn-tiktok-business',
 	'tt4b_external_data'                            => 'sn-tiktok-external-data',
 	'tt4b_secret'                                   => 'sn-tiktok-secret',
+	'wc_xero_client_id'                             => 'sn-xero-client',
+	'wc_xero_client_secret'                         => 'sn-xero-secret',
 	'woocommerce_referralcandy_settings'            => array( 'enabled' => 'yes', 'app_id' => 'sn-referralcandy-app', 'secret_key' => 'sn-referralcandy-secret' ),
 	'woocommerce_shipstation_auth_key'              => 'sn-shipstation-key',
 	'wpmandrill'                                    => array( 'api_key' => 'sn-mandrill', 'from_username' => 'shop' ),
@@ -140,6 +142,23 @@ const SN_TEST_BLANKED_OPTIONS = array(
 	'zmail_integ_client_secret'                     => 'sn-zoho-secret',
 	'zmail_refresh_token'                           => 'sn-zoho-refresh',
 );
+
+const SN_TEST_XERO_TOKENS = array( 'token' => 'sn-xero-access', 'expires' => 1893456000, 'tenant_id' => 'sn-xero-tenant', 'refresh_token' => 'sn-xero-refresh' );
+
+// Kept, since nothing can reach Xero once the tokens are gone.
+const SN_TEST_XERO_SETTINGS = array( 'wc_xero_sales_account' => '200', 'wc_xero_send_invoices' => 'payment_completion', 'xero_oauth_success' => '1' );
+
+function sn_test_xero_state(): array {
+	$settings = array();
+	foreach ( array_keys( SN_TEST_XERO_SETTINGS ) as $name ) {
+		$settings[ $name ] = sn_test_raw_option( $name );
+	}
+	return array(
+		'tokens'   => sn_test_raw_option( 'xero_oauth_options' ),
+		'backup'   => sn_test_raw_option( 'xero_oauth_options_sn_backup' ),
+		'settings' => $settings,
+	);
+}
 
 function sn_test_blanked_options(): array {
 	$state = array();
@@ -183,7 +202,7 @@ function sn_test_ai_state(): array {
 function sn_test_snapshot(): array {
 	global $wpdb;
 	$options = array();
-	foreach ( array_merge( array( 'admin_email', 'blogname', 'blog_public', 'klaviyo_api_key', 'mc4wp', 'woocommerce_stripe_settings', 'woocommerce-ppcp-settings', 'jetpack_active_modules', 'jetpack_secrets', 'pmpro_gateway', 'pmpro_gateway_environment', 'pmpro_last_known_url', 'default_pingback_flag', 'sn_custom_secret', 'wprus', '_wp_convertkit_settings', 'apple_news_settings', 'active_plugins', '_transient_sn_seed', '_transient_nelio_content_news' ), SN_TEST_AI_KEYS, SN_TEST_AI_SETTINGS, SN_TEST_AI_CONTROLS ) as $name ) {
+	foreach ( array_merge( array( 'admin_email', 'blogname', 'blog_public', 'klaviyo_api_key', 'mc4wp', 'woocommerce_stripe_settings', 'woocommerce-ppcp-settings', 'jetpack_active_modules', 'jetpack_secrets', 'pmpro_gateway', 'pmpro_gateway_environment', 'pmpro_last_known_url', 'default_pingback_flag', 'sn_custom_secret', 'wprus', '_wp_convertkit_settings', 'apple_news_settings', 'active_plugins', '_transient_sn_seed', '_transient_nelio_content_news', 'xero_oauth_options' ), SN_TEST_AI_KEYS, SN_TEST_AI_SETTINGS, SN_TEST_AI_CONTROLS ) as $name ) {
 		$options[ $name ] = sn_test_raw_option( $name );
 	}
 	$backups = $wpdb->get_col( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE '%\\_sn\\_backup' ORDER BY option_name" );
@@ -274,6 +293,15 @@ function sn_test_automatewoo_state( array $seed ): array {
 		'action'   => $status( (int) $seed['action'] ),
 		'other'    => $status( (int) $seed['other'] ),
 	);
+}
+
+function sn_test_action_statuses( array $ids ): array {
+	global $wpdb;
+	$statuses = array();
+	foreach ( $ids as $key => $id ) {
+		$statuses[ $key ] = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}actionscheduler_actions WHERE action_id = %d", $id ) );
+	}
+	return $statuses;
 }
 
 // Straight from sitemeta, since Safety Net writes the network admin email there directly.
@@ -452,4 +480,21 @@ function sn_test_remove_extra_integration( int $kept_post ) {
 	@rmdir( $dir ); // phpcs:ignore
 	sn_test_activate_plugins( array( 'zz-single-file.php' ) );
 	return true;
+}
+
+function sn_test_xero_logs(): array {
+	// A directory listing, not file_exists(): another Playground worker can keep reporting a deleted file as present.
+	$files = scandir( wp_upload_dir( null, false )['basedir'] . '/wc-logs' ) ?: array();
+	return array(
+		'xero'  => in_array( 'xero-2026-01-01-sn.log', $files, true ),
+		'other' => in_array( 'sn-other-2026-01-01.log', $files, true ),
+	);
+}
+
+function sn_test_seed_xero_logs(): array {
+	$dir = wp_upload_dir( null, false )['basedir'] . '/wc-logs';
+	wp_mkdir_p( $dir );
+	file_put_contents( "$dir/xero-2026-01-01-sn.log", 'refresh_token sn-xero-refresh' );
+	file_put_contents( "$dir/sn-other-2026-01-01.log", 'other' );
+	return sn_test_xero_logs();
 }
