@@ -181,18 +181,32 @@ function stop_sending() {
 }
 
 /**
- * While SAFETY_NET_DELETE_DATA keeps the subscribers, keeps MailPoet's sending paused on every request, since some of its sending methods bypass wp_mail().
+ * While SAFETY_NET_DELETE_DATA keeps the subscribers, keeps MailPoet's sending paused on every request, since some of its sending methods bypass wp_mail(); once the kept data is deleted, lifts that pause.
  *
  * @return void
  */
 function keep_sending_paused() {
-	if ( ! is_data_deletion_disabled() || ! get_option( 'safety_net_data_kept' ) ) {
+	if ( ! get_option( 'safety_net_data_kept' ) ) {
+		return;
+	}
+
+	if ( ! is_data_deletion_disabled() || get_option( 'safety_net_data_deleted' ) ) {
+		add_action( 'init', __NAMESPACE__ . '\resume_sending', PHP_INT_MIN + 1 );
 		return;
 	}
 
 	// Just after MailPoet's own activator on init, which resets the pause on activation and on every update, and before its cron runs.
 	add_action( 'init', __NAMESPACE__ . '\pause_sending', PHP_INT_MIN + 1 );
 	add_action( 'activated_plugin', __NAMESPACE__ . '\pause_sending' );
+}
+
+/**
+ * Returns the reason Safety Net gives MailPoet for pausing its sending.
+ *
+ * @return string
+ */
+function pause_message(): string {
+	return __( 'Safety Net paused sending: this site is a copy of the live site and keeps its real subscribers, because SAFETY_NET_DELETE_DATA is false. Sending stays paused until that data is deleted.', 'safety-net' );
 }
 
 /**
@@ -211,14 +225,28 @@ function pause_sending() {
 		}
 
 		// MailPoet shows a 'migration' error as a notice without a Resume button.
-		\MailPoet\Mailer\MailerLog::pauseSending(
-			\MailPoet\Mailer\MailerLog::setError(
-				\MailPoet\Mailer\MailerLog::getMailerLog(),
-				'migration',
-				__( 'Safety Net paused sending: this site is a copy of the live site and keeps its real subscribers, because SAFETY_NET_DELETE_DATA is false. Sending stays paused until that data is deleted.', 'safety-net' )
-			)
-		);
+		\MailPoet\Mailer\MailerLog::pauseSending( \MailPoet\Mailer\MailerLog::setError( \MailPoet\Mailer\MailerLog::getMailerLog(), 'migration', pause_message() ) );
 	} catch ( \Throwable $error ) {
 		error_log( 'Safety Net: could not pause MailPoet sending: ' . $error->getMessage() ); // phpcs:ignore -- Logging is okay here.
+	}
+}
+
+/**
+ * Resumes MailPoet's sending once the kept data is gone, if Safety Net's own pause is what stops it.
+ *
+ * @return void
+ */
+function resume_sending() {
+	if ( ! class_exists( '\MailPoet\Mailer\MailerLog' ) ) {
+		return;
+	}
+
+	try {
+		$error = \MailPoet\Mailer\MailerLog::getError();
+		if ( \MailPoet\Mailer\MailerLog::isSendingPaused() && 'migration' === ( $error['operation'] ?? null ) && pause_message() === ( $error['error_message'] ?? null ) ) {
+			\MailPoet\Mailer\MailerLog::resumeSending();
+		}
+	} catch ( \Throwable $error ) {
+		error_log( 'Safety Net: could not resume MailPoet sending: ' . $error->getMessage() ); // phpcs:ignore -- Logging is okay here.
 	}
 }

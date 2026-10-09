@@ -326,6 +326,20 @@ return array(
 		assert.equal( await site.php( `return \\SafetyNet\\Admin\\is_blocked_kept_user( ${ seed.base.users.customer1 } );` ), false, 'Accounts are still refused after the data was deleted, so test accounts made on the copy cannot log in' );
 	} );
 
+	test( 'KD20: once the kept data is deleted, Safety Net lifts its own MailPoet pause but leaves MailPoet\'s own ones', async () => {
+		const state = "return array( 'paused' => \\MailPoet\\Mailer\\MailerLog::isSendingPaused(), 'operation' => \\MailPoet\\Mailer\\MailerLog::getError()['operation'] ?? null );";
+		try {
+			await site.php( "require_once ABSPATH . 'wp-admin/includes/plugin.php'; $result = activate_plugin( 'mailpoet/mailpoet.php' ); if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); } return true;", { label: 'reactivating MailPoet' } );
+			assert.equal( await site.php( "return get_option( 'safety_net_data_deleted' ) && get_option( 'safety_net_data_kept' );" ), true, 'The data is not deleted after being kept, so this proves nothing' );
+			assert.deepEqual( await site.php( `\\SafetyNet\\Integrations\\MailPoet\\pause_sending(); ${ state }`, { label: 'storing Safety Net\'s pause' } ), { paused: true, operation: 'migration' }, 'Storing Safety Net\'s pause failed, so this proves nothing' );
+			assert.deepEqual( await site.php( state, { label: 'reading MailPoet\'s sending state' } ), { paused: false, operation: null }, 'MailPoet stays paused by Safety Net after the kept data was deleted' );
+			await site.php( "\\MailPoet\\Mailer\\MailerLog::pauseSending( \\MailPoet\\Mailer\\MailerLog::setError( \\MailPoet\\Mailer\\MailerLog::getMailerLog(), 'send', 'SMTP refused the connection' ) ); return true;", { label: 'pausing MailPoet the way a sending error does' } );
+			assert.deepEqual( await site.php( state, { label: 'reading MailPoet\'s sending state again' } ), { paused: true, operation: 'send' }, 'Safety Net resumed a pause that MailPoet set for its own sending error' );
+		} finally {
+			await site.php( "\\MailPoet\\Mailer\\MailerLog::resumeSending(); require_once ABSPATH . 'wp-admin/includes/plugin.php'; deactivate_plugins( 'mailpoet/mailpoet.php', true ); return true;", { label: 'deactivating MailPoet again' } );
+		}
+	} );
+
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
 		site.assertCleanLog();
 	} );
