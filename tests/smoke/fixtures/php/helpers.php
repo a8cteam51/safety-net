@@ -481,3 +481,19 @@ function sn_test_remove_extra_integration( int $kept_post ) {
 	sn_test_activate_plugins( array( 'zz-single-file.php' ) );
 	return true;
 }
+
+function sn_test_xero_logs(): array {
+	$dir = wp_upload_dir( null, false )['basedir'] . '/wc-logs';
+	return array(
+		'xero'  => file_exists( "$dir/xero-2026-01-01-sn.log" ),
+		'other' => file_exists( "$dir/sn-other-2026-01-01.log" ),
+	);
+}
+
+function sn_test_seed_xero_logs(): array {
+	$dir = wp_upload_dir( null, false )['basedir'] . '/wc-logs';
+	wp_mkdir_p( $dir );
+	file_put_contents( "$dir/xero-2026-01-01-sn.log", 'refresh_token sn-xero-refresh' );
+	file_put_contents( "$dir/sn-other-2026-01-01.log", 'other' );
+	return sn_test_xero_logs();
+}

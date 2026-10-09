@@ -9,6 +9,8 @@ namespace SafetyNet\Integrations\Xero;
 
 use SafetyNet\Integrations\Integration;
 
+use function SafetyNet\Delete\delete_upload_files;
+
 use const SafetyNet\Integrations\BUILT_IN_PRIORITY;
 
 add_filter(
@@ -26,11 +28,20 @@ add_filter(
 			// Xero rotates the refresh token on use, so a restored copy would disconnect the live store.
 			delete_options: array( 'xero_oauth_options' ),
 			cancel_action_scheduler_hooks: array( 'woocommerce\_xero\_%' ),
-			// With its debug logging filter on, WooCommerce Xero before 1.9.15 wrote the tokens in plain text to its log.
-			upload_globs: array( 'wc-logs/xero-*.log' ),
+			scrub: delete_logs( ... ),
 		);
 
 		return $integrations;
 	},
 	BUILT_IN_PRIORITY
 );
+
+/**
+ * Deletes WooCommerce Xero's log files in the scrub step, so they also go while data is kept.
+ *
+ * @return void
+ */
+function delete_logs() {
+	// With its debug logging filter on, WooCommerce Xero before 1.9.15 wrote the tokens in plain text to its log.
+	delete_upload_files( 'wc-logs/xero-*.log' );
+}

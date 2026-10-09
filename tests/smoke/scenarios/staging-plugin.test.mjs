@@ -18,7 +18,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		thirdParty = await site.php( 'return sn_test_seed_third_party();', { label: 'seeding third-party plugin tables' } );
 		ai = await site.php( "return array( 'plugins' => sn_test_seed_ai_provider_plugins(), 'backups' => sn_test_seed_ai_backups(), 'rest' => sn_test_write_ai_keys_through_rest(), 'core' => sn_test_ai_core_view() );", { label: 'seeding AI provider plugins, stale AI backups and AI keys through the settings endpoint' } );
 		xeroBackup = await site.php( "update_option( 'xero_oauth_options_sn_backup', array( 'refresh_token' => 'sn-xero-refresh-old' ), false ); return sn_test_xero_state()['backup'];", { label: 'seeding a stale backup of the Xero tokens' } );
-		xeroLogs = await site.php( "$dir = wp_upload_dir( null, false )['basedir'] . '/wc-logs'; wp_mkdir_p( $dir ); file_put_contents( \"$dir/xero-2026-01-01-sn.log\", 'refresh_token sn-xero-refresh' ); file_put_contents( \"$dir/sn-other-2026-01-01.log\", 'other' ); return array( 'xero' => file_exists( \"$dir/xero-2026-01-01-sn.log\" ), 'other' => file_exists( \"$dir/sn-other-2026-01-01.log\" ) );", { label: 'seeding a WooCommerce Xero log file and another log file' } );
+		xeroLogs = await site.php( 'return sn_test_seed_xero_logs();', { label: 'seeding a WooCommerce Xero log file and another log file' } );
 		await site.enableSafetyNet();
 	} );
 
@@ -102,7 +102,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.deepEqual( xeroBackup, { refresh_token: 'sn-xero-refresh-old' }, 'Seeding the stale backup of the Xero tokens failed, so this proves nothing' );
 		assert.deepEqual( await site.php( 'return sn_test_xero_state();' ), { ...seed.xero, tokens: null, backup: null }, 'The Xero tokens or a backup of them were kept, or WooCommerce Xero\'s other settings changed' );
 		assert.deepEqual( xeroLogs, { xero: true, other: true }, 'Seeding the log files failed, so this proves nothing' );
-		const logs = await site.php( "$dir = wp_upload_dir( null, false )['basedir'] . '/wc-logs'; return array( 'xero' => file_exists( \"$dir/xero-2026-01-01-sn.log\" ), 'other' => file_exists( \"$dir/sn-other-2026-01-01.log\" ) );" );
+		const logs = await site.php( 'return sn_test_xero_logs();' );
 		assert.deepEqual( logs, { xero: false, other: true }, 'WooCommerce Xero\'s log file, which can hold its tokens, was kept, or another log file was deleted' );
 	} );
 

@@ -95,7 +95,7 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 			[ /^\W*tiktok\W+TikTok\W+tiktok, tikt[\w-]*\W+8\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'TikTok' ],
 			[ /^\W*wayback-mac\w*\W+Internet\b.*?\W2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Wayback Machine Link Fixer' ],
 			[ /^\W*wpmandrill\W+wpMandrill\W+wpmandrill\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'wpMandrill' ],
-			[ /^\W*xero\W+Xero\W+-xero\W+3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Xero' ],
+			[ /^\W*xero\W+Xero\W+-xero\W+3\W+0\W+0\W+0\W+yes\W+no\W+no\W+no\W+no\W*$/m, 'Xero' ],
 			[ /^\W*yotpo\W+Yotpo\W+yotpo\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Yotpo' ],
 			[ /^\W*zoho-mail\W+Zoho Mail\W+zoho, zoho[\w-]*\W+4\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Zoho Mail' ],
 		] ) {
@@ -116,7 +116,7 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		);
 		assert.deepEqual(
 			{ label: xero.label, plugins: xero.plugins, options: xero.options, partial_options: xero.partial_options, delete_options: xero.delete_options, cancel_action_scheduler_hooks: xero.cancel_action_scheduler_hooks, action_scheduler_hooks: xero.action_scheduler_hooks, upload_globs: xero.upload_globs, phases: [ xero.scrub, xero.delete, xero.keep, xero.hooks, xero.late ] },
-			{ label: 'Xero', plugins: [ '-xero' ], options: [ 'wc_xero_client_id', 'wc_xero_client_secret' ], partial_options: [], delete_options: [ 'xero_oauth_options' ], cancel_action_scheduler_hooks: [ 'woocommerce\\_xero\\_%' ], action_scheduler_hooks: [], upload_globs: [ 'wc-logs/xero-*.log' ], phases: [ false, false, false, false, false ] },
+			{ label: 'Xero', plugins: [ '-xero' ], options: [ 'wc_xero_client_id', 'wc_xero_client_secret' ], partial_options: [], delete_options: [ 'xero_oauth_options' ], cancel_action_scheduler_hooks: [ 'woocommerce\\_xero\\_%' ], action_scheduler_hooks: [], upload_globs: [], phases: [ true, false, false, false, false ] },
 			'The JSON output does not describe the Xero integration'
 		);
 		assert.deepEqual(
