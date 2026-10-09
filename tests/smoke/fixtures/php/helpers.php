@@ -483,10 +483,11 @@ function sn_test_remove_extra_integration( int $kept_post ) {
 }
 
 function sn_test_xero_logs(): array {
-	$dir = wp_upload_dir( null, false )['basedir'] . '/wc-logs';
+	// A directory listing, not file_exists(): another Playground worker can keep reporting a deleted file as present.
+	$files = scandir( wp_upload_dir( null, false )['basedir'] . '/wc-logs' ) ?: array();
 	return array(
-		'xero'  => file_exists( "$dir/xero-2026-01-01-sn.log" ),
-		'other' => file_exists( "$dir/sn-other-2026-01-01.log" ),
+		'xero'  => in_array( 'xero-2026-01-01-sn.log', $files, true ),
+		'other' => in_array( 'sn-other-2026-01-01.log', $files, true ),
 	);
 }
 
