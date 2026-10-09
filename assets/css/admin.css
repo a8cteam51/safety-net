@@ -157,6 +157,11 @@ button.safety-net-save {
     opacity: 0.5;
 }
 
+.plugins_card .plugins_card_body .plugin-item.active-denylisted {
+    background-color: #fcf0f1;
+    box-shadow: inset 4px 0 0 #d63638;
+}
+
 .plugins_card .plugins_card_footer p {
     max-width: fit-content;
     padding: 0 15px;

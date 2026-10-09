@@ -37,6 +37,8 @@ function add_admin_hooks() {
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
+	add_action( 'admin_notices', __NAMESPACE__ . '\show_active_denylisted_warning' );
+	add_action( 'network_admin_notices', __NAMESPACE__ . '\show_active_denylisted_warning' );
 }
 
 /**
@@ -240,6 +242,67 @@ function is_plugin_in_denylist( string $plugin_file ): bool {
 }
 
 /**
+ * Returns the names of active plugins that Safety Net deactivates, keyed by plugin file.
+ *
+ * @param bool $network_only Whether to look only at network-activated plugins.
+ *
+ * @return string[]
+ */
+function get_active_denylisted_plugins( bool $network_only = false ): array {
+	$active = $network_only ? array() : (array) get_option( 'active_plugins', array() );
+	if ( is_multisite() ) {
+		$active = array_merge( $active, array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) );
+	}
+
+	$plugins = array();
+	foreach ( array_unique( $active ) as $plugin_file ) {
+		if ( ! is_string( $plugin_file ) || stristr( $plugin_file, 'safety-net' ) || ! is_plugin_in_denylist( $plugin_file ) ) {
+			continue;
+		}
+
+		$path = WP_PLUGIN_DIR . '/' . $plugin_file;
+		$name = file_exists( $path ) ? get_plugin_data( $path, false, false )['Name'] : '';
+
+		$plugins[ $plugin_file ] = '' !== $name ? $name : $plugin_file;
+	}
+
+	return $plugins;
+}
+
+/**
+ * Warns that plugins Safety Net deactivates are active again, since they can send email or sync data outside wp_mail().
+ *
+ * @return void
+ */
+function show_active_denylisted_warning() {
+	$network = is_network_admin();
+	if ( ! current_user_can( $network ? 'manage_network_plugins' : 'manage_options' ) ) {
+		return;
+	}
+
+	if ( ! function_exists( 'get_plugin_data' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	}
+
+	$plugins = get_active_denylisted_plugins( $network );
+	if ( ! $plugins ) {
+		return;
+	}
+
+	printf(
+		'<div class="notice notice-error safety-net-active-denylisted"><p><strong>%1$s</strong> %2$s</p></div>',
+		esc_html__( 'Safety Net:', 'safety-net' ),
+		esc_html(
+			sprintf(
+				/* translators: %s: comma-separated plugin names */
+				__( 'these plugins are deactivated by Safety Net but active again: %s. They may send email or sync data on their own, outside wp_mail(), and Safety Net can\'t block that. Deactivate them unless you\'ve confirmed they can\'t reach real users.', 'safety-net' ),
+				implode( ', ', $plugins )
+			)
+		)
+	);
+}
+
+/**
  * Renders the plugins table.
  *
  * @return void
@@ -264,10 +327,19 @@ function render_plugins_table() {
 						<?php
 						foreach ( get_plugins() as $plugin_file => $plugin_data ) {
 							$plugin_status = is_plugin_active( $plugin_file );
+							$row_class     = $plugin_status ? ( is_plugin_in_denylist( $plugin_file ) ? ' active-denylisted' : '' ) : ' inactive';
 							?>
-							<tr class="plugin-item<?php echo $plugin_status ? '' : ' inactive'; ?>">
+							<tr class="plugin-item<?php echo esc_attr( $row_class ); ?>">
 								<td><?php echo esc_html( $plugin_data['Name'] ); ?></td>
-								<td><?php $plugin_status ? esc_html_e( 'Active', 'safety-net' ) : esc_html_e( 'Inactive', 'safety-net' ); ?></td>
+								<td>
+									<?php
+									if ( ' active-denylisted' === $row_class ) {
+										esc_html_e( 'Active, though Safety Net deactivates it', 'safety-net' );
+									} else {
+										$plugin_status ? esc_html_e( 'Active', 'safety-net' ) : esc_html_e( 'Inactive', 'safety-net' );
+									}
+									?>
+								</td>
 								<td><?php echo is_plugin_in_denylist( $plugin_file ) ? '<span class="dashicons dashicons-yes-alt" style="color:green"></span>' : '<span class="dashicons dashicons-dismiss" style="color:#c30000"></span>'; ?></td>
 							</tr>
 							<?php

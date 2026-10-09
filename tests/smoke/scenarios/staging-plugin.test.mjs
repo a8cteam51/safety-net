@@ -307,6 +307,22 @@ return $state;` );
 		assert.match( res.text, /Safety Net Activated/ );
 		assert.match( res.text, /environment type is set to "staging"/ );
 		assert.match( res.text, /WooCommerce Subscriptions scheduled actions are currently paused\./ );
+		assert.doesNotMatch( res.text, /safety-net-active-denylisted/, 'The warning about reactivated plugins shows while none is active' );
+	} );
+
+	test( 'A44: a reactivated denylisted plugin is named in an error notice and highlighted on the Tools page, for admins only', async () => {
+		const plugin = 'mailchimp-for-wp/mailchimp-for-wp.php';
+		const editor = await site.php( `$active = (array) get_option( 'active_plugins' ); $active[] = '${ plugin }'; update_option( 'active_plugins', $active ); return sn_test_create_user( 'sn_notice_editor', 'editor' );`, { label: 'reactivating a denylisted plugin' } );
+		try {
+			const dashboard = await site.get( '/wp-admin/', { jar: site.adminJar } );
+			assert.match( dashboard.text, /class="notice notice-error safety-net-active-denylisted"><p><strong>Safety Net:<\/strong> these plugins are deactivated by Safety Net but active again: MC4WP stub \(fixture\)\./ );
+			const { res } = await getToolsPage( site );
+			assert.match( res.text, /<tr class="plugin-item active-denylisted">\s*<td>MC4WP stub \(fixture\)<\/td>\s*<td>\s*Active, though Safety Net deactivates it/ );
+			const shown = await site.php( `wp_set_current_user( ${ editor } ); ob_start(); \\SafetyNet\\Admin\\show_active_denylisted_warning(); return ob_get_clean();` );
+			assert.equal( shown, '', 'A user without manage_options saw the warning' );
+		} finally {
+			await site.php( `update_option( 'active_plugins', array_values( array_diff( (array) get_option( 'active_plugins' ), array( '${ plugin }' ) ) ) ); require_once ABSPATH . 'wp-admin/includes/user.php'; wp_delete_user( ${ editor } ); return true;` );
+		}
 	} );
 
 	test( 'S18: a logged-in subscriber is refused by every AJAX tool and nothing changes', async () => {
