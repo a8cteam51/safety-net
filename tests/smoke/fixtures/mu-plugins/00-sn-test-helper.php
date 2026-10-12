@@ -257,6 +257,42 @@ if ( get_option( 'sn_test_early_mail' ) ) {
 	);
 }
 
+// Records every email with Safety Net's verdict in mail.jsonl, also in HTTP requests, and sends none; one it lets through counts as sent.
+if ( get_option( 'sn_test_capture_mail' ) ) {
+	$sn_test_capture = (array) get_option( 'sn_test_capture_mail' );
+	// A plugin's wp_mail filter that adds a recipient to every email.
+	if ( ! empty( $sn_test_capture['bcc'] ) ) {
+		add_filter(
+			'wp_mail',
+			static function ( $atts ) use ( $sn_test_capture ) {
+				$bcc             = 'Bcc: ' . $sn_test_capture['bcc'];
+				$atts['headers'] = is_array( $atts['headers'] ) ? array_merge( $atts['headers'], array( $bcc ) ) : trim( $atts['headers'] . "\r\n" . $bcc );
+				return $atts;
+			}
+		);
+	}
+	add_filter(
+		'pre_wp_mail',
+		static function ( $verdict, $atts ) {
+			@file_put_contents( SN_TEST_OUT . '/mail.jsonl', sn_test_json( array( 'verdict' => $verdict, 'atts' => $atts ) ) . "\n", FILE_APPEND ); // phpcs:ignore
+			return null === $verdict ? true : $verdict;
+		},
+		11,
+		2
+	);
+	unset( $sn_test_capture );
+}
+
+// The database refuses to create the email log table, as it does for a user without the CREATE privilege.
+if ( get_option( 'sn_test_refuse_email_log_table' ) ) {
+	add_filter(
+		'query',
+		static function ( $query ) {
+			return preg_match( '/^\s*CREATE TABLE IF NOT EXISTS \S*safety_net_email_log\b/i', $query ) ? 'CREATE TABLE sn_test_refused_create (' : $query;
+		}
+	);
+}
+
 // One write of this step flag reports failure and stores nothing, as update_option() does when the database refuses it.
 if ( get_option( 'sn_test_lost_flag' ) ) {
 	add_filter(

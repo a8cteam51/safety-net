@@ -156,10 +156,35 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 		assert.deepEqual( Object.keys( await site.php( 'return sn_test_users();' ) ).sort(), SURVIVORS );
 	} );
 
-	test( 'M12: the subsite discourages search engines and blocks email', async () => {
+	test( 'M12: the subsite discourages search engines and blocks email, and logs it in its own email log', async () => {
 		const s = await site.php( "return array( 'blog' => get_current_blog_id(), 'filtered' => get_option( 'blog_public' ), 'raw' => sn_test_raw_option( 'blog_public' ) );", { path: '/shop/' } );
 		assert.deepEqual( s, { blog: 2, filtered: 0, raw: '1' } );
-		assertMailBlocked( await captureMail( site, { path: '/shop/' } ) );
+		const mainMark = await site.php( 'return sn_test_email_log_last_id();', { label: 'reading the main site\'s last email log entry' } );
+		const mail = await captureMail( site, { path: '/shop/' } );
+		assertMailBlocked( mail );
+		const logs = await site.php( `$shop = sn_test_email_log(); switch_to_blog( 1 ); $main = sn_test_email_log( ${ mainMark } ); restore_current_blog(); return array( 'shop' => $shop, 'main' => $main );`, { path: '/shop/', label: 'reading the shop\'s and the main site\'s email logs' } );
+		assert.deepEqual( logs.shop?.slice( -2 ).map( ( entry ) => [ entry.subject, entry.status ] ), [ [ 'Order receipt', 'blocked' ], [ mail.reset_subject, 'allowed' ] ], 'The shop\'s emails are not at the end of its own email log' );
+		assert.deepEqual( ( logs.main ?? [] ).map( ( entry ) => entry.subject ), [], 'The shop\'s emails were logged in the main site\'s email log' );
+	} );
+
+	test( 'M14: deleting a site also drops its email log table', async () => {
+		const s = await site.php( `
+global $wpdb;
+sn_test_send_emails( array( array( 'to' => 'someone@example.com', 'subject' => 'Sent on the main site', 'message' => 'x' ) ) );
+$blog = wpmu_create_blog( DOMAIN_CURRENT_SITE, PATH_CURRENT_SITE . 'doomed/', 'Doomed', ${ seed.users.shopowner } );
+if ( is_wp_error( $blog ) ) {
+	throw new RuntimeException( $blog->get_error_message() );
+}
+switch_to_blog( $blog );
+$sent = sn_test_send_emails( array( array( 'to' => 'someone@example.com', 'subject' => 'Sent on a site about to be deleted', 'message' => 'x' ) ) );
+restore_current_blog();
+$table   = $wpdb->get_blog_prefix( $blog ) . 'safety_net_email_log';
+$created = sn_test_table_exists( $table );
+$deleted = wp_delete_site( $blog );
+return array( 'logged' => count( (array) $sent['entries'] ), 'created' => $created, 'deleted' => ! is_wp_error( $deleted ), 'left' => sn_test_table_exists( $table ), 'main' => sn_test_table_exists( $wpdb->prefix . 'safety_net_email_log' ) );`, { label: 'logging an email on a new site and deleting the site' } );
+		assert.deepEqual( [ s.logged, s.created, s.deleted ], [ 1, true, true ], 'The new site did not log its email in its own table, or deleting it failed, so this proves nothing' );
+		assert.equal( s.left, false, 'Deleting the site left its email log table behind' );
+		assert.equal( s.main, true, 'Deleting a site dropped the main site\'s email log table' );
 	} );
 
 	test( 'M8: a site created after Safety Net was enabled runs on its first load and keeps its administrator', async () => {

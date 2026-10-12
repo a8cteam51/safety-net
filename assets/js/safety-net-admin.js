@@ -64,6 +64,16 @@
 		});
 	}
 
+	function confirmBeforeSubmit( form ) {
+		form.addEventListener( 'submit', confirmSubmit );
+	}
+
+	function confirmSubmit( event ) {
+		if ( ! confirm( event.currentTarget.dataset.safetyNetConfirm ) ) {
+			event.preventDefault();
+		}
+	}
+
 	function ajax(data) {
 		$.ajax(
 			{
@@ -182,4 +192,6 @@
 	if (disableWebhooksButton) {
 		disableWebhooksButton.addEventListener('click', disableWebhooks);
 	}
+
+	document.querySelectorAll( 'form[data-safety-net-confirm]' ).forEach( confirmBeforeSubmit );
 })(window, document, jQuery);

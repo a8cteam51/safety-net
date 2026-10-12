@@ -5,6 +5,9 @@ namespace SafetyNet\Admin;
 use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\EmailLog\log_email;
+use function SafetyNet\EmailLog\render_tab as render_email_log_tab;
+use function SafetyNet\EmailLog\sending_copy;
 use function SafetyNet\Utilities\get_admin_emails;
 use function SafetyNet\Utilities\get_admin_user_ids;
 use function SafetyNet\Utilities\get_environment_type;
@@ -62,7 +65,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		return;
 	}
 
-	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery' ), '1.0', true );
+	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery' ), '1.1', true );
 
 	wp_localize_script(
 		'safety-net-admin',
@@ -72,7 +75,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		)
 	);
 
-	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.0' );
+	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.1' );
 }
 
 /**
@@ -186,7 +189,7 @@ function settings_init() {
 	$pause_args = array(
 		'type'      => 'checkbox',
 		'name'      => 'safety_net_pause_renewal_actions_toggle',
-		'class'     => 'safety-net-pause-renewal-actions-toggle',
+		'class'     => 'safety-net-toggle safety-net-pause-renewal-actions-toggle',
 		'label_for' => 'safety_net_pause_renewal_actions_toggle',
 	);
 	if ( is_data_deletion_disabled() ) {
@@ -414,6 +417,32 @@ function get_footer_links_format() {
 }
 
 /**
+ * Renders the tabs of the options page.
+ *
+ * @param string $current The current tab, 'tools' or 'email-log'.
+ *
+ * @return void
+ */
+function render_tabs( string $current ) {
+	$tabs = array(
+		'tools'     => array( __( 'Tools', 'safety-net' ), admin_url( 'tools.php?page=safety_net_options' ) ),
+		'email-log' => array( __( 'Email log', 'safety-net' ), admin_url( 'tools.php?page=safety_net_options&tab=email-log' ) ),
+	);
+
+	echo '<nav class="nav-tab-wrapper safety-net-tabs" aria-label="' . esc_attr__( 'Safety Net', 'safety-net' ) . '">';
+	foreach ( $tabs as $tab => list( $label, $url ) ) {
+		printf(
+			'<a href="%1$s" class="nav-tab%2$s"%3$s>%4$s</a>',
+			esc_url( $url ),
+			$tab === $current ? ' nav-tab-active' : '',
+			$tab === $current ? ' aria-current="page"' : '',
+			esc_html( $label )
+		);
+	}
+	echo '</nav>';
+}
+
+/**
  * Renders the HTML for the options page.
  *
  * @return void
@@ -422,6 +451,8 @@ function render_options_html() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
+
+	$tab = isset( $_GET['tab'] ) && 'email-log' === $_GET['tab'] ? 'email-log' : 'tools'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	?>
 	<div class="wrap">
 	<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
@@ -435,15 +466,20 @@ function render_options_html() {
 			<a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.
 		</p>
 	<?php else : ?>
-		<h3>Tools</h3>
-		<form action="options.php" method="post">
-			<?php
-			settings_fields( 'safety-net' );
-			do_settings_sections( 'safety_net_options' );
-			render_plugins_table();
-			?>
-			<p><input name="Submit" type="submit" class="button button-primary safety-net-save" value="<?php esc_attr_e( 'Save Changes' ); ?>"/></p>
-		</form>
+		<?php render_tabs( $tab ); ?>
+		<?php if ( 'email-log' === $tab ) : ?>
+			<?php render_email_log_tab(); ?>
+		<?php else : ?>
+			<h3>Tools</h3>
+			<form action="options.php" method="post">
+				<?php
+				settings_fields( 'safety-net' );
+				do_settings_sections( 'safety_net_options' );
+				render_plugins_table();
+				?>
+				<p><input name="Submit" type="submit" class="button button-primary safety-net-save" value="<?php esc_attr_e( 'Save Changes' ); ?>"/></p>
+			</form>
+		<?php endif; ?>
 		</div>
 		<div class="loading-overlay"></div>
 		<?php
@@ -756,7 +792,7 @@ function show_keep_notice() {
 }
 
 /**
- * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data
+ * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data, and record each decision in the email log
  *
  * @param boolean|null $return WP_Mail short-circuit return value.
  * @param array        $args   The wp_mail() arguments.
@@ -764,17 +800,29 @@ function show_keep_notice() {
  * @return boolean|null
  */
 function stop_emails( $return, $args ) {
+	// One-shot, so emails sent from the copy's own hooks still get the rules below.
+	if ( sending_copy() ) {
+		sending_copy( false );
+		if ( is_sent_only_to_admins( $args ) ) {
+			error_log( 'Email sent: ' . $args['subject'] . ' (copy of a logged email)' ); // phpcs:ignore -- Logging is okay here.
+			return null;
+		}
+	}
+
 	if ( ! strstr( $args['subject'], 'Password Reset' ) ) {
 		error_log( "Email blocked: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning false says "short-circuit the wp_mail() function and indicate we did not send the email"
 		$return = false;
+		log_email( 'blocked', $args );
 	} elseif ( is_data_deletion_disabled() && ! is_sent_only_to_admins( $args ) ) {
 		error_log( 'Email blocked: ' . $args['subject'] . ' (not every recipient is an administrator while SAFETY_NET_DELETE_DATA keeps customer data)' ); // phpcs:ignore -- Logging is okay here.
 		$return = false;
+		log_email( 'blocked_recipients', $args );
 	} else {
 		error_log( "Email sent: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning null says "don't short circuit the wp_mail function"
 		$return = null;
+		log_email( 'allowed', $args );
 	}
 
 	return $return;

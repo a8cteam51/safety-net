@@ -205,7 +205,7 @@ export async function assertAjaxSentinelsUntouched( site, { seeded, mark } ) {
 }
 
 // Nonces are tied to the session token in the logged-in cookie, so they are built from that cookie.
-export async function noncesForSession( site, jar, login ) {
+export async function noncesForSession( site, jar, login, actions = TOOL_BUTTONS ) {
 	const cookie = [ ...jar.cookies ].find( ( [ name ] ) => name.startsWith( 'wordpress_logged_in_' ) );
 	assert.ok( cookie, `${ login } has no logged-in cookie` );
 	const value = Buffer.from( decodeURIComponent( cookie[ 1 ] ) ).toString( 'base64' );
@@ -215,11 +215,11 @@ $user = wp_validate_auth_cookie( '', 'logged_in' );
 if ( ! $user || get_userdata( $user )->user_login !== '${ login }' ) { throw new RuntimeException( 'The cookie does not log in ${ login }' ); }
 wp_set_current_user( $user );
 $nonces = array();
-foreach ( json_decode( '${ JSON.stringify( TOOL_BUTTONS ) }', true ) as $button ) { $nonces[ $button ] = wp_create_nonce( $button ); }
+foreach ( json_decode( '${ JSON.stringify( actions ) }', true ) as $action ) { $nonces[ $action ] = wp_create_nonce( $action ); }
 return $nonces;`,
 		{ label: `creating nonces for ${ login }` }
 	);
-	assert.deepEqual( Object.keys( result ).sort(), [ ...TOOL_BUTTONS ].sort() );
+	assert.deepEqual( Object.keys( result ).sort(), [ ...actions ].sort() );
 	return result;
 }
 

@@ -96,6 +96,13 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 		assert.deepEqual( s.pmpro, s.pmpro_input );
 	} );
 
+	test( 'P7: an email on production is neither blocked nor logged, and creates no email log table, option or cleanup event', async () => {
+		const s = await site.php( "$sent = sn_test_send_emails( array( array( 'to' => 'someone@example.com', 'subject' => 'Order receipt', 'message' => 'body' ) ) ); return array( 'sent' => $sent, 'state' => sn_test_email_log_state(), 'loaded' => function_exists( 'SafetyNet\\\\EmailLog\\\\log_email' ) );" );
+		assert.deepEqual( s.sent, { verdicts: [ null ], entries: null }, 'The email did not reach pre_wp_mail unblocked, or production logged it' );
+		assert.deepEqual( s.state, { table: false, options: {}, cleanup: null }, 'Production created the email log table, one of its options or its cleanup event' );
+		assert.equal( s.loaded, false, 'The email log is loaded on production' );
+	} );
+
 	test( 'U1: a newer GitHub release is offered on the plugins screen', async () => {
 		site.setHttpMocks( { [ GITHUB_RELEASE_URL ]: githubRelease( 'v99.0.0' ), [ releaseHeaderUrl( 'v99.0.0' ) ]: releaseHeader( '8.1' ) } );
 		await site.php( "delete_transient( 'safety_net_github_latest_release' ); delete_site_transient( 'update_plugins' ); return true;" );

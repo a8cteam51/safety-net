@@ -15,6 +15,7 @@ This public plugin is provided as an example of how such a plugin could be imple
 
 ## Existing Features
 - **Stop Emails**: When Safety Net is activated, WordPress will be blocked from sending emails. (Caution: may not block SMTP or other plugins from doing so. Plugins that Safety Net deactivated, such as MailPoet, can send email or sync data on their own if someone reactivates them; wp-admin then shows an error notice naming them, and the Tools page highlights them.) 
+- **Email Log**: Records the emails Safety Net blocks or lets through, so administrators can read them in Tools > Safety Net > Email log. Logging and deleting entries after 6 months are both on by default and can be switched off (see [Email log](#email-log)).
 - **Pause Renewal Actions**: When Safety Net is activated, Action Scheduler will not claim renewal, payment retry or end of prepaid term actions from WooCommerce Subscriptions, effectively pausing them. Other scheduled actions will continue to run. This is toggleable in wp-admin, except while `SAFETY_NET_DELETE_DATA` is `false` (see [Keeping data on purpose](#keeping-data-on-purpose)).
 - **Discourage Search Engines**: Sets the "Discourage search engines" option and disallows all user agents in the `robots.txt` file. Also disables Jetpack 'publicize' option.
 - **Scrub Options**: Clears specific denylisted options, such as API keys, which could cause problems on a development site.
@@ -23,6 +24,18 @@ This public plugin is provided as an example of how such a plugin could be imple
 
 #### Advanced features
 - **CLI commands**: CLI equivalents of the above features: `wp safety-net scrub-options`, `wp safety-net deactivate-plugins`, and `wp safety-net delete`
+
+### Email log
+
+Safety Net records every email it blocks or lets through in Tools > Safety Net > Email log, which only users who can manage options can see. Each entry has the date, the To addresses, the subject, the message, the headers the email was sent with, the sender and content type `wp_mail()` would have used (also when a plugin such as WooCommerce sets them only while it sends), the names of the attachments (not the files) and what Safety Net did: blocked it, blocked it because not every recipient was an administrator while `SAFETY_NET_DELETE_DATA` keeps data (see [Keeping data on purpose](#keeping-data-on-purpose)), or let it through.
+
+- Two switches on the Email log tab, both on until someone turns them off: **Log emails**, and **Delete old entries**, which deletes entries older than 6 months once a day. Turning logging off keeps the entries already logged, and they are still deleted after 6 months while the second switch is on.
+- Before a message is saved, the value of every `key=` and `confirm_key=` parameter in its links, such as the key in password reset, new account and privacy request confirmation links, is replaced with `[redacted]`. The subject is saved as it is, and so are other secrets in a message, such as the password in WordPress's multisite welcome emails or passwords some plugins send.
+- HTML messages, WooCommerce's multipart emails among them, are shown in a sandboxed frame that runs no scripts and loads no remote images. **Send to me** sends a copy of an entry to your own address only, and only if it is an administrator's, with the logged sender and content type (HTML for multipart emails), the redacted message and no attachments, Cc, Bcc or Reply-To. If a plugin adds another recipient who is not an administrator, the copy is not sent. Entries can be deleted one by one, or all at once with **Clear log**.
+- The log is emptied whenever Safety Net deletes users and orders, on the first load, with the Delete button in Tools > Safety Net or with `wp safety-net delete`, because it can hold customers' emails while `SAFETY_NET_DELETE_DATA` keeps data. The keep step leaves it alone.
+- Only emails sent through `wp_mail()` are logged, the same ones Safety Net can block.
+- The log is the `{prefix}safety_net_email_log` table, one per site on multisite (deleting a site drops its table), created when the first email is logged. When Safety Net is removed, the table stays in the database, and so do the `safety_net_email_log_*` options and the daily `safety_net_email_log_cleanup` WP-Cron event, which then stays scheduled with nothing to run. All of them go with the database when a staging site is pushed to production, where Safety Net does nothing, so the log is never cleaned up there. Clear the log before pushing to production.
+- The `safety_net_hide_admin` filter hides the Email log tab with the rest of the page; emails are still logged and old entries deleted as the switches say.
 
 ### Keeping data on purpose
 
@@ -94,7 +107,7 @@ Activating the plugin on a non-production site will:
 1. Scrub denylisted options.*
 2. Deactivate denylisted plugins.*
 3. Delete users, orders, and subscriptions.* (skipped while `SAFETY_NET_DELETE_DATA` is `false`, see [Keeping data on purpose](#keeping-data-on-purpose))
-4. Stop emails. You can still test and view emails by activating the [WP Mail Logging plugin](https://wordpress.org/plugins/wp-mail-logging/). 
+4. Stop emails, and log them in Tools > Safety Net > Email log (see [Email log](#email-log)). You can also test and view emails by activating the [WP Mail Logging plugin](https://wordpress.org/plugins/wp-mail-logging/). 
 5. Pause Renewal Actions.
 6. Discourage search engines.
 

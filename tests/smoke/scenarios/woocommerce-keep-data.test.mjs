@@ -117,6 +117,16 @@ return array(
 		assert.deepEqual( resets, { customer: false, admin: null, admins: null, mixed: false, nobody: false, cc: false, bcc: null, cc_split: false, bcc_nul: false }, 'A password reset must go through (null) only when every recipient is an administrator, and be blocked (false) otherwise' );
 	} );
 
+	test( 'KD22: while data is kept, the email log records a password reset to a customer as blocked because not every recipient is an administrator', async () => {
+		const s = await site.php( "$admin = get_userdata( 1 )->user_email; return array( 'admin' => $admin, 'sent' => sn_test_send_emails( array( array( 'to' => 'customer1@example.com', 'subject' => '[Site] Password Reset', 'message' => 'x' ), array( 'to' => $admin, 'subject' => '[Site] Password Reset', 'message' => 'x' ), array( 'to' => 'customer1@example.com', 'subject' => 'Your order', 'message' => 'x' ) ) ) );", { label: 'sending a password reset to a customer and to an administrator, and a regular email' } );
+		assert.deepEqual( s.sent.verdicts, [ false, null, false ], 'Safety Net did not block the customer\'s password reset and the regular email, and let the administrator\'s through' );
+		assert.deepEqual( s.sent.entries?.map( ( entry ) => [ entry.recipients, entry.subject, entry.status ] ), [
+			[ 'customer1@example.com', '[Site] Password Reset', 'blocked_recipients' ],
+			[ s.admin, '[Site] Password Reset', 'allowed' ],
+			[ 'customer1@example.com', 'Your order', 'blocked' ],
+		], 'The email log does not record why each email was blocked or let through' );
+	} );
+
 	test( 'KD6: the REST status route reports that data is kept', async () => {
 		const status = JSON.parse( ( await site.get( '/wp-json/safety-net/v1/status' ) ).text );
 		assert.deepEqual( status, { ...STATUS, data_deleted: false, data_kept: true, data_deletion_disabled: true, keep_until: null } );
@@ -247,11 +257,14 @@ return array(
 	} );
 
 	test( 'KD8: once SAFETY_NET_KEEP_UNTIL has passed, the next page load deletes the kept data', async () => {
+		// Before the constants change, since any load after it already deletes the data.
+		assert.ok( await site.php( 'return count( (array) sn_test_email_log() );' ) > 0, 'The email log is empty while data is kept, so emptying it is not tested' );
 		await setConstants( { SAFETY_NET_DELETE_DATA: false, SAFETY_NET_KEEP_UNTIL: '2000-01-01' } );
 		const before = site.probe().length;
 		await site.get( '/' );
 		assert.deepEqual( httpProbeSince( site, before ).map( ( line ) => [ line.runs.safety_net_delete_data, line.runs.safety_net_keep_data ] ), [ [ 1, 0 ] ], 'The first page load after SAFETY_NET_KEEP_UNTIL passed did not run the delete step' );
-		const s = await site.php( "return array( 'counts' => sn_test_wc_counts(), 'users' => sn_test_users(), 'flags' => sn_test_flags(), 'duplicate_site' => apply_filters( 'woocommerce_subscriptions_is_duplicate_site', false ) );" );
+		const s = await site.php( "return array( 'counts' => sn_test_wc_counts(), 'users' => sn_test_users(), 'flags' => sn_test_flags(), 'duplicate_site' => apply_filters( 'woocommerce_subscriptions_is_duplicate_site', false ), 'email_log' => sn_test_email_log() );" );
+		assert.deepEqual( s.email_log, [], 'Deleting the kept data left entries in the email log, which can hold customer data' );
 		for ( const table of CLEARED ) {
 			assert.equal( s.counts[ table ], 0, `${ table } still has ${ s.counts[ table ] } rows (seeded ${ seed.woo.counts[ table ] })` );
 		}
@@ -328,8 +341,10 @@ return array(
 		assert.match( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, /This site keeps a copy of the live site/, 'The dashboard does not say data is kept, so this would not test the button on a site that keeps data' );
 		const { res, nonces } = await getToolsPage( site );
 		assert.match( res.text, /this button deletes everything anyway/, 'SAFETY_NET_DELETE_DATA is not false on the Tools page, so this would not test the button while data is kept' );
+		assert.ok( await site.php( "wp_mail( 'late-customer@example.com', 'Your order is on its way', 'body' ); return count( (array) sn_test_email_log() );", { label: 'logging an email to the late customer' } ) > 0, 'The email log is empty, so emptying it is not tested' );
 		assert.deepEqual( await postAjax( site, 'safety_net_delete_users', nonces[ 'safety-net-delete-users' ] ), { success: true, message: 'Users, orders, and subscriptions have been successfully deleted!' } );
 		assert.deepEqual( await exists(), { user: false, order: false }, 'The Tools Delete button left a customer or an order while SAFETY_NET_DELETE_DATA is false' );
+		assert.deepEqual( await site.php( 'return sn_test_email_log();' ), [], 'The Tools Delete button left entries in the email log while SAFETY_NET_DELETE_DATA is false' );
 		const s = await site.php( "return array( 'users' => sn_test_users(), 'flags' => sn_test_flags() );" );
 		assert.deepEqual( s.users, { admin: 1, admin2: seed.base.users.admin2 } );
 		assert.equal( s.flags.safety_net_data_deleted, '1', 'The Tools Delete button did not record that the data is deleted' );

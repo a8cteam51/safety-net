@@ -2,6 +2,7 @@
 
 namespace SafetyNet\Delete;
 
+use function SafetyNet\EmailLog\clear_log;
 use function SafetyNet\Integrations\get_integrations;
 use function SafetyNet\Integrations\run_phase;
 use function SafetyNet\ScrubOptions\delete_option_directly;
@@ -34,6 +35,8 @@ function delete_users_and_orders() {
 
 	delete_integration_data();
 	run_phase( 'delete' );
+
+	clear_log();
 
 	// Reassigning all posts to the first admin user
 	reassign_all_posts();
