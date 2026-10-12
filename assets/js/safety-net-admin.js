@@ -8,6 +8,13 @@
 	const deleteTransientsButton = document.getElementById( 'safety-net-delete-transients' );
 	const disableWebhooksButton = document.getElementById( 'safety-net-disable-webhooks' );
 
+	const emailLogDialog      = document.getElementById( 'safety-net-email-log-dialog' );
+	const emailLogDialogBody  = emailLogDialog ? emailLogDialog.querySelector( '.safety-net-email-log-dialog-body' ) : null;
+	const emailLogDialogClose = emailLogDialog ? emailLogDialog.querySelector( '.safety-net-email-log-dialog-close' ) : null;
+	let emailLogOpener        = null;
+	let emailLogRequest       = 0;
+	let emailLogPressOutside  = false;
+
 	function deleteTransients() {
 		if ( ! confirm( 'Are you sure you want to delete transients? This cannot be undone!') ) {
 			return;
@@ -64,13 +71,209 @@
 		});
 	}
 
-	function confirmBeforeSubmit( form ) {
-		form.addEventListener( 'submit', confirmSubmit );
+	function confirmSubmit( event ) {
+		const form = event.target;
+
+		if ( ! ( form instanceof HTMLFormElement ) || ! form.dataset.safetyNetConfirm ) {
+			return;
+		}
+
+		if ( ! confirm( form.dataset.safetyNetConfirm ) ) {
+			event.preventDefault();
+		}
 	}
 
-	function confirmSubmit( event ) {
-		if ( ! confirm( event.currentTarget.dataset.safetyNetConfirm ) ) {
-			event.preventDefault();
+	function initEmailLogTabs( root ) {
+		for ( const tablist of root.querySelectorAll( '.safety-net-email-log-tabs' ) ) {
+			const selected = tablist.querySelector( '[role="tab"][aria-selected="true"]' ) || tablist.querySelector( '[role="tab"]' );
+
+			if ( selected ) {
+				selectEmailLogTab( selected, false );
+			}
+		}
+	}
+
+	function selectEmailLogTab( tab, focus ) {
+		const tablist = tab.closest( '[role="tablist"]' );
+
+		if ( ! tablist ) {
+			return;
+		}
+
+		for ( const other of tablist.querySelectorAll( '[role="tab"]' ) ) {
+			const isSelected = other === tab;
+			const panel      = document.getElementById( other.getAttribute( 'aria-controls' ) );
+
+			other.setAttribute( 'aria-selected', isSelected ? 'true' : 'false' );
+			other.tabIndex = isSelected ? 0 : -1;
+
+			if ( panel ) {
+				panel.hidden = ! isSelected;
+			}
+		}
+
+		if ( focus ) {
+			tab.focus();
+		}
+	}
+
+	function getEmailLogTab( event ) {
+		return event.target instanceof Element ? event.target.closest( '.safety-net-email-log-tabs [role="tab"]' ) : null;
+	}
+
+	function clickEmailLogTab( event ) {
+		const tab = getEmailLogTab( event );
+
+		if ( tab ) {
+			selectEmailLogTab( tab, false );
+		}
+	}
+
+	function moveEmailLogTab( event ) {
+		const tab = getEmailLogTab( event );
+
+		if ( ! tab ) {
+			return;
+		}
+
+		const tabs = Array.from( tab.closest( '[role="tablist"]' ).querySelectorAll( '[role="tab"]' ) );
+		let index  = tabs.indexOf( tab );
+
+		switch ( event.key ) {
+			case 'ArrowRight':
+				index = ( index + 1 ) % tabs.length;
+				break;
+			case 'ArrowLeft':
+				index = ( index - 1 + tabs.length ) % tabs.length;
+				break;
+			case 'Home':
+				index = 0;
+				break;
+			case 'End':
+				index = tabs.length - 1;
+				break;
+			default:
+				return;
+		}
+
+		event.preventDefault();
+		selectEmailLogTab( tabs[ index ], true );
+	}
+
+	function openEmailLogEntry( event ) {
+		const link = event.target instanceof Element ? event.target.closest( 'a.safety-net-email-log-view' ) : null;
+
+		// Without the dialog, or for a new tab or window, the link opens the entry's own page.
+		if ( ! link || ! emailLogDialogBody || 'function' !== typeof emailLogDialog.showModal || ! window.fetch || ! window.safety_net_params ) {
+			return;
+		}
+
+		if ( 0 !== event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) {
+			return;
+		}
+
+		event.preventDefault();
+
+		const request = ++emailLogRequest;
+		const url     = new URL( window.safety_net_params.ajax_url, window.location.href );
+
+		url.searchParams.set( 'action', 'safety_net_email_log_entry' );
+		url.searchParams.set( 'entry', link.dataset.entry );
+		url.searchParams.set( '_wpnonce', emailLogDialog.dataset.nonce );
+
+		emailLogOpener = link;
+		showEmailLogMessage( emailLogDialog.dataset.loading );
+		emailLogDialogBody.setAttribute( 'aria-busy', 'true' );
+
+		if ( ! emailLogDialog.open ) {
+			emailLogDialog.showModal();
+		}
+
+		speak( emailLogDialog.dataset.loading );
+
+		window.fetch( url.toString(), { credentials: 'same-origin' } ).then( readJson ).then( showEntry ).catch( showError );
+
+		function readJson( response ) {
+			return response.json();
+		}
+
+		function showEntry( json ) {
+			if ( request !== emailLogRequest ) {
+				return;
+			}
+
+			if ( json && json.success && json.data && 'string' === typeof json.data.html ) {
+				emailLogDialogBody.innerHTML = json.data.html;
+				initEmailLogTabs( emailLogDialogBody );
+				emailLogDialogBody.removeAttribute( 'aria-busy' );
+				speak( emailLogDialog.dataset.loaded );
+			} else {
+				showEmailLogError( json && json.data && json.data.message ? json.data.message : emailLogDialog.dataset.error );
+			}
+		}
+
+		function showError() {
+			if ( request === emailLogRequest ) {
+				showEmailLogError( emailLogDialog.dataset.error );
+			}
+		}
+	}
+
+	function speak( message, politeness ) {
+		if ( message && window.wp && window.wp.a11y && 'function' === typeof window.wp.a11y.speak ) {
+			window.wp.a11y.speak( message, politeness );
+		}
+	}
+
+	function showEmailLogMessage( message ) {
+		const paragraph = document.createElement( 'p' );
+
+		paragraph.textContent          = message;
+		emailLogDialogBody.textContent = '';
+		emailLogDialogBody.appendChild( paragraph );
+	}
+
+	function showEmailLogError( message ) {
+		showEmailLogMessage( message );
+		emailLogDialogBody.removeAttribute( 'aria-busy' );
+		speak( message, 'assertive' );
+	}
+
+	function closeEmailLogDialog() {
+		emailLogDialog.close();
+	}
+
+	// The backdrop and the dialog's scrollbar both target the dialog itself; only the backdrop is outside its box.
+	function isOutsideEmailLogDialog( event ) {
+		const rect = emailLogDialog.getBoundingClientRect();
+
+		return event.target === emailLogDialog && ( event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom );
+	}
+
+	function pressEmailLogDialog( event ) {
+		emailLogPressOutside = isOutsideEmailLogDialog( event );
+	}
+
+	// Only a press that also started on the backdrop: selecting text in the dialog and releasing outside it clicks the dialog too.
+	function closeEmailLogDialogOutside( event ) {
+		const pressedOutside = emailLogPressOutside;
+
+		emailLogPressOutside = false;
+
+		if ( pressedOutside && isOutsideEmailLogDialog( event ) ) {
+			emailLogDialog.close();
+		}
+	}
+
+	function resetEmailLogDialog() {
+		++emailLogRequest;
+		emailLogPressOutside           = false;
+		emailLogDialogBody.textContent = '';
+		emailLogDialogBody.removeAttribute( 'aria-busy' );
+
+		if ( emailLogOpener ) {
+			emailLogOpener.focus();
+			emailLogOpener = null;
 		}
 	}
 
@@ -193,5 +396,21 @@
 		disableWebhooksButton.addEventListener('click', disableWebhooks);
 	}
 
-	document.querySelectorAll( 'form[data-safety-net-confirm]' ).forEach( confirmBeforeSubmit );
+	// Delegated, so that the forms of an entry loaded into the dialog are handled too.
+	document.addEventListener( 'submit', confirmSubmit );
+	document.addEventListener( 'click', clickEmailLogTab );
+	document.addEventListener( 'keydown', moveEmailLogTab );
+	document.addEventListener( 'click', openEmailLogEntry );
+
+	if ( emailLogDialogBody ) {
+		emailLogDialog.addEventListener( 'close', resetEmailLogDialog );
+		emailLogDialog.addEventListener( 'pointerdown', pressEmailLogDialog );
+		emailLogDialog.addEventListener( 'click', closeEmailLogDialogOutside );
+	}
+
+	if ( emailLogDialogClose ) {
+		emailLogDialogClose.addEventListener( 'click', closeEmailLogDialog );
+	}
+
+	initEmailLogTabs( document );
 })(window, document, jQuery);

@@ -941,3 +941,213 @@ function sn_test_send_copy( int $id, array $options = array() ): array {
 		'entries'      => sn_test_email_log( $after ),
 	);
 }
+
+// Sends emails through wp_mail() to its result hooks with a PHPMailer that sends nothing; sn_test_send_each_for_result() lists the options.
+function sn_test_send_for_results( array $emails ): array {
+	require_once ABSPATH . WPINC . '/PHPMailer/PHPMailer.php';
+	require_once ABSPATH . WPINC . '/PHPMailer/SMTP.php';
+	require_once ABSPATH . WPINC . '/PHPMailer/Exception.php';
+	$after   = sn_test_email_log_last_id();
+	$counted = array( 'wp_mail_succeeded', 'wp_mail_failed', 'phpmailer_init' );
+	$before  = array_map( 'did_action', $counted );
+	$stub    = new class( true ) extends PHPMailer\PHPMailer\PHPMailer {
+		public $plans     = array();
+		public $delivered = array();
+
+		// An email sent while another is sent finishes first, so the last plan for a subject is the one being sent.
+		public function postSend() {
+			$plan = (array) array_pop( $this->plans[ $this->Subject ] );
+			if ( isset( $plan['during'] ) ) {
+				sn_test_while_sending( $plan['during'] );
+			}
+			if ( isset( $plan['refuse'] ) ) {
+				throw new PHPMailer\PHPMailer\Exception( $plan['refuse'] );
+			}
+			$this->delivered[] = $this->Subject;
+			return true;
+		}
+	};
+	// wp_mail() sets this validator on the mailer it creates; PHPMailer's own refuses senders such as wordpress@127.0.0.1.
+	PHPMailer\PHPMailer\PHPMailer::$validator = static fn( $email ) => (bool) is_email( $email );
+	try {
+		$results = sn_test_send_each_for_result( $emails, $stub );
+	} finally {
+		$GLOBALS['phpmailer'] = null;
+	}
+	return array(
+		'results'   => $results,
+		'delivered' => $stub->delivered,
+		'hooks'     => array_combine( $counted, array_map( static fn( $hook, $count ) => did_action( $hook ) - $count, $counted, $before ) ),
+		'entries'   => sn_test_email_log( $after ),
+	);
+}
+
+// Per email: 'refuse' (PHPMailer's error), 'deliver' => 'mail' (core's mailer and mail()), 'from', 'stop' (a later pre_wp_mail), 'nested', 'during'.
+function sn_test_send_each_for_result( array $emails, $stub ): array {
+	$results = array();
+	foreach ( $emails as $email ) {
+		$mailer  = 'mail' === ( $email['deliver'] ?? '' ) ? null : $stub;
+		$nested  = null;
+		$started = false;
+		$hooks   = array();
+		if ( isset( $email['from'] ) ) {
+			$hooks[] = array( 'wp_mail_from', static fn() => $email['from'], 10, 1 );
+		}
+		$hooks[] = array(
+			'pre_wp_mail',
+			static function ( $verdict, $atts ) use ( $email, $stub, $mailer, &$nested, &$started ) {
+				if ( $started || $atts['subject'] !== $email['subject'] ) {
+					return $verdict;
+				}
+				$started = true;
+				if ( ! empty( $email['nested'] ) ) {
+					$nested               = sn_test_send_each_for_result( $email['nested'], $stub );
+					$GLOBALS['phpmailer'] = $mailer;
+				}
+				return empty( $email['stop'] ) ? $verdict : false;
+			},
+			11,
+			2,
+		);
+		if ( $mailer ) {
+			$stub->plans[ $email['subject'] ][] = array_intersect_key( $email, array_flip( array( 'refuse', 'during' ) ) );
+		}
+		foreach ( $hooks as list( $hook, $callback, $priority, $accepted ) ) {
+			add_filter( $hook, $callback, $priority, $accepted );
+		}
+		$GLOBALS['phpmailer'] = $mailer;
+		try {
+			$sent = wp_mail( $email['to'], $email['subject'], $email['message'] ?? 'x', $email['headers'] ?? '', $email['attachments'] ?? array() );
+		} finally {
+			foreach ( $hooks as list( $hook, $callback, $priority ) ) {
+				remove_filter( $hook, $callback, $priority );
+			}
+			sn_test_while_sending( null );
+		}
+		$results[] = array_filter(
+			array(
+				'subject' => $email['subject'],
+				'sent'    => $sent,
+				'nested'  => $nested,
+			),
+			static fn( $value ) => null !== $value
+		);
+	}
+	return $results;
+}
+
+// Changes the site while PHPMailer sends an email; null undoes every change.
+function sn_test_while_sending( ?string $change ): void {
+	static $undo = array();
+	if ( null === $change ) {
+		while ( $undo ) {
+			( array_pop( $undo ) )();
+		}
+		return;
+	}
+	switch ( $change ) {
+		case 'logging_off':
+			$saved = sn_test_raw_option( 'safety_net_email_log_toggle' );
+			update_option( 'safety_net_email_log_toggle', 'off' );
+			$undo[] = static fn() => null === $saved ? delete_option( 'safety_net_email_log_toggle' ) : update_option( 'safety_net_email_log_toggle', $saved );
+			break;
+		case 'forget_table':
+			delete_option( 'safety_net_email_log_db_version' );
+			$undo[] = static fn() => update_option( 'safety_net_email_log_db_version', '1' );
+			break;
+		case 'refuse_update':
+			$refuse = static fn( $query ) => preg_match( '/^\s*UPDATE\s+`?\w*safety_net_email_log`?\s/i', $query ) ? 'UPDATE sn_test_refused_update SET refused = 1' : $query;
+			add_filter( 'query', $refuse );
+			$undo[] = static fn() => remove_filter( 'query', $refuse );
+			break;
+		default:
+			throw new RuntimeException( "Unknown change while sending: $change" );
+	}
+}
+
+// Replaces the not yet loaded WP_PHPMailer with a mailer that records its calls and sends nothing, so every email must be one Safety Net blocks.
+// wp_mail()'s own mailer is an earlier email's, already set up, which the dry run and the Raw view must neither use nor change.
+function sn_test_record_mailers( array $emails, int $raw_entry ): array {
+	if ( class_exists( 'WP_PHPMailer', false ) ) {
+		throw new RuntimeException( 'WP_PHPMailer is already loaded, so the recording mailer cannot replace it' );
+	}
+	require_once ABSPATH . WPINC . '/PHPMailer/PHPMailer.php';
+	require_once ABSPATH . WPINC . '/PHPMailer/Exception.php';
+	$recorder = new class() extends PHPMailer\PHPMailer\PHPMailer {
+		public static $calls = array();
+
+		public function preSend() {
+			self::$calls[] = 'preSend';
+			return parent::preSend();
+		}
+
+		public function send() {
+			self::$calls[] = 'send';
+			return false;
+		}
+
+		public function postSend() {
+			self::$calls[] = 'postSend';
+			return false;
+		}
+
+		protected function mailSend( $header, $body ) {
+			self::$calls[] = 'mailSend';
+			return false;
+		}
+
+		protected function sendmailSend( $header, $body ) {
+			self::$calls[] = 'sendmailSend';
+			return false;
+		}
+
+		protected function smtpSend( $header, $body ) {
+			self::$calls[] = 'smtpSend';
+			return false;
+		}
+
+		public function smtpConnect( $options = null ) {
+			self::$calls[] = 'smtpConnect';
+			return false;
+		}
+
+		public function addAttachment( $path, $name = '', $encoding = self::ENCODING_BASE64, $type = '', $disposition = 'attachment' ) {
+			self::$calls[] = 'addAttachment';
+			return false;
+		}
+	};
+	class_alias( get_class( $recorder ), 'WP_PHPMailer' );
+	$validator                                = static fn( $email ) => (bool) is_email( $email );
+	PHPMailer\PHPMailer\PHPMailer::$validator = $validator;
+	$outer                                    = new PHPMailer\PHPMailer\PHPMailer( true );
+	$outer->addAddress( 'outer@example.com' );
+	$outer->Subject       = 'Outer';
+	$GLOBALS['phpmailer'] = $outer;
+
+	$after            = sn_test_email_log_last_id();
+	$counted          = array( 'phpmailer_init', 'wp_mail_succeeded', 'wp_mail_failed' );
+	$before           = array_map( 'did_action', $counted );
+	$sent             = array();
+	$recorder::$calls = array();
+	foreach ( $emails as $email ) {
+		$sent[] = wp_mail( $email['to'], $email['subject'], $email['message'] ?? 'x', $email['headers'] ?? '', $email['attachments'] ?? array() );
+	}
+	$dry_run          = $recorder::$calls;
+	$recorder::$calls = array();
+	$raw              = SafetyNet\EmailLog\get_raw_message( SafetyNet\EmailLog\get_entry( $raw_entry ) );
+
+	return array(
+		'sent'      => $sent,
+		'dry_run'   => $dry_run,
+		'raw'       => $recorder::$calls,
+		'raw_built' => is_string( $raw ) && str_contains( $raw, "\r\n\r\n" ),
+		'hooks'     => array_combine( $counted, array_map( static fn( $hook, $count ) => did_action( $hook ) - $count, $counted, $before ) ),
+		'outer'     => array(
+			'same'    => $GLOBALS['phpmailer'] === $outer,
+			'to'      => array_map( 'current', $outer->getToAddresses() ),
+			'subject' => $outer->Subject,
+		),
+		'validator' => PHPMailer\PHPMailer\PHPMailer::$validator === $validator,
+		'entries'   => sn_test_email_log( $after ),
+	);
+}

@@ -123,11 +123,11 @@ export async function saveToolsForm( site ) {
 }
 
 // Fetching the enqueued assets also proves SAFETY_NET_URL is right for the install location.
-export async function assertToolsAssets( site, html, expectedDir ) {
+export async function assertToolsAssets( site, html, expectedDir, page = 'the Tools page' ) {
 	const script = html.match( /<script[^>]+src=['"]([^'"]*assets\/js\/safety-net-admin\.js[^'"]*)['"]/ )?.[ 1 ];
 	const style = html.match( /<link[^>]+href=['"]([^'"]*assets\/css\/admin\.css[^'"]*)['"]/ )?.[ 1 ];
-	assert.ok( script, 'safety-net-admin.js is not enqueued on the Tools page' );
-	assert.ok( style, 'admin.css is not enqueued on the Tools page' );
+	assert.ok( script, `safety-net-admin.js is not enqueued on ${ page }` );
+	assert.ok( style, `admin.css is not enqueued on ${ page }` );
 	for ( const url of [ script, style ] ) {
 		assert.ok( url.includes( expectedDir ), `${ url } is not served from ${ expectedDir }` );
 		const asset = await site.get( url.replace( /&#038;/g, '&' ) );

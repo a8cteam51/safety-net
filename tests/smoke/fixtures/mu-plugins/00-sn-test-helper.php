@@ -204,6 +204,18 @@ if ( get_option( 'sn_test_hide_admin' ) ) {
 	add_filter( 'safety_net_hide_admin', '__return_true' );
 }
 
+// Core builds submenu hook suffixes from the translated top-level menu title.
+if ( get_option( 'sn_test_translate' ) ) {
+	add_filter(
+		'gettext_safety-net',
+		static function ( $translation, $text ) {
+			return 'Email Log' === $text ? 'Journal des e-mails' : $translation;
+		},
+		10,
+		2
+	);
+}
+
 if ( get_option( 'sn_test_hide_production_notice' ) ) {
 	add_filter( 'safety_net_show_production_notice', '__return_false' );
 }
