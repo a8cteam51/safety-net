@@ -817,9 +817,33 @@ function stop_emails( $return, $args ) {
  * @return bool
  */
 function is_sent_only_to_admins( array $args ): bool {
+	$recipients = get_all_recipients( $args );
+
+	return $recipients && ! array_diff( $recipients, get_admin_emails() );
+}
+
+/**
+ * Whether any To, Cc or Bcc recipient of an email is an administrator that Safety Net keeps.
+ *
+ * @param array $args The wp_mail() arguments.
+ *
+ * @return bool
+ */
+function is_sent_to_an_admin( array $args ): bool {
+	return (bool) array_intersect( get_all_recipients( $args ), get_admin_emails() );
+}
+
+/**
+ * Returns the lowercased addresses of every To, Cc and Bcc recipient of an email.
+ *
+ * @param array $args The wp_mail() arguments.
+ *
+ * @return string[]
+ */
+function get_all_recipients( array $args ): array {
 	$recipients = get_mail_recipients( $args['to'] ?? '' );
 
-	// Split as wp_mail() does, so every Cc and Bcc it would send to is checked.
+	// Split as wp_mail() does, so every Cc and Bcc it would send to is counted.
 	$headers = $args['headers'] ?? array();
 	foreach ( is_array( $headers ) ? $headers : explode( "\n", str_replace( "\r\n", "\n", (string) $headers ) ) as $header ) {
 		if ( ! str_contains( (string) $header, ':' ) ) {
@@ -832,7 +856,7 @@ function is_sent_only_to_admins( array $args ): bool {
 		}
 	}
 
-	return $recipients && ! array_diff( $recipients, get_admin_emails() );
+	return $recipients;
 }
 
 /**

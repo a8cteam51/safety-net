@@ -29,6 +29,28 @@ const TOGGLES = [ 'safety_net_email_log_toggle', 'safety_net_email_log_cleanup_t
 
 const NO_LOG = { table: false, options: {}, cleanup: null };
 
+const DB_VERSION = '2';
+
+const VERSION = { safety_net_email_log_db_version: DB_VERSION };
+
+// Safety Net's redaction of key= and confirm_key= values: the part kept, then the key.
+const KEY_PATTERN = /([?&](?:amp;|#0?38;)?(?:confirm_)?key=)([^&\s"'<>]+)/gi;
+
+const keysIn = ( message ) => [ ...message.matchAll( KEY_PATTERN ) ].map( ( match ) => match[ 2 ] );
+
+const redact = ( message ) => message.replace( KEY_PATTERN, '$1[redacted]' );
+
+// An email logged by 1.11.0, which stored the redacted message only.
+const OLD_RESET = { subject: '[Site] Password Reset logged by 1.11.0', message: 'Reset: https://example.test/wp-login.php?login=old&key=[redacted]&action=rp' };
+
+const KEYS_PUT_BACK = 'Its password reset and confirmation keys are put back, so those links work until WordPress expires the keys, after 24 hours by default, or a newer request replaces them.';
+
+const KEYS_FOR_EDITORS = 'Its password reset and confirmation keys stay redacted, so those links will not work: only users who can edit users get the keys back.';
+
+const KEYS_NOT_STORED = 'Its password reset and confirmation keys stay redacted, so those links will not work: the keys were not stored with this entry.';
+
+const KEYS_FOR_ADMINS = 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators, who got the email itself.';
+
 const PLAIN = 'text/plain; charset=UTF-8';
 
 const LABELS = { blocked: 'Blocked', blocked_recipients: 'Blocked: not only administrators', allowed: 'Let through' };
@@ -141,6 +163,12 @@ const COULD_NOT_RECORD_RESULT = 'Safety Net: the email log could not record the 
 const COULD_NOT_CHECK = 'Safety Net: the email log could not check whether an email would be sent: ';
 
 const COULD_NOT_REBUILD = 'Safety Net: the email log could not rebuild an email: ';
+
+const COULD_NOT_ADD_COLUMN = 'Safety Net: the email log could not add its secrets column: ';
+
+const COULD_NOT_STORE_KEYS = 'Safety Net: the email log could not store the keys of an email, so its copies keep them redacted.';
+
+const COULD_NOT = 'Safety Net: the email log could not ';
 
 const VALIDATOR_FAILED = 'sn-test validator failed';
 
@@ -340,6 +368,13 @@ const notice = ( html ) => {
 	return match ? `${ match[ 1 ] }: ${ decode( match[ 2 ] ) }` : null;
 };
 
+// What an entry says Send to me sends.
+const copyNote = ( html ) => {
+	const note = html.match( /<p class="description safety-net-email-log-copy-note">([^<]*)<\/p>/ )?.[ 1 ];
+	assert.ok( note !== undefined, 'The entry does not say what Send to me sends' );
+	return decode( note );
+};
+
 const menuIds = ( html ) => [ ...html.matchAll( /<li class="[^"]*\bmenu-top\b[^"]*" id="([^"]+)">/g ) ].map( ( [ , id ] ) => id );
 
 // The Email Log menu item with its classes, its own link and its submenu items, or null without it.
@@ -445,6 +480,20 @@ return $ids;`, { label: 'adding entries of different ages' } );
 	const aged = async () => ( await log() ).filter( ( entry ) => entry.recipients === 'aged@example.com' ).map( ( entry ) => entry.subject );
 	const safetyNetDbErrors = ( mark ) => site.logEntriesSince( mark ).filter( ( line ) => /WordPress database error/.test( line ) && /SafetyNet\\/.test( line ) );
 	const ajaxEntry = ( id, nonce, { jar = site.adminJar, expect = 200 } = {} ) => site.get( `${ AJAX }?${ new URLSearchParams( { action: 'safety_net_email_log_entry', entry: String( id ), ...( nonce === null ? {} : { _wpnonce: nonce } ) } ) }`, { jar, expect } );
+	// Sends emails in one load, also returning how many ALTER TABLE queries reached the email log's table and the table version after them.
+	const sendCountingAlters = ( emails, label = 'sending emails while counting the ALTER TABLE queries on the email log' ) => site.php( `
+$alters = 0;
+$count  = static function ( $query ) use ( &$alters ) {
+	$alters += preg_match( '/^\\s*ALTER\\s+TABLE\\s+\`?\\w*safety_net_email_log\\b/i', $query );
+	return $query;
+};
+add_filter( 'query', $count );
+try {
+	$sent = sn_test_send_emails( ${ phpValue( emails ) } );
+} finally {
+	remove_filter( 'query', $count );
+}
+return $sent + array( 'alters' => $alters, 'version' => get_option( 'safety_net_email_log_db_version' ) );`, { label } );
 
 	// One read of the log for every subject, the first entry with each.
 	async function entriesBySubject( subjects ) {
@@ -604,11 +653,11 @@ return $ids;`, { label: 'adding entries of different ages' } );
 		}
 		assert.deepEqual( s.early, { 'Early order receipt': false, 'Early Password Reset': null }, 'The emails sent on plugins_loaded did not get Safety Net\'s verdicts, so this proves nothing' );
 		assert.ok( Array.isArray( s.entries ), 'The first email, sent before init, did not create the log table' );
-		const early = { recipients: 'someone@example.com', message: 'body', headers: '', from_address: defaultFrom, content_type: PLAIN, attachments: '', error: '' };
+		const early = { recipients: 'someone@example.com', message: 'body', headers: '', from_address: defaultFrom, content_type: PLAIN, attachments: '', error: '', secrets: null };
 		// The password reset is stopped by the capture's pre_wp_mail filter, so wp_mail() never reports a result for it.
 		assert.deepEqual( s.entries.map( withoutIdAndDate ), [ { status: 'blocked', outcome: 'would_send', ...early, subject: 'Early order receipt' }, { status: 'allowed', outcome: '', ...early, subject: 'Early Password Reset' } ] );
 		assertLoggedNow( s.entries );
-		assert.deepEqual( s.state, { table: true, options: { safety_net_email_log_db_version: '1' }, cleanup: { due: true, schedule: 'daily' } }, 'The first email did not record the table version, or init did not schedule the daily cleanup once the table existed' );
+		assert.deepEqual( s.state, { table: true, options: VERSION, cleanup: { due: true, schedule: 'daily' } }, 'The first email did not record the table version, or init did not schedule the daily cleanup once the table existed' );
 	} );
 
 	test( 'E3b: a sender filter that throws while an email is logged changes no decision, logs no entry and is reported in debug.log', async () => {
@@ -621,58 +670,224 @@ return $ids;`, { label: 'adding entries of different ages' } );
 	test( 'E3c: with the table gone but its option left, the page, the cleanup and Clear log forget the table without a database error, and the next emails create it again', async () => {
 		const mark = site.logMark();
 		const dropped = await site.php( "global $wpdb; $wpdb->query( \"DROP TABLE {$wpdb->prefix}safety_net_email_log\" ); return sn_test_email_log_state();", { label: 'dropping the email log table and keeping its option' } );
-		assert.deepEqual( [ dropped.table, dropped.options ], [ false, { safety_net_email_log_db_version: '1' } ], 'Dropping the table failed, or its option is gone, so this proves nothing' );
+		assert.deepEqual( [ dropped.table, dropped.options ], [ false, VERSION ], 'Dropping the table failed, or its option is gone, so this proves nothing' );
 
 		assert.equal( emptyState( ( await site.get( PAGE, { jar: site.adminJar } ) ).text ), 'No emails have been logged.', 'The Email Log page without its table does not show an empty log' );
 		assert.deepEqual( ( await state() ).options, {}, 'Opening the Email Log page did not forget the missing table' );
-		const forgotten = await site.php( "update_option( 'safety_net_email_log_db_version', '1' ); do_action( 'safety_net_email_log_cleanup' ); $cleanup = get_option( 'safety_net_email_log_db_version' ); update_option( 'safety_net_email_log_db_version', '1' ); SafetyNet\\EmailLog\\clear_log(); return array( 'cleanup' => $cleanup, 'clear' => get_option( 'safety_net_email_log_db_version' ) );", { label: 'running the cleanup and Clear log with the option but no table' } );
+		const forgotten = await site.php( `update_option( 'safety_net_email_log_db_version', '${ DB_VERSION }' ); do_action( 'safety_net_email_log_cleanup' ); $cleanup = get_option( 'safety_net_email_log_db_version' ); update_option( 'safety_net_email_log_db_version', '${ DB_VERSION }' ); SafetyNet\\EmailLog\\clear_log(); return array( 'cleanup' => $cleanup, 'clear' => get_option( 'safety_net_email_log_db_version' ) );`, { label: 'running the cleanup and Clear log with the option but no table' } );
 		assert.deepEqual( forgotten, { cleanup: false, clear: false }, 'The cleanup or Clear log did not forget the missing table' );
 
-		await site.php( "update_option( 'safety_net_email_log_db_version', '1' ); return true;", { label: 'storing the option again without the table' } );
+		await site.php( `update_option( 'safety_net_email_log_db_version', '${ DB_VERSION }' ); return true;`, { label: 'storing the option again without the table' } );
 		const first = await send( [ { to: 'someone@example.com', subject: 'Sent while the table is gone', message: 'x' } ] );
 		assert.deepEqual( first, { verdicts: [ false ], entries: null }, 'The missing table changed Safety Net\'s decision, or the email created the table in the same load' );
 		const forgot = await state();
 		assert.deepEqual( [ forgot.table, forgot.options ], [ false, {} ], 'The email that found no table did not forget it' );
 		const second = await send( [ { to: 'someone@example.com', subject: 'Sent after the table was forgotten', message: 'x' } ] );
 		assert.deepEqual( second.entries?.map( ( entry ) => [ entry.subject, entry.status ] ), [ [ 'Sent after the table was forgotten', 'blocked' ] ], 'The next email did not create the table again and log itself' );
-		assert.deepEqual( ( await state() ).options, { safety_net_email_log_db_version: '1' } );
+		assert.deepEqual( ( await state() ).options, VERSION );
 
 		assert.deepEqual( safetyNetDbErrors( mark ), [], 'A query reached the missing table and wpdb reported it' );
 		assert.equal( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT_RECORD ) ).length, 1, 'debug.log does not report the one email the log could not record' );
 	} );
 
-	test( 'E4: each email is recorded with Safety Net\'s decision, its dry run, its recipients, subject, message, headers and attachment names only', async () => {
-		const sent = await send( [ ORDER, RESET, PAIR ] );
+	test( 'E3d: the first email after an update from 1.11.0 adds the secrets column, keeps the entries 1.11.0 logged, without keys, stores the new keys, and copies of the old entries stay redacted', async () => {
+		const old = { logged_at: new Date().toISOString().slice( 0, 19 ).replace( 'T', ' ' ), status: 'allowed', outcome: '', error: '', recipients: 'old-customer@example.com', ...OLD_RESET, headers: '', from_address: defaultFrom, content_type: PLAIN, attachments: '' };
+		const seeded = await site.php( `return sn_test_email_log_v1( ${ phpValue( [ ...( await log() ), old ] ) }, '1' );`, { label: 'replacing the email log with a 1.11.0 table holding its entries' } );
+		assert.ok( seeded?.length >= 2 && seeded.every( ( entry ) => ! ( 'secrets' in entry ) ), 'The email log is not a 1.11.0 table with entries, so this proves nothing' );
+		assert.deepEqual( ( await state() ).options, { safety_net_email_log_db_version: '1' } );
+
+		const mark = site.logMark();
+		const emails = [ { to: 'someone@example.com', subject: 'Sent after the update from 1.11.0', message: 'Set it: https://example.test/?key=UPGRADEKEY1&login=x' }, { to: 'someone@example.com', subject: 'Also sent after the update from 1.11.0', message: 'No key' } ];
+		const sent = await send( emails );
+		assert.deepEqual( sent.verdicts, [ false, false ] );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message, entry.secrets ] ), [ [ emails[ 0 ].subject, redact( emails[ 0 ].message ), '["UPGRADEKEY1"]' ], [ emails[ 1 ].subject, 'No key', null ] ], 'The first emails after the update did not store their keys apart from the redacted message' );
+		assert.deepEqual( ( await state() ).options, VERSION, 'The update did not record the new table version' );
+		const entries = await log();
+		assert.deepEqual( entries.slice( 0, seeded.length ), seeded.map( ( entry ) => ( { ...entry, secrets: null } ) ), 'The entries 1.11.0 logged changed, or got keys' );
+		assert.deepEqual( safetyNetDbErrors( mark ), [], 'Adding the column caused a database error' );
+		assert.deepEqual( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT ) ), [], 'The update reported an error' );
+
+		const oldEntry = entries.find( ( entry ) => entry.subject === OLD_RESET.subject );
+		const view = ( await site.get( entryPath( oldEntry.id ), { jar: site.adminJar } ) ).text;
+		assert.ok( copyNote( view ).endsWith( ` ${ KEYS_NOT_STORED }` ), `An entry 1.11.0 logged does not say its keys stay redacted: ${ copyNote( view ) }` );
+		const { fields } = actionForm( view, 'safety_net_email_log_send' );
+		await capture( 1 );
+		try {
+			const before = capturedMail( site ).length;
+			const res = await site.post( ADMIN_POST, fields, { jar: site.adminJar, follow: false, expect: 302 } );
+			assert.deepEqual( redirectArgs( site, res ), { ...PAGE_ARGS, result: 'sent', entry: oldEntry.id }, 'The copy of an entry 1.11.0 logged did not go out as a redacted copy' );
+			assert.deepEqual( capturedMail( site ).slice( before ).map( ( { verdict, atts } ) => [ verdict, atts.to, atts.message ] ), [ [ null, admin, OLD_RESET.message ] ], 'The copy of an entry 1.11.0 logged was not sent with its redacted message' );
+			assert.equal( notice( ( await site.get( res.location, { jar: site.adminJar } ) ).text ), 'success: A copy was sent to your email address.' );
+		} finally {
+			await capture( null );
+		}
+	} );
+
+	test( 'E3e: adding the column needs no repair when another request added it first or only the option of a 1.11.0 table was lost, an old option whose table is gone is forgotten like the current one, an option ahead of its 1.11.0 table is put back by the first email whose keys find no column, and a newer version is kept', async () => {
+		let mark = site.logMark();
+		await site.php( "update_option( 'safety_net_email_log_db_version', '1' ); return true;", { label: 'storing 1.11.0\'s version although the table has the secrets column' } );
+		assert.ok( 'secrets' in ( await log() )[ 0 ], 'The table has no secrets column, so this proves nothing' );
+		const race = { to: 'someone@example.com', subject: 'Sent after another request added the column', message: 'https://example.test/?key=RACEKEY1' };
+		let sent = await send( [ race ] );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message, entry.secrets ] ), [ [ race.subject, redact( race.message ), '["RACEKEY1"]' ] ], 'The email logged after another request added the column did not store its key' );
+		assert.deepEqual( ( await state() ).options, VERSION );
+
+		const seeded = await site.php( `return sn_test_email_log_v1( ${ phpValue( await log() ) }, null );`, { label: 'replacing the email log with a 1.11.0 table whose option was lost' } );
+		assert.ok( seeded?.length > 0 && seeded.every( ( entry ) => ! ( 'secrets' in entry ) ), 'The email log is not a 1.11.0 table with entries, so this proves nothing' );
+		assert.deepEqual( ( await state() ).options, {}, 'The option of the 1.11.0 table is still there, so this proves nothing' );
+		const lost = { to: 'someone@example.com', subject: 'Sent after the option of a 1.11.0 table was lost', message: 'https://example.test/?key=LOSTKEY1' };
+		sent = await send( [ lost ] );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message, entry.secrets ] ), [ [ lost.subject, redact( lost.message ), '["LOSTKEY1"]' ] ], 'The 1.11.0 table kept without its option did not get the secrets column' );
+		assert.deepEqual( ( await state() ).options, VERSION );
+		assert.deepEqual( ( await log() ).slice( 0, seeded.length ), seeded.map( ( entry ) => ( { ...entry, secrets: null } ) ), 'The entries of the 1.11.0 table changed' );
+		assert.deepEqual( safetyNetDbErrors( mark ), [], 'Adding the column, or finding it there, caused a database error' );
+		assert.deepEqual( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT ) ), [], 'Adding the column, or finding it there, reported an error' );
+
+		mark = site.logMark();
+		const dropped = await site.php( "global $wpdb; $wpdb->query( \"DROP TABLE {$wpdb->prefix}safety_net_email_log\" ); update_option( 'safety_net_email_log_db_version', '1' ); return sn_test_email_log_state();", { label: 'dropping the email log table and storing 1.11.0\'s version' } );
+		assert.deepEqual( [ dropped.table, dropped.options ], [ false, { safety_net_email_log_db_version: '1' } ], 'Dropping the table failed, or its option is gone, so this proves nothing' );
+		const gone = await send( [ { to: 'someone@example.com', subject: 'Sent while the 1.11.0 table is gone', message: 'https://example.test/?key=GONEKEY1' } ] );
+		assert.deepEqual( gone, { verdicts: [ false ], entries: null }, 'The missing table changed Safety Net\'s decision, or the email created the table in the same load' );
+		assert.deepEqual( ( await state() ).options, {}, 'The email that found no table did not forget it' );
+		const again = { to: 'someone@example.com', subject: 'Sent after the 1.11.0 table was forgotten', message: 'https://example.test/?key=AGAINKEY1' };
+		sent = await send( [ again ] );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.secrets ] ), [ [ again.subject, '["AGAINKEY1"]' ] ], 'The next email did not create the table again, with the secrets column' );
+		assert.deepEqual( ( await state() ).options, VERSION );
+		assert.deepEqual( safetyNetDbErrors( mark ), [], 'A query reached the missing table and wpdb reported it' );
+		assert.deepEqual( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT ) ).map( ( line ) => line.slice( line.indexOf( COULD_NOT ), line.indexOf( COULD_NOT ) + COULD_NOT_RECORD.length ) ), [ COULD_NOT_RECORD ], 'debug.log does not report just the one email the log could not record' );
+
+		mark = site.logMark();
+		const ahead = await site.php( `return sn_test_email_log_v1( ${ phpValue( await log() ) }, '${ DB_VERSION }' );`, { label: 'replacing the email log with a 1.11.0 table whose option holds the current version' } );
+		assert.ok( ahead?.length > 0 && ahead.every( ( entry ) => ! ( 'secrets' in entry ) ), 'The email log is not a 1.11.0 table with entries, so this proves nothing' );
+		assert.deepEqual( ( await state() ).options, VERSION, 'The 1.11.0 table\'s option does not hold the current version, so this proves nothing' );
+		const behind = [
+			{ to: 'someone@example.com', subject: 'Sent while the option is ahead of its 1.11.0 table', message: 'https://example.test/?key=AHEADKEY1' },
+			{ to: 'someone@example.com', subject: 'Sent after the option was ahead of its 1.11.0 table', message: 'https://example.test/?key=AHEADKEY2' },
+		];
+		sent = await sendCountingAlters( behind, 'sending emails while the option is ahead of its 1.11.0 table' );
+		assert.deepEqual( sent.verdicts, [ false, false ] );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message, entry.secrets ] ), [ [ behind[ 0 ].subject, redact( behind[ 0 ].message ), null ], [ behind[ 1 ].subject, redact( behind[ 1 ].message ), '["AHEADKEY2"]' ] ], 'The email after the one that found no secrets column did not add it and store its key' );
+		assert.deepEqual( [ sent.alters, sent.version ], [ 1, DB_VERSION ], 'The column was not added exactly once, or the current version was not stored again' );
+		const aheadLines = site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT ) );
+		assert.ok( aheadLines.length <= 1 && aheadLines.every( ( line ) => line.includes( COULD_NOT_STORE_KEYS ) ), `debug.log reports more than the one email whose keys could not be stored: ${ aheadLines.join( '\n' ) }` );
+		assert.deepEqual( safetyNetDbErrors( mark ), [], 'The missing column was reported as a database error' );
+
+		await site.php( "update_option( 'safety_net_email_log_db_version', '3' ); return true;", { label: 'storing a newer table version, as a later release would' } );
+		try {
+			const newer = { to: 'someone@example.com', subject: 'Sent with a newer table version', message: 'https://example.test/?key=NEWERKEY1' };
+			sent = await sendCountingAlters( [ newer ], 'sending an email with a newer table version' );
+			assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.secrets ] ), [ [ newer.subject, '["NEWERKEY1"]' ] ], 'The email logged with a newer table version did not store its key' );
+			assert.deepEqual( [ sent.alters, sent.version ], [ 0, '3' ], 'A newer table version was lowered, or the column was added again' );
+		} finally {
+			await site.php( `update_option( 'safety_net_email_log_db_version', '${ DB_VERSION }' ); return true;`, { label: 'storing the current table version again' } );
+		}
+	} );
+
+	test( 'E3f: when the database refuses to add the secrets column, emails are still blocked or let through and logged without their keys, the column is tried once per request, and the next request adds it', async () => {
+		const seeded = await site.php( `return sn_test_email_log_v1( ${ phpValue( await log() ) }, '1' );`, { label: 'replacing the email log with a 1.11.0 table holding its entries' } );
+		assert.ok( seeded?.length > 0 && seeded.every( ( entry ) => ! ( 'secrets' in entry ) ), 'The email log is not a 1.11.0 table with entries, so this proves nothing' );
+		const emails = [
+			{ to: 'someone@example.com', subject: 'Sent while the column cannot be added', message: 'https://example.test/?key=REFUSEDKEY1' },
+			{ to: 'someone@example.com', subject: '[Site] Password Reset while the column cannot be added', message: RESET.message.replace( 'SECRETKEY1', 'REFUSEDKEY2' ) },
+			{ to: 'someone@example.com', subject: 'Also sent while the column cannot be added', message: 'https://example.test/?confirm_key=REFUSEDKEY3' },
+		];
+		await site.php( "update_option( 'sn_test_refuse_email_log_alter', 1 ); return true;", { label: 'refusing to add the secrets column from the next load on' } );
+		const mark = site.logMark();
+		let sent;
+		try {
+			// Removed in the load that sends them, which keeps refusing for the rest of that load.
+			sent = await site.php( `delete_option( 'sn_test_refuse_email_log_alter' ); return sn_test_send_emails( ${ phpValue( emails ) } );`, { label: 'sending emails while the database refuses to add the secrets column' } );
+		} finally {
+			if ( ! sent ) {
+				await site.php( "delete_option( 'sn_test_refuse_email_log_alter' ); return true;" );
+			}
+		}
+		assert.deepEqual( sent.verdicts, [ false, null, false ], 'A refused column changed Safety Net\'s decisions' );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message, 'secrets' in entry ] ), emails.map( ( email ) => [ email.subject, redact( email.message ), false ] ), 'The emails were not logged, redacted, in the table without the column' );
+		assert.deepEqual( ( await state() ).options, { safety_net_email_log_db_version: '1' }, 'The refused column changed the table version' );
+		assert.deepEqual( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT ) ).map( ( line ) => line.slice( line.indexOf( COULD_NOT ), line.indexOf( COULD_NOT ) + COULD_NOT_ADD_COLUMN.length ) ), [ COULD_NOT_ADD_COLUMN ], 'The column was not tried exactly once in the load that logged three emails, or an email was not recorded' );
+		assert.deepEqual( safetyNetDbErrors( mark ), [], 'The refused column was reported as a database error' );
+
+		const added = { to: 'someone@example.com', subject: 'Sent once the column can be added', message: 'https://example.test/?key=ADDEDKEY1' };
+		const next = await send( [ added ] );
+		assert.deepEqual( next.entries?.map( ( entry ) => [ entry.subject, entry.secrets ] ), [ [ added.subject, '["ADDEDKEY1"]' ] ], 'The next load did not add the column and store the key' );
+		assert.deepEqual( ( await state() ).options, VERSION );
+		assert.deepEqual( ( await log() ).filter( ( entry ) => sent.entries.some( ( refused ) => refused.id === entry.id ) ).map( ( entry ) => entry.secrets ), [ null, null, null ], 'The keys of the emails logged while the column was refused were stored after all' );
+	} );
+
+	test( 'E3g: when the database refuses an email or its keys, debug.log never gets the keys: the email is logged, redacted, without them, or not at all, as before', async () => {
+		const emails = [
+			{ to: 'someone@example.com', subject: '[Site] Password Reset whose insert is refused', message: 'https://example.test/wp-login.php?login=x&key=REFUSEDINSERTKEY1&action=rp' },
+			{ to: 'someone@example.com', subject: '[Site] Password Reset whose keys are refused', message: 'https://example.test/wp-login.php?login=x&key=REFUSEDSTOREKEY1&action=rp' },
+		];
+		const mark = site.logMark();
+		// The insert goes to a missing table with its values, so the database's error holds them, as SQLite's does; then the keys' update is refused.
+		const s = await site.php( `
+$after   = sn_test_email_log_last_id();
+$refuse  = static fn( $query ) => preg_replace( '/^(\\s*INSERT INTO\\s+)\`?\\w*safety_net_email_log\`?/i', '$1\`sn_test_refused_insert\`', $query );
+$secrets = static fn( $query ) => preg_match( '/^\\s*UPDATE\\s+\`?\\w*safety_net_email_log\`?\\s+SET\\s+\`?secrets\`?\\s*=/i', $query ) ? 'UPDATE sn_test_refused_secrets SET refused = 1' : $query;
+add_filter( 'query', $refuse );
+try {
+	$insert = sn_test_send_emails( ${ phpValue( [ emails[ 0 ] ] ) } );
+} finally {
+	remove_filter( 'query', $refuse );
+}
+add_filter( 'query', $secrets );
+try {
+	$keys = sn_test_send_emails( ${ phpValue( [ emails[ 1 ] ] ) } );
+} finally {
+	remove_filter( 'query', $secrets );
+}
+return array( 'verdicts' => array_merge( $insert['verdicts'], $keys['verdicts'] ), 'entries' => sn_test_email_log( $after ) );`, { label: 'sending emails while the database refuses their insert or their keys' } );
+		assert.deepEqual( s.verdicts, [ null, null ], 'Refusing the insert or the keys changed Safety Net\'s decisions' );
+		assert.deepEqual( s.entries?.map( ( entry ) => [ entry.subject, entry.status, entry.message, entry.secrets ] ), [ [ emails[ 1 ].subject, 'allowed', redact( emails[ 1 ].message ), null ] ], 'The refused email was logged, or the one whose keys were refused was not logged, redacted and without them' );
+		const lines = site.logEntriesSince( mark );
+		const refused = lines.filter( ( line ) => line.includes( COULD_NOT_RECORD ) );
+		assert.ok( refused.length === 1 && refused[ 0 ].includes( emails[ 0 ].subject ) && refused[ 0 ].includes( '[redacted]' ), `The error logged for the refused insert does not hold the insert's values, so this proves nothing: ${ refused.join( '\n' ).slice( 0, 2000 ) }` );
+		assert.equal( lines.filter( ( line ) => line.includes( 'Safety Net: the email log could not store the keys of an email, so its copies keep them redacted.' ) ).length, 1, 'debug.log does not report the keys that could not be stored' );
+		assert.deepEqual( lines.filter( ( line ) => /REFUSED(?:INSERT|STORE)KEY1/.test( line ) ), [], 'debug.log holds a key' );
+		assert.deepEqual( safetyNetDbErrors( mark ), [], 'The refused queries were reported as database errors' );
+	} );
+
+	test( 'E4: each email is recorded with Safety Net\'s decision, its dry run, its recipients, subject, message, headers and attachment names only, and none runs an ALTER TABLE at the current table version', async () => {
+		const sent = await sendCountingAlters( [ ORDER, RESET, PAIR ] );
 		assert.deepEqual( sent.verdicts, [ false, null, false ], 'Safety Net did not block the regular emails and let the password reset through' );
+		assert.deepEqual( [ sent.version, sent.alters ], [ DB_VERSION, 0 ], 'An email logged at the current table version tried to add the secrets column again' );
 		const defaults = { from_address: defaultFrom, content_type: PLAIN };
 		assert.deepEqual( sent.entries?.map( withoutIdAndDate ), [
-			{ status: 'blocked', outcome: 'would_send', error: [ skipped( 'attachment', 'report.csv' ), skipped( 'attachment', 'invoice-1.pdf' ) ].join( '\n' ), recipients: 'one@example.com, Two <two@example.com>', subject: ORDER.subject, message: ORDER.message, headers: 'Cc: cc@example.com\nBcc: bcc@example.com\nReply-To: Shop <reply@example.com>', ...defaults, attachments: 'report.csv\ninvoice-1.pdf' },
-			{ status: 'allowed', outcome: '', error: '', recipients: RESET.to, subject: RESET.subject, message: RESET.message.replace( 'SECRETKEY1', '[redacted]' ), headers: 'X-SN-Test: reset', ...defaults, attachments: 'one.txt\ntwo.txt' },
-			{ status: 'blocked', outcome: 'would_fail', error: EMPTY_BODY, recipients: 'a@example.com, b@example.com', subject: PAIR.subject, message: '', headers: '', ...defaults, attachments: '' },
+			{ status: 'blocked', outcome: 'would_send', error: [ skipped( 'attachment', 'report.csv' ), skipped( 'attachment', 'invoice-1.pdf' ) ].join( '\n' ), recipients: 'one@example.com, Two <two@example.com>', subject: ORDER.subject, message: ORDER.message, headers: 'Cc: cc@example.com\nBcc: bcc@example.com\nReply-To: Shop <reply@example.com>', ...defaults, attachments: 'report.csv\ninvoice-1.pdf', secrets: null },
+			{ status: 'allowed', outcome: '', error: '', recipients: RESET.to, subject: RESET.subject, message: RESET.message.replace( 'SECRETKEY1', '[redacted]' ), headers: 'X-SN-Test: reset', ...defaults, attachments: 'one.txt\ntwo.txt', secrets: '["SECRETKEY1"]' },
+			{ status: 'blocked', outcome: 'would_fail', error: EMPTY_BODY, recipients: 'a@example.com, b@example.com', subject: PAIR.subject, message: '', headers: '', ...defaults, attachments: '', secrets: null },
 		] );
 		assertLoggedNow( sent.entries );
 	} );
 
-	test( 'E4b: invalid UTF-8 is replaced and text longer than its column is cut, so the database never refuses an entry', async () => {
+	test( 'E4b: invalid UTF-8 is replaced and text longer than its column is cut, so the database never refuses an entry, and keys whose JSON would not fit their column are left out without an error', async () => {
+		const mark = site.logMark();
 		const s = await site.php( `
 $long = str_repeat( 'é', 40000 );
+$key  = str_repeat( 'K', 65532 );
 $sent = sn_test_send_emails( array(
 	array( 'to' => 'someone@example.com', 'subject' => "Invalid \\xC3\\x28 UTF-8", 'message' => "Body \\xFF end", 'headers' => "X-SN-Test: \\xFE" ),
 	array( 'to' => 'someone@example.com', 'subject' => $long, 'message' => $long, 'headers' => 'X-SN-Long: ' . str_repeat( 'a', 70000 ) ),
+	array( 'to' => 'someone@example.com', 'subject' => 'A key too long for its column', 'message' => 'https://example.test/?key=' . $key ),
 ) );
-list( $invalid, $cut ) = array_pad( (array) $sent['entries'], 2, null );
+list( $invalid, $cut, $keys ) = array_pad( (array) $sent['entries'], 3, null );
 return array(
 	'verdicts' => $sent['verdicts'],
 	'count'    => count( (array) $sent['entries'] ),
 	'outcomes' => array_column( (array) $sent['entries'], 'outcome' ),
 	'invalid'  => $invalid ? array( 'valid' => mb_check_encoding( $invalid['subject'] . $invalid['message'] . $invalid['headers'], 'UTF-8' ), 'subject' => $invalid['subject'], 'message' => $invalid['message'] ) : null,
 	'cut'      => $cut ? array( 'valid' => mb_check_encoding( $cut['subject'] . $cut['headers'], 'UTF-8' ), 'subject' => strlen( $cut['subject'] ), 'prefix' => str_starts_with( $long, $cut['subject'] ), 'message' => $cut['message'] === $long, 'headers' => strlen( $cut['headers'] ) ) : null,
-);`, { label: 'sending emails with invalid UTF-8 and over-long text' } );
-		assert.deepEqual( [ s.verdicts, s.count ], [ [ false, false ], 2 ], 'An email with invalid UTF-8 or over-long text was not blocked and logged' );
-		assert.deepEqual( s.outcomes, [ 'would_send', 'would_send' ], 'The dry run did not check an email with invalid UTF-8 or over-long text' );
+	'keys'     => $keys ? array( 'json' => strlen( wp_json_encode( array( $key ) ) ), 'message' => $keys['message'], 'secrets' => $keys['secrets'] ) : null,
+);`, { label: 'sending emails with invalid UTF-8, over-long text and an over-long key' } );
+		assert.deepEqual( [ s.verdicts, s.count ], [ [ false, false, false ], 3 ], 'An email with invalid UTF-8, over-long text or an over-long key was not blocked and logged' );
+		assert.deepEqual( s.outcomes, [ 'would_send', 'would_send', 'would_send' ], 'The dry run did not check an email with invalid UTF-8, over-long text or an over-long key' );
 		assert.equal( s.invalid.valid, true, 'Invalid UTF-8 was stored' );
 		assert.ok( s.invalid.subject.startsWith( 'Invalid ' ) && s.invalid.subject.endsWith( '( UTF-8' ) && s.invalid.message.startsWith( 'Body ' ) && s.invalid.message.endsWith( ' end' ), `Replacing invalid UTF-8 lost the valid text: ${ JSON.stringify( s.invalid ) }` );
 		assert.deepEqual( s.cut, { valid: true, subject: 65534, prefix: true, message: true, headers: 65535 }, 'Text over 64 KB was not cut on a character boundary to fit its column, or the message, which has no such limit, was cut' );
+		assert.deepEqual( s.keys, { json: 65536, message: 'https://example.test/?key=[redacted]', secrets: null }, 'A key whose JSON is one byte over its column was stored, cut, or left in the message' );
+		assert.deepEqual( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT ) ), [], 'Leaving out keys too long for their column reported an error' );
 	} );
 
 	test( 'E5: while SAFETY_NET_DELETE_DATA keeps data, a password reset to someone who is not an administrator is recorded as blocked_recipients, with a dry run', async () => {
@@ -720,17 +935,20 @@ return array(
 			from_address: 'Example Shop <shop@example.com>',
 			content_type: 'text/html; charset=UTF-8',
 			attachments: 'terms.pdf',
+			secrets: '["WOOKEY1"]',
 		} );
 	} );
 
-	test( 'E7: the value of every key= and confirm_key= URL parameter is redacted in plain-text and HTML messages, and other parameters and the subject are kept', async () => {
+	test( 'E7: the value of every key= and confirm_key= URL parameter is redacted in plain-text and HTML messages and stored apart, in order, values already redacted are not stored, and other parameters and the subject are kept', async () => {
 		const plain = { to: 'someone@example.com', subject: 'Keys stay in the subject: ?key=SUBJECTKEY', message: 'Reset: https://example.test/wp-login.php?action=rp&key=PLAINKEY1&login=someone\nOr: https://example.test/?key=PLAINKEY2\nConfirm: https://example.test/wp-login.php?action=confirmaction&request_id=7&confirm_key=PLAINKEY3\nNot keys: monkey=banana&keyring=1&key_id=3&reconfirm_key=4' };
 		const html = { to: 'someone@example.com', subject: 'Keys in HTML links', message: '<a href="https://shop.example/?action=newaccount&#038;key=HTMLKEY1&#038;login=c">a</a> <a href="https://example.test/wp-login.php?action=rp&amp;key=HTMLKEY2&amp;login=x">b</a> <a href="https://example.test/?KEY=HTMLKEY3">c</a> <a href="https://example.test/?a=1&#38;key=HTMLKEY4">d</a> <a href="https://example.test/wp-login.php?action=confirmaction&#038;request_id=7&#038;confirm_key=HTMLKEY5">e</a>', headers: [ 'Content-Type: text/html' ] };
-		const sent = await send( [ plain, html ] );
-		assert.deepEqual( sent.verdicts, [ false, false ] );
+		const already = { to: 'someone@example.com', subject: 'Keys redacted before they were logged', message: 'A redacted copy: https://example.test/wp-login.php?action=rp&key=[redacted]&login=bob\nConfirm: https://example.test/wp-login.php?action=confirmaction&request_id=7&confirm_key=[redacted]' };
+		const sent = await send( [ plain, html, already ] );
+		assert.deepEqual( sent.verdicts, [ false, false, false ] );
 		const redacted = ( message ) => message.replace( /(?:PLAIN|HTML)KEY\d/g, '[redacted]' );
-		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message ] ), [ [ plain.subject, redacted( plain.message ) ], [ html.subject, redacted( html.message ) ] ] );
-		assert.deepEqual( ( await log() ).filter( ( entry ) => /SECRETKEY|WOOKEY|PLAINKEY|HTMLKEY/.test( JSON.stringify( entry ) ) ).map( ( entry ) => entry.subject ), [], 'A logged entry still holds a key' );
+		assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.subject, entry.message ] ), [ [ plain.subject, redacted( plain.message ) ], [ html.subject, redacted( html.message ) ], [ already.subject, already.message ] ] );
+		assert.deepEqual( sent.entries.map( ( entry ) => JSON.parse( entry.secrets ) ), [ [ 'PLAINKEY1', 'PLAINKEY2', 'PLAINKEY3' ], [ 'HTMLKEY1', 'HTMLKEY2', 'HTMLKEY3', 'HTMLKEY4', 'HTMLKEY5' ], null ], 'The keys were not stored apart from the message, in order, or a value already redacted was stored as a key' );
+		assert.deepEqual( ( await log() ).filter( ( { secrets, ...entry } ) => /SECRETKEY|WOOKEY|PLAINKEY|HTMLKEY/.test( JSON.stringify( entry ) ) ).map( ( entry ) => entry.subject ), [], 'A logged entry holds a key outside its secrets' );
 	} );
 
 	test( 'E22: a blocked email gets a dry run: Would send when PHPMailer would accept it, Would fail with PHPMailer\'s error when it would not, and notes on what wp_mail() would skip', async () => {
@@ -942,13 +1160,13 @@ return array(
 			[ '[Site] Password Reset whose update is refused', '', '' ],
 		], 'A result was recorded in the wrong entry, or although the log had changed' );
 		const after = await state();
-		assert.deepEqual( [ after.table, after.options ], [ true, { safety_net_email_log_db_version: '1' } ], 'Undoing the changes made while sending failed, so later tests would not prove anything' );
+		assert.deepEqual( [ after.table, after.options ], [ true, VERSION ], 'Undoing the changes made while sending failed, so later tests would not prove anything' );
 		assert.deepEqual( safetyNetDbErrors( mark ), [], 'The refused update was reported as a database error' );
 		assert.equal( site.logEntriesSince( mark ).filter( ( line ) => line.includes( COULD_NOT_RECORD_RESULT ) ).length, 1, 'debug.log does not report the one result the log could not record' );
 	} );
 
 	test( 'E8: Email Log > Settings shows both switches on by default, in a form of their own that comes back to it, followed by the notes on what is logged and when the log is emptied; the list keeps only the note on the results, above its views', async () => {
-		assert.deepEqual( ( await state() ).options, { safety_net_email_log_db_version: '1' }, 'A switch is stored, so this does not test the defaults' );
+		assert.deepEqual( ( await state() ).options, VERSION, 'A switch is stored, so this does not test the defaults' );
 		const [ settings, list ] = ( await site.getAll( [ SETTINGS, PAGE ].map( ( target ) => ( { path: target, jar: site.adminJar } ) ) ) ).map( ( res ) => res.text );
 		assert.deepEqual( toggles( settings ), { safety_net_email_log_toggle: true, safety_net_email_log_cleanup_toggle: true }, 'A switch without a stored option does not show as on' );
 		const form = settingsForm( settings );
@@ -996,7 +1214,7 @@ return array(
 
 		try {
 			let saved = await save( [ 'safety_net_email_log_cleanup_toggle' ] );
-			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'off', safety_net_email_log_cleanup_toggle: 'on', safety_net_email_log_db_version: '1' } );
+			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'off', safety_net_email_log_cleanup_toggle: 'on', ...VERSION } );
 			assert.equal( saved.state.cleanup?.schedule, 'daily', 'Switching logging off unscheduled the cleanup, which has its own switch' );
 			assert.equal( pathOf( loggingOffLink( saved.list ) ?? '' ), SETTINGS, 'The list does not warn that logging is off, with a link to the Settings page' );
 			assert.ok( listedEntries( saved.list ).length > 0, 'The list with logging off no longer shows the entries already logged' );
@@ -1004,16 +1222,16 @@ return array(
 			assert.deepEqual( await log(), before, 'Switching logging off changed the entries already logged' );
 
 			saved = await save( [] );
-			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'off', safety_net_email_log_cleanup_toggle: 'off', safety_net_email_log_db_version: '1' } );
+			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'off', safety_net_email_log_cleanup_toggle: 'off', ...VERSION } );
 			assert.equal( saved.state.cleanup, null, 'The cleanup event is still scheduled with its switch off' );
 			assert.notEqual( loggingOffLink( saved.list ), null, 'The list does not warn that logging is off' );
 
 			saved = await save( [ 'safety_net_email_log_toggle' ] );
-			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'on', safety_net_email_log_cleanup_toggle: 'off', safety_net_email_log_db_version: '1' } );
+			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'on', safety_net_email_log_cleanup_toggle: 'off', ...VERSION } );
 			assert.equal( loggingOffLink( saved.list ), null, 'The list warns that logging is off while only the cleanup is' );
 
 			saved = await save( TOGGLES );
-			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'on', safety_net_email_log_cleanup_toggle: 'on', safety_net_email_log_db_version: '1' } );
+			assert.deepEqual( saved.state.options, { safety_net_email_log_toggle: 'on', safety_net_email_log_cleanup_toggle: 'on', ...VERSION } );
 			assert.equal( saved.state.cleanup?.schedule, 'daily', 'Switching the cleanup back on did not schedule it again' );
 			assert.equal( loggingOffLink( saved.list ), null, 'The list still warns that logging is off' );
 			const resumed = await send( [ { to: 'someone@example.com', subject: 'Sent after logging is switched back on', message: 'x' } ] );
@@ -1418,7 +1636,7 @@ return array(
 		assert.equal( loggedOut.text, '0', 'A logged-out visitor did not get admin-ajax.php\'s refusal' );
 	} );
 
-	test( 'E14: Send to me sends one copy, only to the current administrator, with the logged sender, content type and message, without Cc, Bcc or attachments, and changes nothing in the log', async () => {
+	test( 'E14: Send to me sends one copy, only to the current administrator, with the logged sender, content type and message, its keys put back for an administrator, without Cc, Bcc or attachments, and changes nothing in the log', async () => {
 		const entry = await entryBySubject( WOO.subject );
 		assert.match( entry.headers, /^Cc: /m, 'The entry has no Cc, so dropping it is not tested' );
 		assert.match( entry.headers, /^Bcc: /m, 'The entry has no Bcc, so dropping it is not tested' );
@@ -1428,11 +1646,13 @@ return array(
 		await capture( 1 );
 		try {
 			// Without a boundary, a multipart content type would make the copy an invalid MIME message around its HTML.
-			for ( const copied of [ entry, multipart ] ) {
-				const { fields } = actionForm( ( await site.get( entryPath( copied.id ), { jar: site.adminJar } ) ).text, 'safety_net_email_log_send' );
+			for ( const [ copied, original, result ] of [ [ entry, WOO.message, 'sent-with-keys' ], [ multipart, WOO_MULTIPART.message, 'sent' ] ] ) {
+				const view = ( await site.get( entryPath( copied.id ), { jar: site.adminJar } ) ).text;
+				assert.equal( copyNote( view ), `Send to me sends a copy to ${ admin } only, with the logged sender, content type and message. Attachments are not included, and the original Cc, Bcc and Reply-To headers are left out.${ copied.secrets ? ` ${ KEYS_PUT_BACK }` : '' }`, `The entry "${ copied.subject }" does not say what Send to me sends` );
+				const { fields } = actionForm( view, 'safety_net_email_log_send' );
 				const before = { mail: capturedMail( site ).length, entries: await log(), log: site.logMark() };
 				const res = await site.post( ADMIN_POST, fields, { jar: site.adminJar, follow: false, expect: 302 } );
-				assert.deepEqual( redirectArgs( site, res ), { ...PAGE_ARGS, result: 'sent', entry: copied.id } );
+				assert.deepEqual( redirectArgs( site, res ), { ...PAGE_ARGS, result, entry: copied.id } );
 				const mail = capturedMail( site ).slice( before.mail );
 				assert.equal( mail.length, 1, 'Send to me did not send exactly one email' );
 				const { verdict, atts } = mail[ 0 ];
@@ -1440,14 +1660,15 @@ return array(
 					verdict: null,
 					to: admin,
 					subject: `[Safety Net copy] ${ copied.subject }`,
-					message: copied.message,
+					message: original,
 					headers: [ `From: ${ copied.from_address }`, `Content-Type: ${ HTML_COPY }` ],
 					attachments: [],
-				}, `The copy of "${ copied.subject }" was not let through to the administrator alone, as HTML, with the logged sender and redacted message` );
+				}, `The copy of "${ copied.subject }" was not let through to the administrator alone, as HTML, with the logged sender and the message as it was sent` );
 				assert.deepEqual( await log(), before.entries, 'Sending the copy changed the log' );
 				assert.ok( site.logEntriesSince( before.log ).some( ( line ) => line.includes( `Email sent: [Safety Net copy] ${ copied.subject } (copy of a logged email)` ) ), 'The copy was not logged to debug.log as sent' );
-				assert.equal( notice( ( await site.get( res.location, { jar: site.adminJar } ) ).text ), 'success: A copy was sent to your email address.' );
+				assert.equal( notice( ( await site.get( res.location, { jar: site.adminJar } ) ).text ), result === 'sent' ? 'success: A copy was sent to your email address.' : 'success: A copy was sent to your email address, with its password reset and confirmation keys put back.' );
 			}
+			assert.equal( entry.secrets, '["WOOKEY1"]', 'The WooCommerce entry has no key to put back, so this proves nothing' );
 		} finally {
 			await capture( null );
 		}
@@ -1465,7 +1686,8 @@ return array(
 			assert.equal( mail.length, 1, 'The copy never reached Safety Net, so this proves nothing' );
 			assert.ok( mail[ 0 ].atts.headers.includes( 'Bcc: outsider@example.com' ), 'The wp_mail filter did not add the Bcc, so this proves nothing' );
 			assert.equal( mail[ 0 ].verdict, false, 'A copy that also goes to someone who is not an administrator was let through' );
-			assert.deepEqual( ( await log( before.last ) ).map( ( added ) => [ added.subject, added.status ] ), [ [ `[Safety Net copy] ${ entry.subject }`, 'blocked' ] ], 'The blocked copy was not handled like any other email' );
+			assert.equal( entry.secrets, '["WOOKEY1"]', 'The WooCommerce entry has no key to put back, so this proves nothing' );
+			assert.deepEqual( ( await log( before.last ) ).map( ( added ) => [ added.subject, added.status, added.message, added.secrets ] ), [ [ `[Safety Net copy] ${ entry.subject }`, 'blocked', entry.message, null ] ], 'The blocked copy, its keys put back, was not handled like any other email to an administrator, its keys redacted and not stored' );
 			assert.match( notice( ( await site.get( res.location, { jar: site.adminJar } ) ).text ), /^error: The copy was not sent\./ );
 		} finally {
 			await capture( null );
@@ -1510,6 +1732,234 @@ return array(
 		assert.deepEqual( delivery( nested ), { sent: true, delivered: 1, recipients: [ admin ], flag: false }, 'The email sent while the copy was sent changed the copy' );
 		assert.deepEqual( nested.nested, [ false ], 'An email to an administrator sent while a copy was sent was let through as if it were the copy' );
 		assert.deepEqual( nested.entries.map( ( added ) => [ added.recipients, added.subject, added.status ] ), [ [ admin, 'Nested email while a copy is sent', 'blocked' ] ], 'The email sent while the copy was sent was not logged like any other' );
+	} );
+
+	test( 'E34: real password reset, new-account and privacy confirmation keys are stored apart from the redacted message, never shown in the list, an entry, its views, the popup or a search, and put back only in the copies of users who can edit users, where WordPress accepts them', async () => {
+		const users = [ await createUser( 'reset_customer', 'subscriber' ), await createUser( 'reset_shopper', 'subscriber' ) ];
+		const restricted = await site.php( "$id = sn_test_create_user( 'log_restricted', 'administrator' ); wp_set_password( 'password', $id ); ( new WP_User( $id ) )->add_cap( 'edit_users', false ); $user = new WP_User( $id ); return array( 'id' => $id, 'caps' => array( $user->has_cap( 'manage_options' ), $user->has_cap( 'edit_users' ) ), 'admin' => in_array( 'log_restricted@example.com', SafetyNet\\Utilities\\get_admin_emails(), true ) );", { label: 'creating an administrator who cannot edit users' } );
+		users.push( restricted.id );
+		try {
+			const sent = await site.php( "return sn_test_send_key_emails( 'reset_customer', 'reset_shopper', 'reset_requester@example.com' );", { label: 'sending a password reset, a new-account email with a reset key and a privacy request confirmation' } );
+			assert.deepEqual( [ sent.reset, sent.confirm, sent.verdicts ], [ 'retrieve_password_email_failure', 'privacy_email_error', [ null, false, false ] ], 'Safety Net did not let the password reset through and block the other two, or they were not stopped right after' );
+			const keys = sent.originals.map( keysIn );
+			assert.deepEqual( keys.map( ( found ) => found.length ), [ 1, 1, 1 ], `Each email does not hold exactly one key, so this proves nothing: ${ JSON.stringify( sent.originals ) }` );
+			assert.deepEqual( [ /&key=[^&]+&action=rp/, /&#038;key=/, /[?&]confirm_key=/ ].map( ( pattern, i ) => pattern.test( sent.originals[ i ] ) ), [ true, true, true ], 'The emails do not hold core\'s reset link, a WooCommerce-style HTML link and core\'s privacy confirmation link' );
+			assert.deepEqual( sent.entries?.map( ( entry ) => [ entry.status, entry.message, JSON.parse( entry.secrets ?? 'null' ) ] ), sent.originals.map( ( original, i ) => [ [ 'allowed', 'blocked', 'blocked' ][ i ], redact( original ), keys[ i ] ] ), 'An entry does not hold the redacted message with its keys stored apart' );
+			const [ reset ] = sent.entries;
+			const realKeys = keys.flat();
+
+			const entries = await log();
+			const withKeys = entries.filter( ( entry ) => entry.secrets );
+			const stored = [ ...new Set( withKeys.flatMap( ( entry ) => JSON.parse( entry.secrets ) ) ) ];
+			assert.ok( realKeys.every( ( key ) => stored.includes( key ) ) && stored.length > realKeys.length, 'The log does not hold the real keys and earlier ones, so this proves less' );
+			const listPages = Math.ceil( entries.length / 20 );
+			const nonce = viewNonce( ( await site.get( PAGE, { jar: site.adminJar } ) ).text );
+			const shown = await site.getAll( [
+				...Array.from( { length: listPages }, ( _, i ) => pageWith( i ? { paged: String( i + 1 ) } : {} ) ),
+				...withKeys.map( ( entry ) => entryPath( entry.id ) ),
+				...withKeys.map( ( entry ) => `${ AJAX }?${ new URLSearchParams( { action: 'safety_net_email_log_entry', entry: entry.id, _wpnonce: nonce } ) }` ),
+			].map( ( target ) => ( { path: target, jar: site.adminJar } ) ) );
+			assert.equal( shown.slice( 0, listPages ).flatMap( ( res ) => listedEntries( res.text ) ).length, entries.length, 'The list pages do not list every entry, so this proves nothing' );
+			assert.deepEqual( shown.slice( listPages, listPages + withKeys.length ).map( ( res ) => jsonView( res.text ).value.message ), withKeys.map( ( entry ) => entry.message ), 'An entry page does not show its message, so this proves nothing' );
+			assert.deepEqual( shown.slice( listPages + withKeys.length ).map( ( res ) => parseJson( res ).success ), withKeys.map( () => true ), 'The popup did not get an entry, so this proves nothing' );
+			assert.deepEqual( shown.flatMap( ( res ) => stored.filter( ( key ) => res.text.includes( key ) ).map( ( key ) => `${ key } in ${ res.path }` ) ), [], 'A stored key is shown in the list, an entry, its views or the popup' );
+
+			const prefixes = realKeys.map( ( key ) => key.slice( 0, 6 ) );
+			const terms = [ ...stored, ...prefixes ];
+			const searched = await site.getAll( terms.map( ( s ) => ( { path: pageWith( { s } ), jar: site.adminJar } ) ) );
+			for ( const [ i, res ] of searched.entries() ) {
+				const term = terms[ i ];
+				const expected = entries.filter( ( entry ) => matches( entry, term ) ).reverse();
+				assert.deepEqual( expected.filter( ( entry ) => JSON.parse( entry.secrets ?? '[]' ).some( ( key ) => key.toLowerCase().includes( term.toLowerCase() ) ) ).map( ( entry ) => entry.id ), [], `An entry that holds "${ term }" in a key also shows it, so this proves nothing` );
+				assert.equal( displayed( res.text ), expected.length, `Searching for "${ term }" found an entry by its stored keys` );
+				assert.deepEqual( listedEntries( res.text ).map( ( row ) => row.id ), expected.slice( 0, 20 ).map( ( entry ) => entry.id ) );
+				if ( realKeys.includes( term ) || prefixes.includes( term ) ) {
+					assert.equal( displayed( res.text ), 0, `Searching for the real key or prefix "${ term }" found an entry` );
+				}
+			}
+
+			const views = ( await site.getAll( sent.entries.map( ( entry ) => ( { path: entryPath( entry.id ), jar: site.adminJar } ) ) ) ).map( ( res ) => res.text );
+			assert.deepEqual( views.map( ( view ) => copyNote( view ) ), views.map( () => `Send to me sends a copy to ${ admin } only, with the logged sender, content type and message. Attachments are not included, and the original Cc, Bcc and Reply-To headers are left out. ${ KEYS_PUT_BACK }` ), 'An entry does not tell an administrator that Send to me puts its keys back' );
+			let copies;
+			await capture( 1 );
+			try {
+				const before = { mail: capturedMail( site ).length, entries: await log() };
+				for ( const [ i, view ] of views.entries() ) {
+					const res = await site.post( ADMIN_POST, actionForm( view, 'safety_net_email_log_send' ).fields, { jar: site.adminJar, follow: false, expect: 302 } );
+					assert.deepEqual( redirectArgs( site, res ), { ...PAGE_ARGS, result: 'sent-with-keys', entry: sent.entries[ i ].id }, 'Send to me did not put the keys back for an administrator' );
+					const back = ( await site.get( res.location, { jar: site.adminJar } ) ).text;
+					assert.equal( notice( back ), 'success: A copy was sent to your email address, with its password reset and confirmation keys put back.' );
+					assert.deepEqual( realKeys.filter( ( key ) => back.includes( key ) ), [], 'The page after Send to me shows a key' );
+				}
+				copies = capturedMail( site ).slice( before.mail );
+				assert.deepEqual( await log(), before.entries, 'Sending the copies changed the log' );
+			} finally {
+				await capture( null );
+			}
+			assert.deepEqual( copies.map( ( { verdict, atts } ) => [ verdict, atts.to, atts.message ] ), sent.originals.map( ( original ) => [ null, admin, original ] ), 'The copies to the administrator are not the messages as they were sent, keys included' );
+			const copiedKeys = copies.map( ( { atts } ) => keysIn( atts.message )[ 0 ] );
+			const accepted = await site.php( `
+$name = static fn( $result ) => is_wp_error( $result ) ? $result->get_error_code() : ( $result instanceof WP_User ? $result->user_login : $result );
+return array_map(
+	$name,
+	array(
+		check_password_reset_key( ${ phpValue( copiedKeys[ 0 ] ) }, 'reset_customer' ),
+		check_password_reset_key( ${ phpValue( copiedKeys[ 1 ] ) }, 'reset_shopper' ),
+		wp_validate_user_request_key( ${ Number( sent.request ) }, ${ phpValue( copiedKeys[ 2 ] ) } ),
+		check_password_reset_key( '[redacted]', 'reset_customer' ),
+		wp_validate_user_request_key( ${ Number( sent.request ) }, '[redacted]' ),
+	)
+);`, { label: 'checking the keys in the copies with WordPress' } );
+			assert.deepEqual( accepted, [ 'reset_customer', 'reset_shopper', true, 'invalid_key', 'invalid_key' ], 'WordPress does not accept the keys in the copies, or accepts a redacted one' );
+
+			assert.deepEqual( [ restricted.caps, restricted.admin ], [ [ true, false ], true ], 'The administrator who cannot edit users can edit users, cannot manage options or does not count as an administrator, so this proves nothing' );
+			const jar = await site.login( { user: 'log_restricted', jar: new CookieJar() } );
+			const restrictedViews = ( await site.getAll( sent.entries.map( ( entry ) => ( { path: entryPath( entry.id ), jar } ) ) ) ).map( ( res ) => res.text );
+			assert.deepEqual( restrictedViews.map( ( view ) => copyNote( view ) ), restrictedViews.map( () => `Send to me sends a copy to log_restricted@example.com only, with the logged sender, content type and message. Attachments are not included, and the original Cc, Bcc and Reply-To headers are left out. ${ KEYS_FOR_EDITORS }` ), 'An entry does not tell a user who cannot edit users that the keys stay redacted' );
+			assert.deepEqual( restrictedViews.flatMap( ( view ) => realKeys.filter( ( key ) => view.includes( key ) ) ), [], 'An entry shows a key to a user who cannot edit users' );
+			await capture( 1 );
+			try {
+				const before = capturedMail( site ).length;
+				for ( const [ i, view ] of restrictedViews.entries() ) {
+					const res = await site.post( ADMIN_POST, actionForm( view, 'safety_net_email_log_send' ).fields, { jar, follow: false, expect: 302 } );
+					assert.deepEqual( redirectArgs( site, res ), { ...PAGE_ARGS, result: 'sent', entry: sent.entries[ i ].id }, 'A user who cannot edit users got a copy with the keys put back' );
+				}
+				assert.deepEqual( capturedMail( site ).slice( before ).map( ( { verdict, atts } ) => [ verdict, atts.to, atts.message ] ), sent.entries.map( ( entry ) => [ null, 'log_restricted@example.com', entry.message ] ), 'A user who cannot edit users did not get the redacted messages' );
+			} finally {
+				await capture( null );
+			}
+
+			const variants = await site.php( `
+$entry    = SafetyNet\\EmailLog\\get_entry( ${ reset.id } );
+$keys     = json_decode( $entry->secrets, true );
+$variants = array(
+	'more keys'         => array( 'secrets' => wp_json_encode( array_merge( $keys, array( 'EXTRAKEY1' ) ) ) ),
+	'more placeholders' => array( 'message' => $entry->message . ' https://example.test/?key=[redacted]' ),
+	'no keys'           => array( 'secrets' => '[]' ),
+	'no secrets'        => array( 'secrets' => null ),
+	'not JSON'          => array( 'secrets' => 'not json' ),
+	'not a list'        => array( 'secrets' => wp_json_encode( array( 'key' => $keys[0] ) ) ),
+	'not text'          => array( 'secrets' => wp_json_encode( array( 12345 ) ) ),
+	'empty key'         => array( 'secrets' => wp_json_encode( array( '' ) ) ),
+	'stored [redacted]' => array( 'secrets' => wp_json_encode( array( '[redacted]' ) ) ),
+	'mixed [redacted]'  => array( 'message' => $entry->message . ' https://example.test/?key=[redacted]', 'secrets' => wp_json_encode( array_merge( $keys, array( '[redacted]' ) ) ) ),
+	'unredacted key'    => array( 'message' => $entry->message . ' https://example.test/?key=SHOWNKEY1', 'secrets' => wp_json_encode( array_merge( $keys, array( 'SHOWNKEY1' ) ) ) ),
+);
+$restored = array( 'stored' => SafetyNet\\EmailLog\\restore_keys( $entry ) );
+foreach ( $variants as $name => $changes ) {
+	$restored[ $name ] = SafetyNet\\EmailLog\\restore_keys( (object) array_merge( (array) $entry, $changes ) );
+}
+return $restored;`, { label: 'putting keys back into entries whose keys do not match their redacted ones' } );
+			assert.equal( variants.stored, sent.originals[ 0 ], 'The stored entry did not get its key back, so this proves nothing' );
+			assert.deepEqual( Object.keys( variants ).filter( ( name ) => name !== 'stored' && variants[ name ] !== null ), [], 'Keys were put back into an entry whose keys do not match its redacted ones one to one' );
+
+			for ( const [ mismatch, secrets ] of [ [ 'one key too many', [ ...keys[ 0 ], 'EXTRAKEY1' ] ], [ '[redacted] as its key', [ '[redacted]' ] ] ] ) {
+				await site.php( `global $wpdb; $wpdb->update( $wpdb->prefix . 'safety_net_email_log', array( 'secrets' => ${ phpValue( JSON.stringify( secrets ) ) } ), array( 'id' => ${ reset.id } ) ); return true;`, { label: `storing ${ mismatch } for the password reset` } );
+				try {
+					const view = ( await site.get( entryPath( reset.id ), { jar: site.adminJar } ) ).text;
+					assert.ok( copyNote( view ).endsWith( ` ${ KEYS_NOT_STORED }` ), `An entry with ${ mismatch } does not say its keys stay redacted: ${ copyNote( view ) }` );
+					await capture( 1 );
+					try {
+						const before = capturedMail( site ).length;
+						const res = await site.post( ADMIN_POST, actionForm( view, 'safety_net_email_log_send' ).fields, { jar: site.adminJar, follow: false, expect: 302 } );
+						assert.equal( redirectArgs( site, res ).result, 'sent', `The copy of an entry with ${ mismatch } was reported as sent with its keys put back` );
+						assert.deepEqual( capturedMail( site ).slice( before ).map( ( { atts } ) => atts.message ), [ reset.message ], `The copy of an entry with ${ mismatch } was not sent redacted` );
+					} finally {
+						await capture( null );
+					}
+				} finally {
+					await site.php( `global $wpdb; $wpdb->update( $wpdb->prefix . 'safety_net_email_log', array( 'secrets' => ${ phpValue( reset.secrets ) } ), array( 'id' => ${ reset.id } ) ); return true;`, { label: 'storing the password reset\'s key again' } );
+				}
+			}
+		} finally {
+			for ( const id of users ) {
+				await deleteUser( id );
+			}
+		}
+	} );
+
+	test( 'E34b: the keys of an email to an administrator, as To, Cc or Bcc, such as an administrator\'s password reset that anyone can request, are never stored, so its copies stay redacted and its entry says why, while the same email to a customer alone keeps its keys', async () => {
+		const customer = await createUser( 'admin_cc_customer', 'subscriber' );
+		const [ local, domain ] = admin.split( '@' );
+		const message = ( key ) => `Set your password: https://example.test/wp-login.php?action=rp&key=${ key }&login=admin_cc_customer`;
+		const emails = [
+			{ to: 'admin_cc_customer@example.com', subject: 'A key for a customer, an administrator in Cc', message: message( 'ADMINCCKEY1' ), headers: [ `Cc: someone@example.com, ${ admin }` ] },
+			{ to: 'admin_cc_customer@example.com', subject: 'A key for a customer, an administrator in Bcc', message: message( 'ADMINBCCKEY1' ), headers: `Bcc: The Admin <${ local.toUpperCase() }@${ domain }>\r\n` },
+			{ to: [ 'admin_cc_customer@example.com', admin ], subject: 'A key for a customer and an administrator', message: message( 'ADMINTOKEY1' ) },
+			{ to: 'admin_cc_customer@example.com', subject: 'A key for a customer alone', message: message( 'CUSTOMERKEY1' ), headers: [ 'Cc: someone@example.com', 'Bcc: other@example.com' ] },
+		];
+		let login;
+		try {
+			const s = await site.php( `
+$user      = get_userdata( 1 );
+$after     = sn_test_email_log_last_id();
+$originals = array();
+$verdicts  = array();
+$record    = static function ( $verdict, $atts ) use ( &$originals ) {
+	$originals[] = $atts['message'];
+	return $verdict;
+};
+$stop      = static function ( $verdict ) use ( &$verdicts ) {
+	$verdicts[] = $verdict;
+	return false;
+};
+add_filter( 'pre_wp_mail', $record, 9, 2 );
+add_filter( 'pre_wp_mail', $stop, 11 );
+$_SERVER['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'] ?? '192.0.2.1';
+try {
+	$reset = retrieve_password( $user->user_login );
+} finally {
+	remove_filter( 'pre_wp_mail', $record, 9 );
+	remove_filter( 'pre_wp_mail', $stop, 11 );
+}
+$entries = sn_test_email_log( $after );
+return array(
+	'login'     => $user->user_login,
+	'admins'    => SafetyNet\\Utilities\\get_admin_emails(),
+	'reset'     => is_wp_error( $reset ) ? $reset->get_error_code() : $reset,
+	'verdicts'  => $verdicts,
+	'originals' => $originals,
+	'entries'   => $entries,
+	'sent'      => sn_test_send_emails( ${ phpValue( emails ) } ),
+);`, { label: 'requesting an administrator\'s password reset, then sending emails with keys to an administrator as To, Cc or Bcc and to a customer alone' } );
+			login = s.login;
+			assert.ok( s.admins.includes( admin.toLowerCase() ) && ! s.admins.includes( 'admin_cc_customer@example.com' ), 'The administrator does not count as one, or the customer does, so this proves nothing' );
+			assert.deepEqual( [ s.reset, s.verdicts ], [ 'retrieve_password_email_failure', [ null ] ], 'Safety Net did not let the administrator\'s password reset through, or it was not stopped right after' );
+			const [ adminKey, ...more ] = keysIn( s.originals[ 0 ] ?? '' );
+			assert.ok( adminKey && adminKey !== '[redacted]' && ! more.length, `The administrator's password reset does not hold exactly one real key, so this proves nothing: ${ s.originals[ 0 ] }` );
+			assert.deepEqual( s.entries.map( ( entry ) => [ entry.status, entry.recipients, entry.message, entry.secrets ] ), [ [ 'allowed', admin, redact( s.originals[ 0 ] ), null ] ], 'The administrator\'s password reset was not logged redacted, without its key' );
+			assert.deepEqual( s.sent.entries.map( ( entry ) => [ entry.subject, entry.message, entry.secrets ] ), emails.map( ( email ) => [ email.subject, redact( email.message ), email.subject === 'A key for a customer alone' ? '["CUSTOMERKEY1"]' : null ] ), 'An email to an administrator as To, Cc or Bcc stored its key, or the email to a customer alone did not' );
+			const logged = JSON.stringify( await log() );
+			const leaked = [ adminKey, 'ADMINCCKEY1', 'ADMINBCCKEY1', 'ADMINTOKEY1' ].filter( ( key ) => logged.includes( key ) );
+			assert.deepEqual( leaked, [], 'The log holds a key of an email to an administrator' );
+
+			const toAdmins = [ ...s.entries, ...s.sent.entries.slice( 0, 3 ) ];
+			const [ alone ] = s.sent.entries.slice( 3 );
+			const views = ( await site.getAll( [ ...toAdmins, alone ].map( ( entry ) => ( { path: entryPath( entry.id ), jar: site.adminJar } ) ) ) ).map( ( res ) => res.text );
+			assert.deepEqual( views.map( ( view ) => copyNote( view ) ), [ ...toAdmins.map( () => KEYS_FOR_ADMINS ), KEYS_PUT_BACK ].map( ( reason ) => `Send to me sends a copy to ${ admin } only, with the logged sender, content type and message. Attachments are not included, and the original Cc, Bcc and Reply-To headers are left out. ${ reason }` ), 'An entry to an administrator does not say why its keys stay redacted, or the entry to a customer alone does not say they are put back' );
+
+			let copies;
+			await capture( 1 );
+			try {
+				const before = capturedMail( site ).length;
+				for ( const [ i, view ] of views.entries() ) {
+					const res = await site.post( ADMIN_POST, actionForm( view, 'safety_net_email_log_send' ).fields, { jar: site.adminJar, follow: false, expect: 302 } );
+					assert.equal( redirectArgs( site, res ).result, i < toAdmins.length ? 'sent' : 'sent-with-keys', 'Send to me did not keep the keys of an email to an administrator redacted, or did not put back those of an email to a customer alone' );
+				}
+				copies = capturedMail( site ).slice( before ).map( ( { verdict, atts } ) => [ verdict, atts.to, atts.message ] );
+			} finally {
+				await capture( null );
+			}
+			assert.deepEqual( copies, [ ...toAdmins.map( ( entry ) => [ null, admin, entry.message ] ), [ null, admin, emails[ 3 ].message ] ], 'The copies of emails to an administrator were not sent redacted, or the copy of the email to a customer alone was not sent with its key' );
+
+			const accepted = await site.php( `
+$name = static fn( $result ) => is_wp_error( $result ) ? $result->get_error_code() : ( $result instanceof WP_User ? $result->user_login : $result );
+return array( $name( check_password_reset_key( ${ phpValue( adminKey ) }, ${ phpValue( login ) } ) ), $name( check_password_reset_key( ${ phpValue( keysIn( copies[ 0 ][ 2 ] )[ 0 ] ) }, ${ phpValue( login ) } ) ) );`, { label: 'checking the administrator\'s real key and the one in the copy with WordPress' } );
+			assert.deepEqual( accepted, [ login, 'invalid_key' ], 'The administrator\'s real key was not a live key, so this proves nothing, or the copy\'s key works' );
+		} finally {
+			await site.php( 'global $wpdb; $wpdb->update( $wpdb->users, array( \'user_activation_key\' => \'\' ), array( \'ID\' => 1 ) ); clean_user_cache( 1 ); return true;', { label: 'dropping the administrator\'s password reset key' } );
+			await deleteUser( customer );
+		}
 	} );
 
 	test( 'E33: Send to me and Delete go back to the list with its result filter, search and page, from the popup and from the entry page, and to the plain page from anywhere else', async () => {
@@ -1695,7 +2145,7 @@ return array(
 		assert.deepEqual( redirectArgs( site, cleared ), { ...PAGE_ARGS, ...list, result: 'cleared' } );
 		assert.deepEqual( await log(), [], 'Clear log left entries' );
 		const s = await state();
-		assert.deepEqual( [ s.table, s.options.safety_net_email_log_db_version, s.cleanup?.schedule ], [ true, '1', 'daily' ], 'Clear log removed the table, its version option or the cleanup event' );
+		assert.deepEqual( [ s.table, s.options.safety_net_email_log_db_version, s.cleanup?.schedule ], [ true, DB_VERSION, 'daily' ], 'Clear log removed the table, its version option or the cleanup event' );
 		const page = ( await site.get( cleared.location, { jar: site.adminJar } ) ).text;
 		assert.equal( notice( page ), 'success: The email log was cleared.' );
 		assert.equal( emptyState( page ), 'No entries match.', 'The cleared list with a view and a search does not say that nothing matches' );
@@ -1724,7 +2174,7 @@ return array(
 		const next = await send( [ { to: 'customer@example.com', subject: 'Logged after the option was lost', message: 'x' } ] );
 		assert.deepEqual( ( await log() ).map( ( entry ) => entry.subject ), [ 'Logged after the option was lost' ], 'Old entries came back when the next email created the table again' );
 		assert.equal( next.entries?.length, 1 );
-		assert.deepEqual( ( await state() ).options, { safety_net_email_log_db_version: '1' } );
+		assert.deepEqual( ( await state() ).options, VERSION );
 	} );
 
 	test( 'debug.log has no fatal errors, no unexpected Safety Net warnings, no failed dry run but E23b\'s and no failed Raw view', () => {
