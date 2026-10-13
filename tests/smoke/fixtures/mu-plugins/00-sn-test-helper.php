@@ -335,6 +335,16 @@ if ( get_option( 'sn_test_refuse_email_log_table' ) ) {
 	);
 }
 
+// The database refuses to add the secrets column to a 1.11.0 email log table, as it does for a user without the ALTER privilege.
+if ( get_option( 'sn_test_refuse_email_log_alter' ) ) {
+	add_filter(
+		'query',
+		static function ( $query ) {
+			return preg_match( '/^\s*ALTER TABLE \S*safety_net_email_log\s+ADD COLUMN\b/i', $query ) ? 'ALTER TABLE sn_test_refused_alter (' : $query;
+		}
+	);
+}
+
 // One write of this step flag reports failure and stores nothing, as update_option() does when the database refuses it.
 if ( get_option( 'sn_test_lost_flag' ) ) {
 	add_filter(

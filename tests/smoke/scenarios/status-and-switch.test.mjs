@@ -200,7 +200,7 @@ return $captured;`, { label: 'changing a user\'s password and email address' } )
 	test( 'ST6: with the email log table gone but its option left, opening the Tools page counts no entries, forgets the table without a database error, and the next email creates it again', async () => {
 		const mark = site.logMark();
 		const dropped = await site.php( "global $wpdb; $wpdb->query( \"DROP TABLE {$wpdb->prefix}safety_net_email_log\" ); return sn_test_email_log_state();", { label: 'dropping the email log table and keeping its option' } );
-		assert.deepEqual( [ dropped.table, dropped.options.safety_net_email_log_db_version ], [ false, '1' ], 'Dropping the table failed, or its option is gone, so this proves nothing' );
+		assert.deepEqual( [ dropped.table, dropped.options.safety_net_email_log_db_version ], [ false, '2' ], 'Dropping the table failed, or its option is gone, so this proves nothing' );
 		const { res } = await getToolsPage( site );
 		const row = statusRows( res.text ).find( ( candidate ) => candidate.id === 'email_log' );
 		assert.ok( row?.details.startsWith( 'The log holds 0 entries.' ), `The email log row does not count 0 entries without the table: ${ row?.details }` );

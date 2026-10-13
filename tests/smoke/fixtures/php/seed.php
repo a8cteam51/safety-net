@@ -869,6 +869,97 @@ function sn_test_send_like_woocommerce( array $sender, callable $send ) {
 	remove_filter( 'wp_mail_content_type', array( $email, 'get_content_type' ) );
 }
 
+// Sends core's password reset to $reset_login, a WooCommerce-style HTML new-account email with a reset key for $shop_login and core's
+// privacy request confirmation to $requester, each stopped once Safety Net has decided; returns each message as wp_mail() got it.
+function sn_test_send_key_emails( string $reset_login, string $shop_login, string $requester ): array {
+	$after     = sn_test_email_log_last_id();
+	$originals = array();
+	$verdicts  = array();
+	$record    = static function ( $verdict, $atts ) use ( &$originals ) {
+		$originals[] = $atts['message'];
+		return $verdict;
+	};
+	$stop      = static function ( $verdict ) use ( &$verdicts ) {
+		$verdicts[] = $verdict;
+		return false;
+	};
+	add_filter( 'pre_wp_mail', $record, 9, 2 );
+	add_filter( 'pre_wp_mail', $stop, 11 );
+	// retrieve_password() names the requester's IP address when nobody is logged in.
+	$_SERVER['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'] ?? '192.0.2.1';
+	try {
+		$reset   = retrieve_password( $reset_login );
+		$shopper = get_user_by( 'login', $shop_login );
+		$key     = get_password_reset_key( $shopper );
+		if ( is_wp_error( $key ) ) {
+			throw new RuntimeException( "Could not create a password reset key for $shop_login: " . $key->get_error_message() );
+		}
+		$url = 'https://shop.example/my-account/lost-password/?action=newaccount&#038;key=' . $key . '&#038;login=' . rawurlencode( $shop_login );
+		sn_test_send_like_woocommerce(
+			array(
+				'from' => 'shop@example.com',
+				'name' => 'Example Shop',
+				'type' => 'text/html',
+			),
+			static fn() => wp_mail( $shopper->user_email, "Your Example Shop account for $shop_login has been created!", '<p>Welcome to Example Shop.</p><p><a href="' . $url . '">Set your new password</a></p>' )
+		);
+		$request = wp_create_user_request( $requester, 'export_personal_data' );
+		if ( is_wp_error( $request ) ) {
+			throw new RuntimeException( 'Could not create the privacy request: ' . $request->get_error_message() );
+		}
+		$confirm = wp_send_user_request( $request );
+	} finally {
+		remove_filter( 'pre_wp_mail', $record, 9 );
+		remove_filter( 'pre_wp_mail', $stop, 11 );
+	}
+	return array(
+		'reset'     => is_wp_error( $reset ) ? $reset->get_error_code() : $reset,
+		'confirm'   => is_wp_error( $confirm ) ? $confirm->get_error_code() : $confirm,
+		'request'   => $request,
+		'verdicts'  => $verdicts,
+		'originals' => $originals,
+		'entries'   => sn_test_email_log( $after ),
+	);
+}
+
+// Replaces the email log with the table Safety Net 1.11.0 created, which has no secrets column, holding these entries; null deletes the version option.
+function sn_test_email_log_v1( array $entries, ?string $version ): ?array {
+	global $wpdb;
+	$table = $wpdb->prefix . 'safety_net_email_log';
+	$wpdb->query( "DROP TABLE IF EXISTS $table" ); // phpcs:ignore
+	// Exactly as Safety Net 1.11.0 created it.
+	$created = $wpdb->query( // phpcs:ignore
+		"CREATE TABLE IF NOT EXISTS {$table} (
+			id bigint(20) unsigned NOT NULL auto_increment,
+			logged_at datetime NOT NULL,
+			status varchar(20) NOT NULL default '',
+			outcome varchar(20) NOT NULL default '',
+			error text NOT NULL,
+			recipients text NOT NULL,
+			subject text NOT NULL,
+			message longtext NOT NULL,
+			headers text NOT NULL,
+			from_address varchar(255) NOT NULL default '',
+			content_type varchar(100) NOT NULL default '',
+			attachments text NOT NULL,
+			PRIMARY KEY  (id),
+			KEY logged_at (logged_at),
+			KEY outcome (outcome)
+		) {$wpdb->get_charset_collate()}"
+	);
+	if ( false === $created ) {
+		throw new RuntimeException( 'Could not create the 1.11.0 email log table: ' . $wpdb->last_error );
+	}
+	foreach ( $entries as $entry ) {
+		unset( $entry['secrets'] );
+		if ( false === $wpdb->insert( $table, $entry ) ) {
+			throw new RuntimeException( 'Could not add an entry to the 1.11.0 email log table: ' . $wpdb->last_error );
+		}
+	}
+	null === $version ? delete_option( 'safety_net_email_log_db_version' ) : update_option( 'safety_net_email_log_db_version', $version );
+	return sn_test_email_log();
+}
+
 // Sends Safety Net's copy of a log entry to the first administrator through a PHPMailer that sends nothing. A phpmailer_init
 // callback can add a Bcc to it, and a later pre_wp_mail callback can send another email to an address while the copy is sent.
 function sn_test_send_copy( int $id, array $options = array() ): array {
@@ -1052,8 +1143,9 @@ function sn_test_while_sending( ?string $change ): void {
 			$undo[] = static fn() => null === $saved ? delete_option( 'safety_net_email_log_toggle' ) : update_option( 'safety_net_email_log_toggle', $saved );
 			break;
 		case 'forget_table':
+			$version = sn_test_raw_option( 'safety_net_email_log_db_version' );
 			delete_option( 'safety_net_email_log_db_version' );
-			$undo[] = static fn() => update_option( 'safety_net_email_log_db_version', '1' );
+			$undo[] = static fn() => update_option( 'safety_net_email_log_db_version', $version );
 			break;
 		case 'refuse_update':
 			$refuse = static fn( $query ) => preg_match( '/^\s*UPDATE\s+`?\w*safety_net_email_log`?\s/i', $query ) ? 'UPDATE sn_test_refused_update SET refused = 1' : $query;
