@@ -823,14 +823,26 @@ function is_sent_only_to_admins( array $args ): bool {
 }
 
 /**
- * Whether any To, Cc or Bcc recipient of an email is an administrator that Safety Net keeps.
+ * Whether any To, Cc or Bcc recipient of an email is an administrator, or a user who can edit content or manage the store.
  *
  * @param array $args The wp_mail() arguments.
  *
  * @return bool
  */
-function is_sent_to_an_admin( array $args ): bool {
-	return (bool) array_intersect( get_all_recipients( $args ), get_admin_emails() );
+function is_sent_to_staff( array $args ): bool {
+	$recipients = get_all_recipients( $args );
+	if ( array_intersect( $recipients, get_admin_emails() ) ) {
+		return true;
+	}
+
+	foreach ( $recipients as $address ) {
+		$user = get_user_by( 'email', $address );
+		if ( $user && ( user_can( $user, 'edit_posts' ) || user_can( $user, 'manage_woocommerce' ) ) ) { // phpcs:ignore WordPress.WP.Capabilities.Unknown -- WooCommerce's capability.
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**

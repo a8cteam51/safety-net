@@ -49,7 +49,7 @@ const KEYS_FOR_EDITORS = 'Its password reset and confirmation keys stay redacted
 
 const KEYS_NOT_STORED = 'Its password reset and confirmation keys stay redacted, so those links will not work: the keys were not stored with this entry.';
 
-const KEYS_FOR_ADMINS = 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators, who got the email itself.';
+const KEYS_FOR_ADMINS = 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, who got the email itself.';
 
 const PLAIN = 'text/plain; charset=UTF-8';
 
@@ -1960,6 +1960,45 @@ return array( $name( check_password_reset_key( ${ phpValue( adminKey ) }, ${ php
 			await site.php( 'global $wpdb; $wpdb->update( $wpdb->users, array( \'user_activation_key\' => \'\' ), array( \'ID\' => 1 ) ); clean_user_cache( 1 ); return true;', { label: 'dropping the administrator\'s password reset key' } );
 			await deleteUser( customer );
 		}
+	} );
+
+	test( 'E34c: keys are not stored for emails to staff accounts that can edit content or manage the store, and are stored for a subscriber', async () => {
+		const s = await site.php(
+			`
+require_once ABSPATH . 'wp-admin/includes/user.php';
+$ids = array();
+foreach ( array( 'editor', 'contributor', 'manager', 'subscriber' ) as $who ) {
+	$ids[ $who ] = wp_insert_user( array( 'user_login' => "e34c_$who", 'user_email' => "e34c_$who@example.com", 'user_pass' => wp_generate_password(), 'role' => 'manager' === $who ? 'subscriber' : $who ) );
+}
+( new WP_User( $ids['manager'] ) )->add_cap( 'manage_woocommerce' );
+$caps = array();
+foreach ( $ids as $who => $id ) {
+	$caps[ $who ] = array( user_can( $id, 'edit_posts' ), user_can( $id, 'manage_woocommerce' ) );
+}
+$stop = static function () {
+	return false;
+};
+$last = sn_test_email_log_last_id();
+add_filter( 'pre_wp_mail', $stop, 11 );
+foreach ( array_keys( $ids ) as $who ) {
+	wp_mail( "e34c_$who@example.com", "E34c reset for $who", 'https://example.com/wp-login.php?action=rp&key=E34C' . strtoupper( $who ) . "KEY&login=e34c_$who" );
+}
+remove_filter( 'pre_wp_mail', $stop, 11 );
+$rows = array_map( static fn( $row ) => array( $row['subject'], $row['secrets'] ), (array) sn_test_email_log( $last ) );
+foreach ( $ids as $id ) {
+	wp_delete_user( $id );
+}
+return array( 'ids' => $ids, 'caps' => $caps, 'rows' => $rows );`,
+			{ label: 'sending emails with keys to an editor, a contributor, a store manager and a subscriber' }
+		);
+		assert.ok( Object.values( s.ids ).every( ( id ) => Number.isInteger( id ) && id > 0 ), `A test user was not created: ${ JSON.stringify( s.ids ) }` );
+		assert.deepEqual( s.caps, { editor: [ true, false ], contributor: [ true, false ], manager: [ false, true ], subscriber: [ false, false ] }, 'The test users do not have the capabilities this test relies on' );
+		assert.deepEqual( s.rows, [
+			[ 'E34c reset for editor', null ],
+			[ 'E34c reset for contributor', null ],
+			[ 'E34c reset for manager', null ],
+			[ 'E34c reset for subscriber', '["E34CSUBSCRIBERKEY"]' ],
+		], 'Keys were stored for a staff account, or not for a subscriber' );
 	} );
 
 	test( 'E33: Send to me and Delete go back to the list with its result filter, search and page, from the popup and from the entry page, and to the plain page from anywhere else', async () => {

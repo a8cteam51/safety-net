@@ -9,7 +9,7 @@ namespace SafetyNet\EmailLog;
 
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
-use function SafetyNet\Admin\is_sent_to_an_admin;
+use function SafetyNet\Admin\is_sent_to_staff;
 use function SafetyNet\Utilities\get_admin_emails;
 
 const LOG_OPTION        = 'safety_net_email_log_toggle';
@@ -285,7 +285,7 @@ function log_email( string $status, $args ): void {
 		);
 
 		// Anyone can request an administrator's password reset, so a stored key would let whoever reads the database take over that account.
-		$secrets = $has_secrets && $keys && ! is_sent_to_an_admin( $args ) ? wp_json_encode( $keys ) : false;
+		$secrets = $has_secrets && $keys && ! is_sent_to_staff( $args ) ? wp_json_encode( $keys ) : false;
 		// Cut to fit its column, the JSON would no longer decode, so keys that do not fit are left out.
 		if ( ! is_string( $secrets ) || strlen( $secrets ) > TEXT_BYTES ) {
 			$secrets = null;
@@ -995,14 +995,14 @@ function can_restore_keys(): bool {
 }
 
 /**
- * Whether an entry went to an administrator, as To, Cc or Bcc, so its keys were not stored.
+ * Whether an entry went to an administrator or another staff account, as To, Cc or Bcc, so its keys were not stored.
  *
  * @param object $entry The entry.
  *
  * @return bool
  */
-function is_entry_to_an_admin( object $entry ): bool {
-	return is_sent_to_an_admin(
+function is_entry_to_staff( object $entry ): bool {
+	return is_sent_to_staff(
 		array(
 			'to'      => to_text( $entry->recipients ?? '' ),
 			'headers' => to_text( $entry->headers ?? '' ),
@@ -1809,8 +1809,8 @@ function copy_note( object $entry ): string {
 	}
 
 	$restored = restore_keys( $entry );
-	if ( null === $restored && is_entry_to_an_admin( $entry ) ) {
-		return $note . ' ' . __( 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators, who got the email itself.', 'safety-net' );
+	if ( null === $restored && is_entry_to_staff( $entry ) ) {
+		return $note . ' ' . __( 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, who got the email itself.', 'safety-net' );
 	}
 
 	if ( ! can_restore_keys() ) {
