@@ -204,6 +204,36 @@ if ( get_option( 'sn_test_hide_admin' ) ) {
 	add_filter( 'safety_net_hide_admin', '__return_true' );
 }
 
+// Markup in the URLs the emails-on notice prints: the Settings page's, and the site's on multisite, where its WP-CLI command names it.
+if ( get_option( 'sn_test_inject_urls' ) ) {
+	add_filter(
+		'admin_url',
+		static function ( $url, $path ) {
+			return str_contains( (string) $path, 'safety_net_email_log_settings' ) ? $url . '&sn="><b>x</b>' : $url;
+		},
+		10,
+		2
+	);
+	if ( is_multisite() ) {
+		add_filter(
+			'home_url',
+			static function ( $url, $path ) {
+				return '/' === $path ? $url . '&sn="><b>x</b>' : $url;
+			},
+			10,
+			2
+		);
+	}
+}
+
+// A plugin's own wp_mail(), which applies pre_wp_mail as core's does and sends nothing; pluggable.php then skips core's.
+if ( get_option( 'sn_test_replace_wp_mail' ) && ! function_exists( 'wp_mail' ) ) {
+	function wp_mail( $to, $subject, $message, $headers = '', $attachments = array() ) {
+		$pre = apply_filters( 'pre_wp_mail', null, compact( 'to', 'subject', 'message', 'headers', 'attachments' ) );
+		return null === $pre ? false : $pre;
+	}
+}
+
 // Core builds submenu hook suffixes from the translated top-level menu title.
 if ( get_option( 'sn_test_translate' ) ) {
 	add_filter(

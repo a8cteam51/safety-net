@@ -953,7 +953,7 @@ return array(
 		assert.deepEqual( toggles( settings ), { safety_net_email_log_toggle: true, safety_net_email_log_cleanup_toggle: true }, 'A switch without a stored option does not show as on' );
 		const form = settingsForm( settings );
 		assert.equal( form.action, 'options.php' );
-		assert.deepEqual( form.checkboxes, TOGGLES, 'The Settings form must hold exactly the two switches' );
+		assert.deepEqual( form.checkboxes, [ ...TOGGLES, 'safety_net_send_emails_toggle' ], 'The Settings form must hold exactly the two log switches and Send emails' );
 		assert.deepEqual( queryOf( form.fields._wp_http_referer ), SETTINGS_ARGS, 'Saving the switches would not come back to the Settings page' );
 		assert.match( form.html, /<input\b[^>]*type="submit"[^>]*value="Save Changes"/, 'The Settings form has no Save Changes button' );
 		assert.match( settings, /Keep a log of the emails Safety Net blocks or lets through\./ );

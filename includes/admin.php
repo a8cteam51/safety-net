@@ -10,6 +10,8 @@ use function SafetyNet\EmailLog\log_email;
 use function SafetyNet\EmailLog\page_hooks;
 use function SafetyNet\EmailLog\page_url;
 use function SafetyNet\EmailLog\sending_copy;
+use function SafetyNet\Status\render_status_panel;
+use function SafetyNet\Utilities\are_emails_enabled;
 use function SafetyNet\Utilities\get_admin_emails;
 use function SafetyNet\Utilities\get_admin_user_ids;
 use function SafetyNet\Utilities\get_environment_type;
@@ -20,6 +22,8 @@ use function SafetyNet\DeleteTransients\delete_transients;
 use function SafetyNet\DisableWebhooks\disable_webhooks;
 use function SafetyNet\Integrations\plugin_patterns;
 use function SafetyNet\Utilities\is_denylisted_plugin;
+use const SafetyNet\EmailLog\SETTINGS_SLUG;
+use const SafetyNet\Utilities\SEND_EMAILS_OPTION;
 
 add_filter( 'init', __NAMESPACE__ . '\add_admin_hooks' );
 
@@ -50,6 +54,8 @@ function add_admin_hooks() {
 		add_filter( 'plugin_action_links_' . SAFETY_NET_BASENAME, __NAMESPACE__ . '\add_action_links' );
 	}
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_warning' );
+	add_action( 'admin_notices', __NAMESPACE__ . '\show_emails_enabled_notice' );
+	add_action( 'network_admin_notices', __NAMESPACE__ . '\show_emails_enabled_notice' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_keep_notice' );
 	add_action( 'admin_notices', __NAMESPACE__ . '\show_active_denylisted_warning' );
 	add_action( 'network_admin_notices', __NAMESPACE__ . '\show_active_denylisted_warning' );
@@ -67,7 +73,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		return;
 	}
 
-	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery', 'wp-a11y' ), '1.2', true );
+	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery', 'wp-a11y' ), '1.3', true );
 
 	wp_localize_script(
 		'safety-net-admin',
@@ -77,7 +83,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		)
 	);
 
-	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.2' );
+	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.3' );
 }
 
 /**
@@ -213,7 +219,7 @@ function settings_init() {
 /**
  * Renders the HTML for the settings.
  *
- * @param array $args Arguments passed to the fields.
+ * @param array $args Arguments passed to the fields; a checkbox's 'confirm' text is asked before it is switched on, and a disabled one keeps its 'hidden_value', or else its stored value.
  *
  * @return void
  */
@@ -224,17 +230,18 @@ function render_field( array $args = array() ) {
 
 	if ( 'checkbox' === $args['type'] ) {
 		printf(
-			'<input id="%s" class="%s" name="%s" type="checkbox"%s%s />',
+			'<input id="%s" class="%s" name="%s" type="checkbox"%s%s%s />',
 			esc_attr( $args['name'] ),
 			esc_attr( $args['class'] ),
 			esc_attr( $args['name'] ),
 			checked( 'on', $args['value'] ?? get_option( $args['name'] ), false ),
-			disabled( ! empty( $args['disabled'] ), true, false )
+			disabled( ! empty( $args['disabled'] ), true, false ),
+			isset( $args['confirm'] ) ? ' data-safety-net-confirm="' . esc_attr( $args['confirm'] ) . '"' : ''
 		);
 
 		// A disabled checkbox is not submitted, so saving the form would otherwise store it as off.
 		if ( ! empty( $args['disabled'] ) ) {
-			printf( '<input type="hidden" name="%s" value="%s" />', esc_attr( $args['name'] ), esc_attr( (string) get_option( $args['name'] ) ) );
+			printf( '<input type="hidden" name="%s" value="%s" />', esc_attr( $args['name'] ), esc_attr( (string) ( $args['hidden_value'] ?? get_option( $args['name'] ) ) ) );
 		}
 	}
 
@@ -249,7 +256,8 @@ function render_field( array $args = array() ) {
 
 	if ( isset( $args['description'] ) ) {
 		printf(
-			'<p class="description" id="tagline-description">%s</p>',
+			'<p class="%s" id="tagline-description">%s</p>',
+			esc_attr( isset( $args['description_class'] ) ? 'description ' . $args['description_class'] : 'description' ),
 			esc_html( $args['description'] )
 		);
 	}
@@ -451,6 +459,7 @@ function render_options_html() {
 			<a href="https://github.com/a8cteam51/safety-net/#plugin-not-running">More info in the README</a>.
 		</p>
 	<?php else : ?>
+		<?php render_status_panel(); ?>
 		<h3>Tools</h3>
 		<form action="options.php" method="post">
 			<?php
@@ -691,13 +700,65 @@ function show_warning() {
 	echo '</strong>';
 	esc_html_e( 'The Safety Net plugin is currently active', 'safety-net' );
 	echo '<br>';
-	// A site that drops the woocommerce-subscriptions integration keeps the toggle but loses the pause.
-	if ( ( is_data_deletion_disabled() || 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) && false !== has_filter( 'action_scheduler_store_class', 'SafetyNet\Integrations\WooCommerceSubscriptions\paused_store_class' ) ) {
+	if ( are_renewals_paused() ) {
 		esc_html_e( 'WooCommerce Subscriptions scheduled actions are currently paused.', 'safety-net' );
 		echo '<br>';
 	}
 	echo 'This site\'s environment type is set to "' . esc_html( get_environment_type() ) . '".';
 	echo '</p></div>';
+}
+
+/**
+ * Whether Action Scheduler skips WooCommerce Subscriptions' renewal, payment retry and end of prepaid term actions in this request.
+ *
+ * @return bool
+ */
+function are_renewals_paused(): bool {
+	// A site that drops the woocommerce-subscriptions integration keeps the toggle but loses the pause.
+	return ( is_data_deletion_disabled() || 'on' === get_option( 'safety_net_pause_renewal_actions_toggle' ) ) && false !== has_filter( 'action_scheduler_store_class', 'SafetyNet\Integrations\WooCommerceSubscriptions\paused_store_class' );
+}
+
+/**
+ * Warns on every wp-admin page, for users who can manage options, that emails are switched on, and says how to switch them off; in the network admin, for the main site, whose switch the network admin's emails follow.
+ *
+ * @return void
+ */
+function show_emails_enabled_notice() {
+	if ( ! are_emails_enabled() || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$command = 'wp option update ' . SEND_EMAILS_OPTION . ' off';
+	if ( is_multisite() ) {
+		$command .= ' --url=' . home_url( '/' );
+	}
+	$command = '<code>' . esc_html( $command ) . '</code>';
+
+	if ( true === apply_filters( 'safety_net_hide_admin', false ) ) {
+		/* translators: %s: the WP-CLI command that switches emails off */
+		$how = sprintf( esc_html__( 'To stop it, run: %s', 'safety-net' ), $command );
+	} else {
+		$how = sprintf(
+			/* translators: 1: link to the Email Log Settings page, 2: the WP-CLI command that switches emails off */
+			esc_html__( 'To stop it, turn off Send emails in %1$s, or run: %2$s', 'safety-net' ),
+			'<a href="' . esc_url( admin_url( 'admin.php?page=' . SETTINGS_SLUG ) ) . '">' . esc_html__( 'Email Log > Settings', 'safety-net' ) . '</a>',
+			$command
+		);
+	}
+
+	if ( is_network_admin() ) {
+		/* translators: %s: the main site's URL */
+		$title = sprintf( __( 'Safety Net: emails are switched on for %s.', 'safety-net' ), home_url() );
+	} else {
+		$title = __( 'Safety Net: emails are switched on.', 'safety-net' );
+	}
+
+	printf(
+		'<div class="notice notice-error safety-net-emails-enabled"><p><strong>%1$s</strong> %2$s</p><p>%3$s</p></div>',
+		esc_html( $title ),
+		esc_html__( 'This site sends every email WordPress sends to real addresses.', 'safety-net' ),
+		$how // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+	);
 }
 
 /**
@@ -772,7 +833,7 @@ function show_keep_notice() {
 }
 
 /**
- * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data, and record each decision in the email log
+ * Stop all emails, unless emails are switched on, except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data, and record each decision in the email log
  *
  * @param boolean|null $return WP_Mail short-circuit return value.
  * @param array        $args   The wp_mail() arguments.
@@ -781,13 +842,26 @@ function show_keep_notice() {
  */
 function stop_emails( $return, $args ) {
 	// One-shot, so emails sent from the copy's own hooks still get the rules below.
-	if ( sending_copy() ) {
+	$copy = sending_copy();
+	if ( $copy ) {
 		sending_copy( false );
 		if ( is_sent_only_to_admins( $args ) ) {
 			error_log( 'Email sent: ' . $args['subject'] . ' (copy of a logged email)' ); // phpcs:ignore -- Logging is okay here.
 			expect_result( 0, $args );
 			return null;
 		}
+	}
+
+	// Send to me promises a copy for administrators only, so the switch never lets one reach anyone else.
+	if ( ! $copy && are_emails_enabled() ) {
+		// The switch lifts only Safety Net's own block: another plugin's block, or a mailer that already sent, stands.
+		if ( null !== $return ) {
+			return $return;
+		}
+
+		error_log( 'Email sent: ' . $args['subject'] . ' (emails are switched on)' ); // phpcs:ignore -- Logging is okay here.
+		log_email( 'allowed_switch', $args );
+		return null;
 	}
 
 	if ( ! strstr( $args['subject'], 'Password Reset' ) ) {

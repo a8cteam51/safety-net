@@ -302,6 +302,7 @@ return $state;` );
 				keep_until: null,
 				transients_deleted: true,
 				webhooks_disabled: true,
+				emails_enabled: false,
 			} );
 			assert.equal( res.headers.get( 'cache-control' ), 'no-store, no-cache, must-revalidate, max-age=0' );
 			assert.equal( res.headers.get( 'pragma' ), 'no-cache' );

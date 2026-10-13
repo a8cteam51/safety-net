@@ -337,6 +337,19 @@ function sn_test_action_statuses( array $ids ): array {
 	return $statuses;
 }
 
+// A pending renewal action, a day ahead so no queue run claims it, for the status panel's renewal row.
+function sn_test_schedule_renewal(): int {
+	return (int) as_schedule_single_action( time() + DAY_IN_SECONDS, 'woocommerce_scheduled_subscription_payment', array( 'subscription_id' => 999999 ) );
+}
+
+// Deletes an action and its logs, so the counts the scenarios compare are as before it was scheduled.
+function sn_test_delete_action( int $id ): bool {
+	global $wpdb;
+	$wpdb->delete( $wpdb->prefix . 'actionscheduler_logs', array( 'action_id' => $id ) );
+	$wpdb->delete( $wpdb->prefix . 'actionscheduler_actions', array( 'action_id' => $id ) );
+	return true;
+}
+
 // Straight from sitemeta, since Safety Net writes the network admin email there directly.
 function sn_test_network_state(): array {
 	global $wpdb;

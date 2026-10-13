@@ -3,6 +3,7 @@ import { after, before, describe, test } from 'node:test';
 import { assertDataDeleted, assertStepFlags, firstLoad } from '../lib/checks.mjs';
 import { seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { bootSite, MULTISITE_URL } from '../lib/site.mjs';
+import { emailsNotices, emailsNoticesHtml, ICONS, SEND_EMAILS, SEND_EMAILS_SITE, siteKey, statusRows, statusSummary, withoutIcons, withRenewal } from '../lib/status.mjs';
 
 const ORDERS = "global $wpdb; $counts = array(); foreach ( array( 1, 2 ) as $blog ) { $counts[ $blog ] = sn_test_count( $wpdb->get_blog_prefix( $blog ) . 'wc_orders', \"type = 'shop_order'\" ); } return $counts;";
 const SITE_FLAGS = "return array( 1 => sn_test_network_site_state( 1 )['flags'], 2 => sn_test_network_site_state( 2 )['flags'], 3 => sn_test_network_site_state( 3 )['flags'] );";
@@ -129,6 +130,109 @@ describe( 'multisite-network-woocommerce: Safety Net and WooCommerce network-act
 		}
 		for ( const plugin of [ 'safety-net/safety-net.php', 'woocommerce/woocommerce.php', ...NETWORK_KEPT ] ) {
 			assert.ok( network.includes( plugin ), `${ plugin } is no longer network-active` );
+		}
+	} );
+
+	test( 'M15: a subsite\'s Tools page shows that site\'s status, WooCommerce included, and Send emails switched on there warns only on that site, with a WP-CLI command for it, and never on the main site or in the network admin', async () => {
+		const on = await site.php( `switch_to_blog( 2 ); update_option( '${ SEND_EMAILS }', 'on' ); $shop = SafetyNet\\Utilities\\are_emails_enabled(); restore_current_blog(); return array( 'shop' => $shop, 'main' => SafetyNet\\Utilities\\are_emails_enabled() );`, { label: 'switching emails on for the shop' } );
+		assert.deepEqual( on, { shop: true, main: false }, 'Emails are not switched on for the shop alone, so this proves nothing' );
+		try {
+			const bound = await site.php( `return array( 'home' => sn_test_raw_option( 'home' ), 'wp_home' => defined( 'WP_HOME' ) ? WP_HOME : null, 'key' => sn_test_raw_option( '${ SEND_EMAILS_SITE }' ), 'main' => get_blog_option( 1, '${ SEND_EMAILS_SITE }', null ) );`, { path: '/shop/', label: 'reading the address the shop\'s switch is bound to' } );
+			assert.deepEqual( [ bound.key, bound.main ], [ siteKey( bound.home, ...( bound.wp_home ? [ bound.wp_home ] : [] ) ), null ], 'Switching the shop\'s emails on from another site did not bind them to the shop\'s address alone' );
+			const jar = await site.login();
+			const [ [ tools, shop, main, network ], phpRows ] = await withRenewal( site, async () => [
+				await site.getAll( [ '/shop/wp-admin/tools.php?page=safety_net_options', '/shop/wp-admin/', '/wp-admin/', '/wp-admin/network/' ].map( ( path ) => ( { path, jar } ) ) ),
+				await site.php( 'return SafetyNet\\Status\\get_status_rows();', { path: '/shop/', label: 'building the shop\'s status rows' } ),
+			], { path: '/shop/' } );
+			const rows = statusRows( tools.text );
+			assert.deepEqual( statusSummary( rows ).filter( ( [ id ] ) => [ 'emails', 'data', 'gateways', 'renewals', 'webhooks', 'api_keys' ].includes( id ) ), [
+				[ 'emails', 'danger', 'Switched on: sent to real addresses' ],
+				[ 'data', 'ok', 'Deleted' ],
+				[ 'gateways', 'ok', 'Deactivated' ],
+				[ 'renewals', 'ok', 'Paused' ],
+				[ 'webhooks', 'ok', 'Disabled' ],
+				[ 'api_keys', 'ok', 'None' ],
+			], 'The shop\'s panel does not show the shop\'s own state' );
+			assert.deepEqual( withoutIcons( rows ), phpRows, 'The shop\'s panel does not show what get_status_rows() returns on the shop' );
+
+			const notices = emailsNotices( shop.text );
+			assert.deepEqual( notices.map( ( { link, command } ) => ( { link, command } ) ), [ { link: { url: `${ MULTISITE_URL }/shop/wp-admin/admin.php?page=safety_net_email_log_settings`, text: 'Email Log > Settings' }, command: `wp option update ${ SEND_EMAILS } off --url=${ MULTISITE_URL }/shop/` } ], 'The shop\'s dashboard does not warn once, with the shop\'s Settings page and a WP-CLI command for the shop' );
+			for ( const [ label, res ] of [ [ 'The main site\'s dashboard', main ], [ 'The network admin', network ] ] ) {
+				assert.match( res.text, /id="adminmenu"/, `${ label } did not load, so this proves nothing` );
+				assert.doesNotMatch( res.text, /safety-net-emails-enabled/, `${ label } warns that the shop\'s emails are on` );
+			}
+
+			const [ wp, ...args ] = notices[ 0 ].command.split( ' ' );
+			assert.equal( wp, 'wp' );
+			const cli = await site.wp( args );
+			assert.equal( cli.exitCode, 0, `${ notices[ 0 ].command } exited with ${ cli.exitCode }: ${ plain( cli.stderr || cli.stdout ).slice( 0, 500 ) }` );
+			assert.deepEqual( await site.php( `return array( 'shop' => get_blog_option( 2, '${ SEND_EMAILS }' ), 'main' => get_blog_option( 1, '${ SEND_EMAILS }', null ) );` ), { shop: 'off', main: null }, 'The command from the shop\'s warning did not switch the shop\'s emails off, or changed the main site' );
+		} finally {
+			await site.php( `delete_blog_option( 2, '${ SEND_EMAILS }' ); return true;`, { label: 'removing the shop\'s Send emails' } );
+		}
+	} );
+
+	test( 'M16: the network admin warns once when the main site\'s emails, which its own emails follow, are switched on; the shop\'s warning escapes markup in its URLs; and the shop\'s plugins row sends network-activated plugins to the network Plugins page', async () => {
+		const jar = await site.login();
+		await site.php( `update_blog_option( 1, '${ SEND_EMAILS }', 'on' ); return true;`, { label: 'switching emails on for the main site' } );
+		try {
+			const network = ( await site.get( '/wp-admin/network/', { jar } ) ).text;
+			assert.match( network, /id="adminmenu"/, 'The network admin did not load, so this proves nothing' );
+			assert.deepEqual( emailsNotices( network ).map( ( { title, link, command, markup } ) => ( { title, link, command, markup } ) ), [ { title: `Safety Net: emails are switched on for ${ MULTISITE_URL }.`, link: { url: `${ MULTISITE_URL }/wp-admin/admin.php?page=safety_net_email_log_settings`, text: 'Email Log > Settings' }, command: `wp option update ${ SEND_EMAILS } off --url=${ MULTISITE_URL }/`, markup: [] } ], 'The network admin does not warn once that the main site\'s emails are on, with its Settings page and a WP-CLI command for it' );
+		} finally {
+			await site.php( `delete_blog_option( 1, '${ SEND_EMAILS }' ); return true;`, { label: 'removing the main site\'s Send emails' } );
+		}
+
+		const injection = '&sn="><b>x</b>';
+		await site.php( `update_blog_option( 2, '${ SEND_EMAILS }', 'on' ); update_blog_option( 2, 'sn_test_inject_urls', 1 ); return true;`, { label: 'switching emails on for the shop with markup in its URLs' } );
+		try {
+			const shop = ( await site.get( '/shop/wp-admin/', { jar } ) ).text;
+			const notices = emailsNotices( shop );
+			assert.equal( notices.length, 1, 'Markup in the shop\'s URLs broke its warning apart' );
+			assert.deepEqual( [ notices[ 0 ].command, notices[ 0 ].markup ], [ `wp option update ${ SEND_EMAILS } off --url=${ MULTISITE_URL }/shop/${ injection }`, [] ], 'The WP-CLI command in the shop\'s warning does not hold the site URL as text' );
+			assert.ok( notices[ 0 ].link?.url.startsWith( `${ MULTISITE_URL }/shop/wp-admin/admin.php?page=safety_net_email_log_settings&sn=` ) && ! /["<>]/.test( notices[ 0 ].link.url ), `The shop's Settings link is not the escaped URL: ${ notices[ 0 ].link?.url }` );
+			assert.doesNotMatch( emailsNoticesHtml( shop ), /<b>x<\/b>/, 'The shop\'s warning prints the markup in its URLs' );
+		} finally {
+			await site.php( `delete_blog_option( 2, '${ SEND_EMAILS }' ); delete_blog_option( 2, 'sn_test_inject_urls' ); return true;`, { label: 'removing the shop\'s Send emails and the markup in its URLs' } );
+		}
+
+		const plugin = 'mailchimp-for-wp/mailchimp-for-wp.php';
+		const rows = await site.php( `
+$network = (array) get_site_option( 'active_sitewide_plugins', array() );
+if ( isset( $network['${ plugin }'] ) ) {
+	return null;
+}
+$network['${ plugin }'] = time();
+add_filter( 'pre_site_option_active_sitewide_plugins', static fn() => $network );
+wp_set_current_user( 1 );
+$row   = static fn() => current( wp_list_filter( SafetyNet\\Status\\get_status_rows(), array( 'id' => 'plugins' ) ) );
+$super = $row();
+add_filter( 'map_meta_cap', static fn( $caps, $cap ) => 'manage_network_plugins' === $cap ? array( 'do_not_allow' ) : $caps, 10, 2 );
+return array( 'super' => $super, 'admin' => $row(), 'can' => current_user_can( 'manage_network_plugins' ) );`, { path: '/shop/', label: 'building the shop\'s plugins row with a denylisted plugin network-active again' } );
+		assert.ok( rows, `${ plugin } is network-active, so this proves nothing` );
+		assert.deepEqual( [ rows.super.state, rows.super.status, rows.super.link ], [ 'danger', 'Active again', { url: `${ MULTISITE_URL }/wp-admin/network/plugins.php`, text: 'Network Plugins' } ], 'The shop\'s plugins row does not send a super admin to the network Plugins page' );
+		assert.equal( rows.can, false, 'The user can still manage network plugins, so this proves nothing' );
+		assert.deepEqual( [ rows.admin.state, rows.admin.link ], [ 'danger', null ], 'The shop\'s plugins row links a user who cannot manage network plugins to a page that cannot deactivate them' );
+		assert.ok( rows.admin.details.endsWith( 'A network administrator must deactivate the network-activated ones.' ), `The shop's plugins row does not say who can deactivate them: ${ rows.admin.details }` );
+	} );
+
+	test( 'M17: where WordPress offers application passwords, the shop\'s REST API keys row counts the super admin\'s and its own administrators\', not those of administrators of other sites only, and links to the shop\'s Users screen', async () => {
+		const mark = site.logMark();
+		const other = await site.php( "return sn_test_create_user( 'sn_main_only_admin', 'administrator' );", { label: 'creating an administrator of the main site only' } );
+		await site.php( "update_option( 'sn_test_application_passwords', 1 ); return true;", { path: '/shop/', label: 'offering the shop application passwords over HTTP' } );
+		const create = ( id ) => `$created = WP_Application_Passwords::create_new_application_password( ${ id }, array( 'name' => 'SN network app' ) ); if ( is_wp_error( $created ) ) { throw new RuntimeException( $created->get_error_message() ); }`;
+		try {
+			const before = await site.php( `${ create( other ) } return array( 'member' => is_user_member_of_blog( ${ other } ), 'super' => is_super_admin( ${ other } ), 'admins' => SafetyNet\\Utilities\\get_admin_user_ids(), 'row' => current( wp_list_filter( SafetyNet\\Status\\get_status_rows(), array( 'id' => 'api_keys' ) ) ) );`, { path: '/shop/', label: 'creating an application password for the main site\'s administrator and building the shop\'s rows' } );
+			assert.deepEqual( [ before.member, before.super, before.admins.includes( other ) ], [ false, false, true ], 'The main site\'s administrator belongs to the shop, is a super admin or is not among the administrators Safety Net keeps, so this proves nothing' );
+			assert.deepEqual( [ before.row.state, before.row.status ], [ 'ok', 'None' ], 'The shop counts an administrator of another site who cannot use its REST API' );
+
+			await site.php( `${ create( 1 ) } return true;`, { label: 'creating an application password for the super admin' } );
+			const jar = await site.login();
+			const row = statusRows( ( await site.get( '/shop/wp-admin/tools.php?page=safety_net_options', { jar } ) ).text ).find( ( candidate ) => candidate.id === 'api_keys' );
+			assert.deepEqual( [ row.state, row.status, row.icon, row.link ], [ 'warning', 'No keys; 1 administrator has application passwords', ICONS.warning[ 0 ], { url: `${ MULTISITE_URL }/shop/wp-admin/users.php`, text: 'Users' } ], 'The shop\'s keys row does not count the super admin\'s application password, or does not link to the shop\'s Users screen' );
+			assert.deepEqual( site.logEntriesSince( mark ).filter( ( line ) => /WordPress database error|PHP (?:Warning|Notice|Deprecated)/.test( line ) ), [], 'Counting application passwords on the network logged a warning or database error' );
+		} finally {
+			await site.php( `require_once ABSPATH . 'wp-admin/includes/user.php'; require_once ABSPATH . 'wp-admin/includes/ms.php'; WP_Application_Passwords::delete_all_application_passwords( 1 ); wpmu_delete_user( ${ other } ); delete_blog_option( 2, 'sn_test_application_passwords' ); return true;`, { label: 'deleting the application passwords and the main site\'s administrator' } );
 		}
 	} );
 

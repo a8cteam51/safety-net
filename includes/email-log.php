@@ -10,6 +10,10 @@ namespace SafetyNet\EmailLog;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 use function SafetyNet\Utilities\get_admin_emails;
+use function SafetyNet\Utilities\get_send_emails_elsewhere_note;
+use function SafetyNet\Utilities\is_data_deletion_disabled;
+use function SafetyNet\Utilities\is_send_emails_switch_on;
+use const SafetyNet\Utilities\SEND_EMAILS_OPTION;
 
 const LOG_OPTION        = 'safety_net_email_log_toggle';
 const CLEANUP_OPTION    = 'safety_net_email_log_cleanup_toggle';
@@ -180,7 +184,7 @@ function sending_copy( ?bool $sending = null ): bool {
 /**
  * Records an email stop_emails() decided on. Never throws, so it cannot change that decision.
  *
- * @param string $status 'blocked', 'blocked_recipients' or 'allowed'.
+ * @param string $status 'blocked', 'blocked_recipients', 'allowed' or 'allowed_switch'.
  * @param array  $args   The wp_mail() arguments.
  *
  * @return void
@@ -197,8 +201,9 @@ function log_email( string $status, $args ): void {
 			return;
 		}
 
-		$sender = get_sender( $args['headers'] ?? '' );
-		$result = 'allowed' === $status ? array(
+		$allowed = in_array( $status, array( 'allowed', 'allowed_switch' ), true );
+		$sender  = get_sender( $args['headers'] ?? '' );
+		$result  = $allowed ? array(
 			'outcome' => '',
 			'error'   => '',
 		) : dry_run( $args, $sender['mail'] );
@@ -230,7 +235,7 @@ function log_email( string $status, $args ): void {
 			verify_table();
 		}
 
-		if ( 'allowed' === $status ) {
+		if ( $allowed ) {
 			expect_result( false === $inserted ? 0 : (int) $wpdb->insert_id, $args );
 		}
 	} catch ( \Throwable $e ) {
@@ -1191,12 +1196,12 @@ function get_list_table(): Email_Log_Table {
 }
 
 /**
- * Registers the two switches, in a settings group of their own so that saving the Tools page leaves them alone.
+ * Registers the log's two switches and Send emails, in a settings group of their own so that saving the Tools page leaves them alone.
  *
  * @return void
  */
 function register_settings(): void {
-	foreach ( array( LOG_OPTION, CLEANUP_OPTION ) as $option ) {
+	foreach ( array( LOG_OPTION, CLEANUP_OPTION, SEND_EMAILS_OPTION ) as $option ) {
 		register_setting(
 			SETTINGS_GROUP,
 			$option,
@@ -1239,6 +1244,39 @@ function register_settings(): void {
 			'value'       => get_option( CLEANUP_OPTION, 'on' ),
 			'description' => __( 'Delete log entries older than 6 months, once a day.', 'safety-net' ),
 		)
+	);
+
+	add_settings_section( 'safety_net_send_emails_settings', esc_html__( 'Sending emails', 'safety-net' ), null, SETTINGS_SLUG );
+
+	$send_args = array(
+		'type'              => 'checkbox',
+		'name'              => SEND_EMAILS_OPTION,
+		'class'             => 'safety-net-toggle safety-net-send-emails-toggle',
+		'label_for'         => SEND_EMAILS_OPTION,
+		'value'             => is_send_emails_switch_on() ? 'on' : 'off',
+		'description'       => __( 'Lets this site send every email WordPress sends, to real addresses: test customers, the site\'s staff, anyone a form or order emails. Leave it off unless you are testing email delivery.', 'safety-net' ),
+		'description_class' => 'safety-net-warning',
+		'confirm'           => __( 'Turn on Send emails? This site will then send every email WordPress sends to real addresses: test customers, the site\'s staff, anyone a form or order emails. Save the settings to apply it.', 'safety-net' ),
+	);
+	$elsewhere = get_send_emails_elsewhere_note();
+	if ( null !== $elsewhere ) {
+		$send_args['description'] = $elsewhere . ' ' . $send_args['description'];
+	}
+	if ( is_data_deletion_disabled() ) {
+		$send_args['hidden_value'] = $send_args['value'];
+		$send_args['value']        = 'off';
+		$send_args['disabled']     = true;
+		$send_args['description']  = __( 'Unavailable while SAFETY_NET_DELETE_DATA keeps customer data.', 'safety-net' );
+		unset( $send_args['description_class'], $send_args['confirm'] );
+	}
+
+	add_settings_field(
+		SEND_EMAILS_OPTION,
+		esc_html__( 'Send emails', 'safety-net' ),
+		'SafetyNet\Admin\render_field',
+		SETTINGS_SLUG,
+		'safety_net_send_emails_settings',
+		$send_args
 	);
 }
 
@@ -1330,6 +1368,7 @@ function status_label( string $status ): string {
 		'blocked'            => __( 'Blocked', 'safety-net' ),
 		'blocked_recipients' => __( 'Blocked: not only administrators', 'safety-net' ),
 		'allowed'            => __( 'Let through', 'safety-net' ),
+		'allowed_switch'     => __( 'Let through: emails switched on', 'safety-net' ),
 		default              => $status,
 	};
 }
@@ -1429,7 +1468,7 @@ function render_page(): void {
 }
 
 /**
- * Renders the Email Log Settings page: the two switches and what the log covers.
+ * Renders the Email Log Settings page: the log's two switches, Send emails and what the log covers.
  *
  * @return void
  */

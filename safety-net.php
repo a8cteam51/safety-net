@@ -47,6 +47,7 @@ SafetyNet\Integrations\run_phase( 'hooks' );
 
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/email-log.php';
+require_once __DIR__ . '/includes/status.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/common.php';
 require_once __DIR__ . '/includes/delete.php';

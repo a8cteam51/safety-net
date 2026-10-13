@@ -2,6 +2,7 @@
 
 namespace SafetyNet\RestStatus;
 
+use function SafetyNet\Utilities\are_emails_enabled;
 use function SafetyNet\Utilities\get_environment_type;
 use function SafetyNet\Utilities\get_keep_config;
 
@@ -23,7 +24,7 @@ function register_status_route() {
 }
 
 /**
- * Reports Safety Net's run state: the environment, each scrub step's completion flag and whether SAFETY_NET_DELETE_DATA keeps data.
+ * Reports Safety Net's run state: the environment, each scrub step's completion flag, whether SAFETY_NET_DELETE_DATA keeps data and whether emails are switched on.
  *
  * This file only loads on non-production sites (safety-net.php bails before requiring it on production), so the
  * route's mere presence already signals Safety Net is active here. It is meant to be polled until the scrub
@@ -50,6 +51,7 @@ function get_status() {
 			'keep_until'                  => $keep['until'],
 			'transients_deleted'          => (bool) get_option( 'safety_net_transients_deleted' ),
 			'webhooks_disabled'           => (bool) get_option( 'safety_net_webhooks_disabled' ),
+			'emails_enabled'              => are_emails_enabled(),
 		)
 	);
 
