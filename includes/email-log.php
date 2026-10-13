@@ -9,12 +9,13 @@ namespace SafetyNet\EmailLog;
 
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
+use function SafetyNet\Admin\is_sent_to_staff;
 use function SafetyNet\Utilities\get_admin_emails;
 
 const LOG_OPTION        = 'safety_net_email_log_toggle';
 const CLEANUP_OPTION    = 'safety_net_email_log_cleanup_toggle';
 const DB_VERSION_OPTION = 'safety_net_email_log_db_version';
-const DB_VERSION        = '1';
+const DB_VERSION        = '2';
 const CLEANUP_HOOK      = 'safety_net_email_log_cleanup';
 const MAX_AGE           = '-6 months';
 const SETTINGS_GROUP    = 'safety-net-email-log';
@@ -26,6 +27,8 @@ const OUTCOMES          = array( 'would_send', 'would_fail', 'sent', 'failed' );
 const PER_PAGE          = 20;
 const TEXT_BYTES        = 65535;
 const ERROR_PREVIEW     = 120;
+const KEY_PATTERN       = '/([?&](?:amp;|#0?38;)?(?:confirm_)?key=)([^&\s"\'<>]+)/i';
+const REDACTED          = '[redacted]';
 
 add_action( 'init', __NAMESPACE__ . '\schedule_cleanup' );
 add_action( 'init', __NAMESPACE__ . '\add_admin_hooks' );
@@ -143,6 +146,7 @@ function create_table(): bool {
 			from_address varchar(255) NOT NULL default '',
 			content_type varchar(100) NOT NULL default '',
 			attachments text NOT NULL,
+			secrets text,
 			PRIMARY KEY  (id),
 			KEY logged_at (logged_at),
 			KEY outcome (outcome)
@@ -155,9 +159,68 @@ function create_table(): bool {
 		return false;
 	}
 
+	// The table can be one that Safety Net 1.11.0 created, without the secrets column, kept when only its option was lost.
+	update_option( DB_VERSION_OPTION, has_secrets_column() ? DB_VERSION : '1' );
+
+	return true;
+}
+
+/**
+ * Adds the secrets column to a table that Safety Net 1.11.0 created, tried once per request.
+ *
+ * @return bool Whether the table has the secrets column.
+ */
+function upgrade_table(): bool {
+	global $wpdb;
+	static $failed = array();
+
+	if ( version_compare( (string) get_option( DB_VERSION_OPTION ), DB_VERSION, '>=' ) ) {
+		return true;
+	}
+
+	$table = table_name();
+	if ( isset( $failed[ $table ] ) ) {
+		return false;
+	}
+
+	$suppressed = $wpdb->suppress_errors( true );
+	try {
+		$altered = $wpdb->query( "ALTER TABLE {$table} ADD COLUMN secrets text" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The table name comes from $wpdb.
+		$error   = $wpdb->last_error;
+	} finally {
+		$wpdb->suppress_errors( $suppressed );
+	}
+
+	// Another request can have added the column since this one read the option.
+	if ( false === $altered && ! has_secrets_column() ) {
+		$failed[ $table ] = true;
+		// A missing table is reported by the insert, which then forgets it.
+		if ( verify_table() ) {
+			error_log( 'Safety Net: the email log could not add its secrets column: ' . $error ); // phpcs:ignore -- Logging is okay here.
+		}
+		return false;
+	}
+
 	update_option( DB_VERSION_OPTION, DB_VERSION );
 
 	return true;
+}
+
+/**
+ * Whether the current site's email log table has the secrets column, checked with a query that MySQL and SQLite both run.
+ *
+ * @return bool
+ */
+function has_secrets_column(): bool {
+	global $wpdb;
+
+	$table      = table_name();
+	$suppressed = $wpdb->suppress_errors( true );
+	try {
+		return false !== $wpdb->query( "SELECT secrets FROM {$table} LIMIT 0" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The table name comes from $wpdb.
+	} finally {
+		$wpdb->suppress_errors( $suppressed );
+	}
 }
 
 /**
@@ -197,11 +260,15 @@ function log_email( string $status, $args ): void {
 			return;
 		}
 
+		$has_secrets = upgrade_table();
+
 		$sender = get_sender( $args['headers'] ?? '' );
 		$result = 'allowed' === $status ? array(
 			'outcome' => '',
 			'error'   => '',
 		) : dry_run( $args, $sender['mail'] );
+
+		list( $message, $keys ) = redact_keys( to_column( to_text( $args['message'] ?? '' ) ) );
 
 		$entry = array(
 			'logged_at'    => current_time( 'mysql', true ),
@@ -210,17 +277,27 @@ function log_email( string $status, $args ): void {
 			'error'        => to_column( $result['error'], TEXT_BYTES ),
 			'recipients'   => to_column( implode( ', ', to_lines( $args['to'] ?? '', ',' ) ), TEXT_BYTES ),
 			'subject'      => to_column( to_text( $args['subject'] ?? '' ), TEXT_BYTES ),
-			'message'      => to_column( redact_keys( to_text( $args['message'] ?? '' ) ) ),
+			'message'      => $message,
 			'headers'      => to_column( implode( "\n", to_lines( $args['headers'] ?? '', "\n" ) ), TEXT_BYTES ),
 			'from_address' => mb_substr( to_column( $sender['from'] ), 0, 255 ),
 			'content_type' => mb_substr( to_column( $sender['content_type'] ), 0, 100 ),
 			'attachments'  => to_column( implode( "\n", get_attachment_names( $args['attachments'] ?? array() ) ), TEXT_BYTES ),
 		);
 
+		// Anyone can request a staff account's password reset, so a stored key would let whoever reads the database take over that account.
+		$secrets = $has_secrets && $keys && ! is_sent_to_staff( $args ) ? wp_json_encode( $keys ) : false;
+		// Cut to fit its column, the JSON would no longer decode, so keys that do not fit are left out.
+		if ( ! is_string( $secrets ) || strlen( $secrets ) > TEXT_BYTES ) {
+			$secrets = null;
+		}
+
 		// The table can be gone although its option exists (e.g. only the options table was copied over); that is handled below, not reported by wpdb.
 		$suppressed = $wpdb->suppress_errors( true );
 		try {
 			$inserted = $wpdb->insert( table_name(), $entry, '%s' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+			$id       = false === $inserted ? 0 : (int) $wpdb->insert_id;
+			// Not in the insert: some database drivers, such as SQLite's, put the whole query in the error logged below.
+			$stored = ! $id || null === $secrets || false !== $wpdb->update( table_name(), array( 'secrets' => $secrets ), array( 'id' => $id ), '%s', '%d' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		} finally {
 			$wpdb->suppress_errors( $suppressed );
 		}
@@ -228,10 +305,16 @@ function log_email( string $status, $args ): void {
 		if ( false === $inserted ) {
 			error_log( 'Safety Net: the email log could not record an email: ' . $wpdb->last_error ); // phpcs:ignore -- Logging is okay here.
 			verify_table();
+		} elseif ( ! $stored ) {
+			// The option can be newer than the table, e.g. when every table but the options table came from a 1.11.0 copy.
+			if ( ! has_secrets_column() ) {
+				update_option( DB_VERSION_OPTION, '1' );
+			}
+			error_log( 'Safety Net: the email log could not store the keys of an email, so its copies keep them redacted.' ); // phpcs:ignore -- Logging is okay here, without the database error, which can hold the keys.
 		}
 
 		if ( 'allowed' === $status ) {
-			expect_result( false === $inserted ? 0 : (int) $wpdb->insert_id, $args );
+			expect_result( $id, $args );
 		}
 	} catch ( \Throwable $e ) {
 		error_log( 'Safety Net: the email log could not record an email: ' . $e->getMessage() ); // phpcs:ignore -- Logging is okay here.
@@ -843,10 +926,88 @@ function record_result( array $mail, string $outcome, string $error ): void {
  *
  * @param string $message The email's message.
  *
- * @return string
+ * @return array{0: string, 1: string[]} The message with every key replaced, and the keys it held, in order, without values that were already redacted.
  */
-function redact_keys( string $message ): string {
-	return (string) preg_replace( '/([?&](?:amp;|#0?38;)?(?:confirm_)?key=)[^&\s"\'<>]+/i', '$1[redacted]', $message );
+function redact_keys( string $message ): array {
+	$keys     = array();
+	$redacted = preg_replace_callback(
+		KEY_PATTERN,
+		static function ( $matches ) use ( &$keys ) {
+			if ( REDACTED !== $matches[2] ) {
+				$keys[] = $matches[2];
+			}
+			return $matches[1] . REDACTED;
+		},
+		$message
+	);
+
+	return null === $redacted ? array( '', array() ) : array( $redacted, $keys );
+}
+
+/**
+ * Returns an entry's message with its keys put back in order, or null when it has none or they do not match its redacted ones one to one.
+ *
+ * @param object $entry The entry.
+ *
+ * @return string|null
+ */
+function restore_keys( object $entry ): ?string {
+	$keys = isset( $entry->secrets ) && is_string( $entry->secrets ) ? json_decode( $entry->secrets, true ) : null;
+	if ( ! is_array( $keys ) || ! $keys || ! array_is_list( $keys ) || count( $keys ) !== count( array_filter( $keys, static fn( $key ) => is_string( $key ) && '' !== $key && REDACTED !== $key ) ) ) {
+		return null;
+	}
+
+	$message = to_text( $entry->message ?? '' );
+	if ( preg_match_all( KEY_PATTERN, $message, $matches ) !== count( $keys ) || array_diff( $matches[2], array( REDACTED ) ) ) {
+		return null;
+	}
+
+	$restored = preg_replace_callback(
+		KEY_PATTERN,
+		static function ( $matches ) use ( &$keys ) {
+			return $matches[1] . array_shift( $keys );
+		},
+		$message
+	);
+
+	return is_string( $restored ) ? $restored : null;
+}
+
+/**
+ * Whether a message holds a redacted key.
+ *
+ * @param string $message The stored message.
+ *
+ * @return bool
+ */
+function has_redacted_keys( string $message ): bool {
+	return preg_match_all( KEY_PATTERN, $message, $matches ) && in_array( REDACTED, $matches[2], true );
+}
+
+/**
+ * Whether the current user gets copies with the keys put back: a super admin on multisite, and a user who can edit users on a single site.
+ *
+ * @return bool
+ */
+function can_restore_keys(): bool {
+	// On multisite, edit_users also comes with manage_network_users, which can be given to users who are not super admins.
+	return is_multisite() ? is_super_admin() : current_user_can( 'edit_users' );
+}
+
+/**
+ * Whether an entry went to an administrator or another staff account, as To, Cc or Bcc, so its keys were not stored.
+ *
+ * @param object $entry The entry.
+ *
+ * @return bool
+ */
+function is_entry_to_staff( object $entry ): bool {
+	return is_sent_to_staff(
+		array(
+			'to'      => to_text( $entry->recipients ?? '' ),
+			'headers' => to_text( $entry->headers ?? '' ),
+		)
+	);
 }
 
 /**
@@ -1463,12 +1624,13 @@ function render_settings_page(): void {
  */
 function render_result_notice(): void {
 	$results = array(
-		'sent'      => array( 'success', __( 'A copy was sent to your email address.', 'safety-net' ) ),
-		'not-sent'  => array( 'error', __( 'The copy was not sent. wp_mail() failed, or Safety Net blocked it because it would also have gone to someone who is not an administrator.', 'safety-net' ) ),
-		'not-admin' => array( 'error', __( 'The copy was not sent: copies only go to administrators, and your email address is not an administrator\'s.', 'safety-net' ) ),
-		'deleted'   => array( 'success', __( 'The log entry was deleted.', 'safety-net' ) ),
-		'cleared'   => array( 'success', __( 'The email log was cleared.', 'safety-net' ) ),
-		'not-found' => array( 'error', __( 'That log entry does not exist.', 'safety-net' ) ),
+		'sent'           => array( 'success', __( 'A copy was sent to your email address.', 'safety-net' ) ),
+		'sent-with-keys' => array( 'success', __( 'A copy was sent to your email address, with its password reset and confirmation keys put back.', 'safety-net' ) ),
+		'not-sent'       => array( 'error', __( 'The copy was not sent. wp_mail() failed, or Safety Net blocked it because it would also have gone to someone who is not an administrator.', 'safety-net' ) ),
+		'not-admin'      => array( 'error', __( 'The copy was not sent: copies only go to administrators, and your email address is not an administrator\'s.', 'safety-net' ) ),
+		'deleted'        => array( 'success', __( 'The log entry was deleted.', 'safety-net' ) ),
+		'cleared'        => array( 'success', __( 'The email log was cleared.', 'safety-net' ) ),
+		'not-found'      => array( 'error', __( 'That log entry does not exist.', 'safety-net' ) ),
 	);
 
 	$result = isset( $_GET['result'] ) ? sanitize_key( $_GET['result'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -1623,19 +1785,45 @@ function render_entry( object $entry, bool $on_page ): void {
 				<a class="button" href="<?php echo esc_url( page_url( current_list_args() ) ); ?>"><?php esc_html_e( 'Back to the log', 'safety-net' ); ?></a>
 			<?php endif; ?>
 		</div>
-		<p class="description">
-			<?php
-			echo esc_html(
-				sprintf(
-					/* translators: %s: the current user's email address */
-					__( 'Send to me sends a copy to %s only, with the logged sender, content type and message (password reset keys stay redacted). Attachments are not included, and the original Cc, Bcc and Reply-To headers are left out.', 'safety-net' ),
-					wp_get_current_user()->user_email
-				)
-			);
-			?>
-		</p>
+		<p class="description safety-net-email-log-copy-note"><?php echo esc_html( copy_note( $entry ) ); ?></p>
 	</div>
 	<?php
+}
+
+/**
+ * Returns what Send to me sends for an entry, and whether the links with keys in the copy work for the current user.
+ *
+ * @param object $entry The entry.
+ *
+ * @return string
+ */
+function copy_note( object $entry ): string {
+	$note = sprintf(
+		/* translators: %s: the current user's email address */
+		__( 'Send to me sends a copy to %s only, with the logged sender, content type and message. Attachments are not included, and the original Cc, Bcc and Reply-To headers are left out.', 'safety-net' ),
+		wp_get_current_user()->user_email
+	);
+
+	if ( ! has_redacted_keys( $entry->message ) ) {
+		return $note;
+	}
+
+	$restored = restore_keys( $entry );
+	if ( null === $restored && is_entry_to_staff( $entry ) ) {
+		return $note . ' ' . __( 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, since anyone can request their password reset.', 'safety-net' );
+	}
+
+	if ( ! can_restore_keys() ) {
+		return $note . ' ' . ( is_multisite()
+			? __( 'Its password reset and confirmation keys stay redacted, so those links will not work: only super admins get the keys back.', 'safety-net' )
+			: __( 'Its password reset and confirmation keys stay redacted, so those links will not work: only users who can edit users get the keys back.', 'safety-net' ) );
+	}
+
+	if ( null === $restored ) {
+		return $note . ' ' . __( 'Its password reset and confirmation keys stay redacted, so those links will not work: the keys were not stored with this entry.', 'safety-net' );
+	}
+
+	return $note . ' ' . __( 'Its password reset and confirmation keys are put back, so those links work until WordPress expires the keys, after 24 hours by default, or a newer request replaces them.', 'safety-net' );
 }
 
 /**
@@ -1866,18 +2054,24 @@ function handle_send(): void {
 		redirect( 'not-admin', true );
 	}
 
-	redirect( send_copy( $entry, $email ) ? 'sent' : 'not-sent', true );
+	$message = can_restore_keys() ? restore_keys( $entry ) : null;
+	if ( ! send_copy( $entry, $email, $message ) ) {
+		redirect( 'not-sent', true );
+	}
+
+	redirect( null === $message ? 'sent' : 'sent-with-keys', true );
 }
 
 /**
  * Sends a copy of one entry to an administrator's address, past stop_emails(), with the logged sender and content type.
  *
- * @param object $entry The entry.
- * @param string $email The administrator's address.
+ * @param object      $entry   The entry.
+ * @param string      $email   The administrator's address.
+ * @param string|null $message The message to send instead of the logged one, such as one with its keys put back.
  *
  * @return bool Whether wp_mail() sent it.
  */
-function send_copy( object $entry, string $email ): bool {
+function send_copy( object $entry, string $email, ?string $message = null ): bool {
 	$headers = array();
 	if ( '' !== $entry->from_address ) {
 		$headers[] = 'From: ' . $entry->from_address;
@@ -1896,7 +2090,7 @@ function send_copy( object $entry, string $email ): bool {
 	sending_copy( true );
 	add_action( 'phpmailer_init', __NAMESPACE__ . '\keep_copy_to_admins', PHP_INT_MAX );
 	try {
-		return wp_mail( $email, $subject, $entry->message, $headers );
+		return wp_mail( $email, $subject, $message ?? $entry->message, $headers );
 	} finally {
 		sending_copy( false );
 		remove_action( 'phpmailer_init', __NAMESPACE__ . '\keep_copy_to_admins', PHP_INT_MAX );

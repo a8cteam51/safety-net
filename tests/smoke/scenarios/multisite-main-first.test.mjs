@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { AJAX_ACTIONS, assertAiKeysScrubbed, assertMailBlocked, assertStepFlags, captureMail, firstLoad, getToolsPage, postAjax, runAjaxTools } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
@@ -16,6 +18,9 @@ const NETWORK_DENIED = [ 'ai/ai.php', 'ai-provider-for-anthropic/plugin.php', 'm
 const SET_NETWORK = `return sn_test_set_network( array( '${ NETWORK_DENIED.join( "', '" ) }' ), '${ OWNER_EMAIL }' );`;
 // Without WooCommerce there is no gateway pass, so no gateway flag either.
 const NETWORK_FLAGS = { safety_net_network_admin_email_scrubbed: '1', safety_net_network_plugins_deactivated: '1' };
+
+const KEYS_PUT_BACK = 'Its password reset and confirmation keys are put back, so those links work until WordPress expires the keys, after 24 hours by default, or a newer request replaces them.';
+const KEYS_FOR_SUPER_ADMINS = 'Its password reset and confirmation keys stay redacted, so those links will not work: only super admins get the keys back.';
 
 const SITE_TOOLS = AJAX_ACTIONS.filter( ( [ action ] ) => [ 'safety_net_scrub_options', 'safety_net_deactivate_plugins' ].includes( action ) );
 
@@ -165,6 +170,76 @@ describe( 'multisite-main-first: subdirectory network with Safety Net as an mu-p
 		const logs = await site.php( `$shop = sn_test_email_log(); switch_to_blog( 1 ); $main = sn_test_email_log( ${ mainMark } ); restore_current_blog(); return array( 'shop' => $shop, 'main' => $main );`, { path: '/shop/', label: 'reading the shop\'s and the main site\'s email logs' } );
 		assert.deepEqual( logs.shop?.slice( -2 ).map( ( entry ) => [ entry.subject, entry.status ] ), [ [ 'Order receipt', 'blocked' ], [ mail.reset_subject, 'allowed' ] ], 'The shop\'s emails are not at the end of its own email log' );
 		assert.deepEqual( ( logs.main ?? [] ).map( ( entry ) => entry.subject ), [], 'The shop\'s emails were logged in the main site\'s email log' );
+	} );
+
+	test( 'M15: Send to me on a subsite puts the keys back for a super admin only, not for a site administrator, even one given manage_network_users, which lets them edit users', async () => {
+		const reset = 'Reset your password: https://example.test/shop/wp-login.php?action=rp&key=SHOPKEY1&login=customer';
+		const s = await site.php( `
+wp_set_password( 'password', ${ seed.users.shopowner } );
+$owner = new WP_User( ${ seed.users.shopowner } );
+update_option( 'sn_test_capture_mail', 1 );
+return array(
+	'owner' => array( $owner->user_email, is_super_admin( $owner->ID ), $owner->has_cap( 'manage_options' ), $owner->has_cap( 'edit_users' ) ),
+	'admin' => get_userdata( 1 )->user_email,
+	'sent'  => sn_test_send_emails( array( array( 'to' => 'customer@example.com', 'subject' => '[Shop] Password Reset with a key', 'message' => '${ reset }' ) ) ),
+);`, { path: '/shop/', label: 'logging a password reset with a key on the shop and capturing its email' } );
+		const [ entry ] = s.sent.entries ?? [];
+		const mail = () => {
+			const file = path.join( site.outDir, 'mail.jsonl' );
+			return existsSync( file ) ? readFileSync( file, 'utf8' ).split( '\n' ).filter( Boolean ).map( ( line ) => JSON.parse( line ) ) : [];
+		};
+		const copyAs = async ( jar ) => {
+			const html = ( await site.get( `/shop/wp-admin/admin.php?page=safety_net_email_log&entry=${ entry.id }`, { jar } ) ).text;
+			const form = [ ...html.matchAll( /<form\b[\s\S]*?<\/form>/g ) ].map( ( [ match ] ) => match ).find( ( candidate ) => candidate.includes( 'value="safety_net_email_log_send"' ) );
+			assert.ok( form, 'The shop\'s entry has no Send to me form' );
+			const fields = Object.fromEntries( [ ...form.matchAll( /<input type="hidden"[^>]*\sname="([^"]+)"[^>]*\svalue="([^"]*)"/g ) ].map( ( [ , name, value ] ) => [ name, value.replace( /&amp;|&#038;/g, '&' ) ] ) );
+			const before = mail().length;
+			const res = await site.post( '/shop/wp-admin/admin-post.php', fields, { jar, follow: false, expect: 302 } );
+			const back = new URL( res.location, site.url );
+			return {
+				note: html.match( /<p class="description safety-net-email-log-copy-note">([^<]*)<\/p>/ )?.[ 1 ] ?? '',
+				back: [ back.pathname, back.searchParams.get( 'result' ) ],
+				copies: mail().slice( before ).map( ( { verdict, atts } ) => [ verdict, atts.to, atts.message ] ),
+			};
+		};
+		try {
+			assert.deepEqual( entry && [ entry.message, entry.secrets ], [ reset.replace( 'SHOPKEY1', '[redacted]' ), '["SHOPKEY1"]' ], 'The shop did not log the password reset with its key stored apart, so this proves nothing' );
+			const [ ownerEmail, superAdmin, ...caps ] = s.owner;
+			assert.deepEqual( [ superAdmin, caps ], [ false, [ true, false ] ], 'The shop\'s administrator is a super admin, cannot manage options or can edit users, so this proves nothing' );
+
+			const ownerJar = await site.login( { user: 'shopowner', jar: new CookieJar(), redirectTo: '/shop/wp-admin/' } );
+			const owner = await copyAs( ownerJar );
+			assert.ok( owner.note.endsWith( ` ${ KEYS_FOR_SUPER_ADMINS }` ), `The shop's entry does not tell its administrator that the keys stay redacted: ${ owner.note }` );
+			assert.deepEqual( [ owner.back, owner.copies ], [ [ '/shop/wp-admin/admin.php', 'sent' ], [ [ null, ownerEmail, entry.message ] ] ], 'The shop\'s administrator, who cannot edit users, did not get the redacted copy' );
+
+			const delegated = await site.php( `
+( new WP_User( ${ seed.users.shopowner } ) )->add_cap( 'manage_network_users' );
+$owner   = new WP_User( ${ seed.users.shopowner } );
+$restore = static function ( $id ) {
+	wp_set_current_user( $id );
+	return SafetyNet\\EmailLog\\can_restore_keys();
+};
+return array(
+	'caps'    => array( is_super_admin( $owner->ID ), $owner->has_cap( 'manage_options' ), $owner->has_cap( 'edit_users' ) ),
+	'restore' => array( $restore( $owner->ID ), $restore( 1 ) ),
+	'super'   => is_super_admin( 1 ),
+);`, { path: '/shop/', label: 'giving the shop\'s administrator manage_network_users and checking who gets the keys back' } );
+			try {
+				assert.deepEqual( [ delegated.caps, delegated.super ], [ [ false, true, true ], true ], 'The shop\'s administrator, given manage_network_users, cannot edit users or is a super admin, or the first user is no super admin, so this proves nothing' );
+				assert.deepEqual( delegated.restore, [ false, true ], 'can_restore_keys() does not refuse a site administrator who can edit users, or does not allow a super admin' );
+				const editor = await copyAs( ownerJar );
+				assert.ok( editor.note.endsWith( ` ${ KEYS_FOR_SUPER_ADMINS }` ), `The shop's entry does not tell its administrator who can edit users that the keys stay redacted: ${ editor.note }` );
+				assert.deepEqual( [ editor.back, editor.copies ], [ [ '/shop/wp-admin/admin.php', 'sent' ], [ [ null, ownerEmail, entry.message ] ] ], 'The shop\'s administrator who can edit users but is not a super admin got the keys back' );
+			} finally {
+				await site.php( `( new WP_User( ${ seed.users.shopowner } ) )->remove_cap( 'manage_network_users' ); return true;`, { path: '/shop/', label: 'taking manage_network_users back from the shop\'s administrator' } );
+			}
+
+			const superCopy = await copyAs( site.adminJar );
+			assert.ok( superCopy.note.endsWith( ` ${ KEYS_PUT_BACK }` ), `The shop's entry does not tell a super admin that the keys are put back: ${ superCopy.note }` );
+			assert.deepEqual( [ superCopy.back, superCopy.copies ], [ [ '/shop/wp-admin/admin.php', 'sent-with-keys' ], [ [ null, s.admin, reset ] ] ], 'A super admin did not get the copy with its key put back' );
+		} finally {
+			await site.php( "delete_option( 'sn_test_capture_mail' ); return true;", { path: '/shop/', label: 'no longer capturing the shop\'s email' } );
+		}
 	} );
 
 	test( 'M14: deleting a site also drops its email log table', async () => {
