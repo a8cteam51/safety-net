@@ -4,6 +4,10 @@ namespace SafetyNet\Utilities;
 
 use function SafetyNet\Integrations\offline_gateways;
 
+const SEND_EMAILS_OPTION = 'safety_net_send_emails_toggle';
+
+const SEND_EMAILS_SITE_OPTION = 'safety_net_send_emails_site';
+
 /**
  * Return an array of user IDs of site admins, or on multisite, of every site's admins and the super admins.
  *
@@ -161,6 +165,118 @@ function export_constant_value( $value ): string {
  */
 function is_data_deletion_disabled(): bool {
 	return get_keep_config()['disabled'];
+}
+
+/**
+ * Returns a hash of this site's address: the home option as stored, and WP_HOME when it is defined, each without its scheme, lowercased and without a trailing slash. An empty string when neither is a URL.
+ *
+ * @return string
+ */
+function get_site_key(): string {
+	global $wpdb;
+
+	$options = wp_load_alloptions();
+	$home    = $options['home'] ?? $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1", 'home' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	$addresses = array( normalize_address( (string) $home ) );
+	if ( defined( 'WP_HOME' ) ) {
+		$addresses[] = normalize_address( (string) WP_HOME );
+	}
+	$addresses = array_values( array_unique( array_filter( $addresses ) ) );
+
+	// A hash, because search-replace tools rewrite a plain address to the copy's own along with the rest of the database.
+	return $addresses ? md5( implode( ' ', $addresses ) ) : '';
+}
+
+/**
+ * Returns a URL's host, port and path, lowercased and without a trailing slash, or an empty string when it has no host.
+ *
+ * @param string $url The URL, with or without a scheme.
+ *
+ * @return string
+ */
+function normalize_address( string $url ): string {
+	$url = trim( $url );
+	if ( ! preg_match( '#^[a-z][a-z0-9+.-]*://#i', $url ) ) {
+		$url = 'http://' . ltrim( $url, '/' );
+	}
+
+	$parts = wp_parse_url( $url );
+	if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+		return '';
+	}
+
+	return untrailingslashit( strtolower( $parts['host'] . ( isset( $parts['port'] ) ? ':' . $parts['port'] : '' ) . ( $parts['path'] ?? '' ) ) );
+}
+
+/**
+ * Returns the state of the Send emails switch: 'off'; 'on' for this site's address; 'other_site' when it was switched on at another address, so this site is a copy; or 'no_site' when it is on without an address, written without WordPress's option functions.
+ *
+ * @return string
+ */
+function get_send_emails_switch_state(): string {
+	if ( 'on' !== get_option( SEND_EMAILS_OPTION, 'off' ) ) {
+		return 'off';
+	}
+
+	$site = get_option( SEND_EMAILS_SITE_OPTION, '' );
+	if ( ! is_string( $site ) || '' === $site ) {
+		return 'no_site';
+	}
+
+	$key = get_site_key();
+
+	return '' !== $key && hash_equals( $site, $key ) ? 'on' : 'other_site';
+}
+
+/**
+ * Whether the Send emails switch is on for this site's address. Off unless turned on here, on the Email Log Settings page, with WP-CLI or with update_option().
+ *
+ * @return bool
+ */
+function is_send_emails_switch_on(): bool {
+	return 'on' === get_send_emails_switch_state();
+}
+
+/**
+ * Returns why a stored 'on' does not count on this site, in plain text, or null when it counts or the switch is off.
+ *
+ * @return string|null
+ */
+function get_send_emails_elsewhere_note(): ?string {
+	switch ( get_send_emails_switch_state() ) {
+		case 'other_site':
+			return __( 'Switched on for another address (this site is a copy); switch it on again to send emails here.', 'safety-net' );
+		case 'no_site':
+			return __( 'Switched on without this site\'s address (written straight to the database); switch it on again to send emails here.', 'safety-net' );
+		default:
+			return null;
+	}
+}
+
+/**
+ * Records this site's address when the Send emails switch is turned on, and forgets it when the switch is turned off.
+ *
+ * @param mixed $value The switch's new value.
+ *
+ * @return void
+ */
+function bind_send_emails_switch( $value ): void {
+	if ( 'on' === $value ) {
+		update_option( SEND_EMAILS_SITE_OPTION, get_site_key() );
+	} else {
+		delete_option( SEND_EMAILS_SITE_OPTION );
+	}
+}
+
+/**
+ * Whether emails reach their recipients: the Send emails switch is on for this site's address, SAFETY_NET_DELETE_DATA does not keep customer data, and no data the keep step kept is still waiting to be deleted.
+ *
+ * @return bool
+ */
+function are_emails_enabled(): bool {
+	// Both flags stay set after a later deletion, so this holds only while kept data is still there, e.g. once SAFETY_NET_KEEP_UNTIL passes mid-process.
+	return is_send_emails_switch_on() && ! is_data_deletion_disabled() && ! ( get_option( 'safety_net_data_kept' ) && ! get_option( 'safety_net_data_deleted' ) );
 }
 
 /**

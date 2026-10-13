@@ -26,6 +26,16 @@ describe( 'woocommerce-preprocessed: a site Safety Net processed before the gate
 		assert.equal( s.users.customer1, seed.users.customer1, 'The data step ran again although its flag was set' );
 	} );
 
+	test( 'ST10: the status panel says no automatic run will deactivate the gateway plugins, and does not count them as plugins Safety Net deactivated', async () => {
+		const rows = await site.php( "return array( 'active' => in_array( 'zz-checkout/zz-checkout.php', (array) get_option( 'active_plugins' ), true ), 'rows' => SafetyNet\\Status\\get_status_rows() );", { label: 'building the status rows' } );
+		assert.equal( rows.active, true, 'ZZ Checkout is not active, so this proves nothing' );
+		const byId = Object.fromEntries( rows.rows.map( ( row ) => [ row.id, row ] ) );
+		assert.deepEqual( [ byId.gateways.state, byId.gateways.status, byId.gateways.link?.text ], [ 'warning', 'Not deactivated yet', 'Deactivate Plugins' ] );
+		assert.ok( byId.gateways.details.startsWith( 'Safety Net ran before it handled payment gateway plugins, so plugins that register a WooCommerce payment gateway stay active until Deactivate Plugins runs below.' ), `The gateway row promises an automatic run: ${ byId.gateways.details }` );
+		assert.ok( byId.gateways.details.includes( 'ZZ Checkout (fixture)' ), `The gateway row does not name ZZ Checkout: ${ byId.gateways.details }` );
+		assert.ok( ! byId.plugins.details.includes( 'ZZ Checkout' ), `The plugins row says Safety Net deactivated ZZ Checkout, which it never did: ${ byId.plugins.details }` );
+	} );
+
 	test( 'debug.log has no fatal errors and no unexpected Safety Net warnings', () => {
 		site.assertCleanLog();
 	} );

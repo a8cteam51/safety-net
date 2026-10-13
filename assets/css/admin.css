@@ -138,6 +138,72 @@ input[type="checkbox"].safety-net-pause-renewal-actions-toggle:checked:after {
     content: 'PAUSED';
 }
 
+input[type="checkbox"].safety-net-send-emails-toggle:checked:after {
+	background-color: #d63638;
+}
+
+.form-table td p.description.safety-net-warning {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+.safety-net-status {
+	margin: 20px 0;
+}
+
+.safety-net-status-table th,
+.safety-net-status-table td {
+	overflow-wrap: anywhere;
+}
+
+.safety-net-status-table tbody th {
+	width: 22%;
+	font-weight: 600;
+}
+
+.safety-net-status-table .safety-net-status-state {
+	width: 28%;
+}
+
+.safety-net-status-table .dashicons {
+	margin-right: 4px;
+	vertical-align: text-bottom;
+}
+
+.safety-net-status-ok .dashicons {
+	color: #008a20;
+}
+
+.safety-net-status-warning .dashicons {
+	color: #b26200;
+}
+
+.safety-net-status-danger .dashicons {
+	color: #d63638;
+}
+
+.safety-net-status-danger .safety-net-status-state {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+@media screen and (max-width: 782px) {
+	.safety-net-status-table thead {
+		display: none;
+	}
+
+	.safety-net-status-table tbody th,
+	.safety-net-status-table tbody td,
+	.safety-net-status-table .safety-net-status-state {
+		display: block;
+		width: auto;
+	}
+
+	.safety-net-status-table tbody th {
+		padding-bottom: 0;
+	}
+}
+
 button.safety-net-save {
     margin-top: 10px;
 }

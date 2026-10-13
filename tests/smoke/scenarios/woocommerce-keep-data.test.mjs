@@ -4,6 +4,7 @@ import { assertStepFlags, assertToolsPage, captureMail, firstLoad, getToolsPage,
 import { HPOS_TABLES, seedWooCommerceSite } from '../lib/fixtures.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite } from '../lib/site.mjs';
+import { SEND_EMAILS, SEND_EMAILS_SITE, sendEmailsForm, setStoredHome, statusRows, statusSummary, withoutIcons } from '../lib/status.mjs';
 
 const KEPT = [ ...HPOS_TABLES, 'woocommerce_order_items', 'woocommerce_order_itemmeta', 'order_notes', 'wc_customer_lookup', 'wc_order_stats', 'wc_order_product_lookup', 'subscription_posts', 'subscription_meta', 'membership_posts', 'membership_meta', 'renewal_actions' ];
 
@@ -20,7 +21,7 @@ const NEWSLETTERS = [ 'scheduled', 'sending', 'history' ];
 // The keep step cancels the automation steps instead of deleting them, so they are counted by status.
 const MAILPOET_STATE = "global $wpdb; $steps = static fn( $status ) => sn_test_count( $wpdb->prefix . 'actionscheduler_actions', $wpdb->prepare( 'hook = %s AND status = %s', 'mailpoet/automation/step', $status ) ); return array( 'state' => sn_test_mailpoet_state(), 'steps' => array( 'pending' => $steps( 'pending' ), 'canceled' => $steps( 'canceled' ) ) );";
 
-const STATUS = { active: true, environment: 'staging', options_scrubbed: true, plugins_deactivated: true, gateway_plugins_deactivated: true, transients_deleted: true, webhooks_disabled: true };
+const STATUS = { active: true, environment: 'staging', options_scrubbed: true, plugins_deactivated: true, gateway_plugins_deactivated: true, transients_deleted: true, webhooks_disabled: true, emails_enabled: false };
 
 const pick = ( counts, tables ) => Object.fromEntries( tables.map( ( table ) => [ table, counts[ table ] ] ) );
 
@@ -146,6 +147,90 @@ return array(
 		await site.get( '/' );
 		assert.deepEqual( httpProbeSince( site, before ).map( ( line ) => [ line.runs.safety_net_keep_data, line.runs.safety_net_delete_data ] ), [ [ 0, 0 ] ], 'A later page load ran the keep or delete step again' );
 		assert.ok( ! site.logEntriesSince( mark ).some( ( entry ) => entry.includes( 'SN_TEST integration phase keep' ) ), 'A later page load ran the integrations\' keep phase again' );
+	} );
+
+	test( 'KD23: while data is kept, Send emails stored on is held off: emails follow the keep rules, the switch is disabled with why and saving keeps its value, no page warns that emails are on, the status panel says so and REST says emails_enabled false; on a copy, saving it stores it off', async () => {
+		const SETTINGS = '/wp-admin/admin.php?page=safety_net_email_log_settings';
+		// The renewal row shows only where something can renew.
+		const renewal = await site.php( `update_option( '${ SEND_EMAILS }', 'on' ); update_option( 'safety_net_pause_renewal_actions_toggle', 'off' ); return sn_test_schedule_renewal();`, { label: 'storing Send emails as on and the renewal pause as off, and scheduling a renewal action' } );
+		try {
+			assert.ok( renewal > 0, 'Scheduling a renewal action failed' );
+			const s = await site.php( `
+$admin = get_userdata( 1 )->user_email;
+return array(
+	'admin'   => $admin,
+	'stored'  => SafetyNet\\Utilities\\is_send_emails_switch_on(),
+	'kept'    => SafetyNet\\Utilities\\is_data_deletion_disabled(),
+	'sent'    => sn_test_send_emails( array( array( 'to' => 'customer1@example.com', 'subject' => 'Your order while Send emails is held off', 'message' => 'x' ), array( 'to' => 'customer1@example.com', 'subject' => '[Site] Password Reset', 'message' => 'x' ), array( 'to' => $admin, 'subject' => '[Site] Password Reset', 'message' => 'x' ) ) ),
+	'notices' => array( apply_filters( 'send_password_change_email', true, array(), array() ), apply_filters( 'send_email_change_email', true, array(), array() ) ),
+);`, { label: 'sending emails with Send emails stored as on while data is kept' } );
+			assert.deepEqual( [ s.stored, s.kept ], [ true, true ], 'Send emails is not stored as on while data is kept, so this proves nothing' );
+			assert.deepEqual( s.sent.verdicts, [ false, false, null ], 'Send emails let an email through while data is kept, or the keep rules no longer apply' );
+			assert.deepEqual( s.sent.entries?.map( ( entry ) => [ entry.recipients, entry.subject, entry.status ] ), [
+				[ 'customer1@example.com', 'Your order while Send emails is held off', 'blocked' ],
+				[ 'customer1@example.com', '[Site] Password Reset', 'blocked_recipients' ],
+				[ s.admin, '[Site] Password Reset', 'allowed' ],
+			], 'The email log does not record the keep rules\' decisions' );
+			assert.deepEqual( s.notices, [ false, false ], 'Core\'s change notifications follow Send emails while data is kept' );
+			assert.equal( JSON.parse( ( await site.get( '/wp-json/safety-net/v1/status' ) ).text ).emails_enabled, false );
+
+			const [ dashboard, settings, tools ] = await site.getAll( [ '/wp-admin/', SETTINGS, toolsPagePath() ].map( ( path ) => ( { path, jar: site.adminJar } ) ) );
+			assert.match( dashboard.text, /safety-net-keep-data/, 'The dashboard has no notice about kept data, so this proves nothing' );
+			for ( const res of [ dashboard, settings, tools ] ) {
+				assert.doesNotMatch( res.text, /safety-net-emails-enabled/, 'A page warns that emails are on while data is kept' );
+			}
+			const form = sendEmailsForm( settings.text );
+			assert.deepEqual( [ form.input.checked, form.input.disabled, form.input.confirm, form.hidden ], [ false, true, undefined, 'on' ], 'Send emails is not shown off and disabled, without a confirmation, with its stored value in a hidden field' );
+			assert.deepEqual( form.description, { classes: [ 'description' ], text: 'Unavailable while SAFETY_NET_DELETE_DATA keeps customer data.' } );
+			const save = await site.post( '/wp-admin/options.php', { ...form.fields, safety_net_email_log_toggle: 'on', safety_net_email_log_cleanup_toggle: 'on', [ SEND_EMAILS ]: form.hidden }, { jar: site.adminJar, follow: false, expect: 302 } );
+			assert.match( save.location ?? '', /settings-updated=true/, 'The Settings form was not saved' );
+			assert.equal( await site.php( `return sn_test_raw_option( '${ SEND_EMAILS }' );` ), 'on', 'Saving the Settings form while data is kept changed the stored Send emails' );
+
+			const rows = statusRows( tools.text );
+			const byId = Object.fromEntries( rows.map( ( row ) => [ row.id, row ] ) );
+			assert.deepEqual( statusSummary( [ byId.emails, byId.data, byId.gateways, byId.renewals, byId.webhooks, byId.api_keys ] ), [
+				[ 'emails', 'ok', 'Blocked; password resets only to administrators' ],
+				[ 'data', 'warning', 'Kept, with no expiry date' ],
+				[ 'gateways', 'ok', 'Deactivated' ],
+				[ 'renewals', 'ok', 'Held paused while data is kept' ],
+				[ 'webhooks', 'ok', 'Disabled' ],
+				[ 'api_keys', 'ok', 'None' ],
+			], 'The status panel does not show what keeps the copy from acting on the kept data' );
+			assert.ok( byId.emails.details.endsWith( 'Send emails is on but held off while data is kept.' ), `The emails row does not say Send emails is held off: ${ byId.emails.details }` );
+			assert.deepEqual( withoutIcons( rows ), await site.php( 'return SafetyNet\\Status\\get_status_rows();' ), 'The panel does not show what get_status_rows() returns' );
+
+			const notYet = await site.php( `
+global $wpdb;
+add_filter( 'pre_option_safety_net_data_kept', '__return_zero' );
+$wpdb->insert( $wpdb->prefix . 'woocommerce_api_keys', array( 'user_id' => 1, 'description' => 'SN live key', 'permissions' => 'read_write', 'consumer_key' => wc_api_hash( 'ck_sn_live' ), 'consumer_secret' => 'cs_sn_live', 'truncated_key' => 'snlive1' ) );
+$key = $wpdb->insert_id;
+remove_filter( 'action_scheduler_store_class', 'SafetyNet\\Integrations\\WooCommerceSubscriptions\\paused_store_class', 101 );
+try {
+	return array_values( array_filter( SafetyNet\\Status\\get_status_rows(), static fn( $row ) => in_array( $row['id'], array( 'renewals', 'api_keys' ), true ) ) );
+} finally {
+	$wpdb->delete( $wpdb->prefix . 'woocommerce_api_keys', array( 'key_id' => $key ) );
+}`, { label: 'building the status rows before the keep step ran, with a REST API key and without the renewal pause' } );
+			assert.deepEqual( notYet.map( ( { id, state, status, details } ) => [ id, state, status, details ] ), [
+				[ 'renewals', 'warning', 'Not paused', 'Renewal actions must stay paused while SAFETY_NET_DELETE_DATA keeps customer data, but the WooCommerce Subscriptions integration that pauses them is not loaded.' ],
+				[ 'api_keys', 'warning', '1 key, not deleted yet', 'Keys copied from the live site let apps and 3PLs read and change orders until the keep step deletes them; users and orders are kept.' ],
+			], 'The rows do not say what happens to renewals and REST API keys while data is kept' );
+
+			const home = await site.php( "return sn_test_raw_option( 'home' );", { label: 'reading the stored home option' } );
+			assert.equal( await setStoredHome( site, 'https://copy.example.test/' ), true, 'WP_HOME is not defined, so the site would not load at the copy\'s address' );
+			try {
+				const copy = sendEmailsForm( ( await site.get( SETTINGS, { jar: site.adminJar } ) ).text );
+				assert.deepEqual( [ copy.input.checked, copy.input.disabled, copy.hidden ], [ false, true, 'off' ], 'On a copy, the disabled Send emails keeps the other address\'s on in its hidden field, which saving would bind to the copy' );
+				const emails = await site.php( 'return SafetyNet\\Status\\emails_row();', { label: 'building the emails row on the copy' } );
+				assert.ok( emails.details.endsWith( 'Switched on for another address (this site is a copy); switch it on again to send emails here.' ), `The emails row on a copy while data is kept does not say why Send emails is off: ${ emails.details }` );
+				const saved = await site.post( '/wp-admin/options.php', { ...copy.fields, safety_net_email_log_toggle: 'on', safety_net_email_log_cleanup_toggle: 'on', [ SEND_EMAILS ]: copy.hidden }, { jar: site.adminJar, follow: false, expect: 302 } );
+				assert.match( saved.location ?? '', /settings-updated=true/, 'The Settings form was not saved on the copy' );
+				assert.deepEqual( await site.php( `return array( sn_test_raw_option( '${ SEND_EMAILS }' ), sn_test_raw_option( '${ SEND_EMAILS_SITE }' ) );` ), [ 'off', null ], 'Saving the Settings form on a copy while data is kept did not store Send emails off' );
+			} finally {
+				await setStoredHome( site, home );
+			}
+		} finally {
+			await site.php( `delete_option( '${ SEND_EMAILS }' ); update_option( 'safety_net_pause_renewal_actions_toggle', 'on' ); sn_test_delete_action( ${ renewal } ); return true;`, { label: 'removing Send emails and the renewal action, and turning the renewal pause back on' } );
+		}
 	} );
 
 	test( 'KD14: saved payment methods and REST API keys are deleted while orders are kept, and webhooks stay disabled', async () => {
@@ -299,6 +384,11 @@ return array(
 		for ( const [ constants, expected, notice ] of cases ) {
 			await setConstants( constants );
 			assert.deepEqual( await site.php( 'return \\SafetyNet\\Utilities\\get_keep_config();', { label: 'reading the keep configuration' } ), expected, `get_keep_config() with ${ JSON.stringify( constants ) }` );
+			if ( expected.disabled ) {
+				// KD8 deleted the data, so the row is read as on a site whose kept data is still there.
+				const data = await site.php( "add_filter( 'pre_option_safety_net_data_deleted', '__return_zero' ); return current( wp_list_filter( SafetyNet\\Status\\get_status_rows(), array( 'id' => 'data' ) ) );", { label: 'building the data row' } );
+				assert.deepEqual( [ data.state, data.status ], [ 'warning', expected.until ? `Kept until ${ expected.until }` : 'Kept, with no expiry date' ], `The data row with ${ JSON.stringify( constants ) }` );
+			}
 			if ( notice ) {
 				assert.match( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, notice, `The dashboard does not name the invalid value in ${ JSON.stringify( constants ) }` );
 			}

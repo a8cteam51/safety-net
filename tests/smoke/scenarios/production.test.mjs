@@ -40,8 +40,8 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 	} );
 
 	test( 'P1: only the self-updater is loaded', async () => {
-		const s = await site.php( "return array( 'path' => defined( 'SAFETY_NET_PATH' ), 'loaded' => did_action( 'safety_net_loaded' ), 'mail' => has_filter( 'pre_wp_mail', 'SafetyNet\\\\Admin\\\\stop_emails' ), 'admin' => function_exists( 'SafetyNet\\\\Admin\\\\stop_emails' ), 'updater' => has_filter( 'update_plugins_github.com', 'SafetyNet\\\\SelfUpdate\\\\check_for_update' ), 'blog_public' => get_option( 'blog_public' ) );" );
-		assert.deepEqual( s, { path: true, loaded: 0, mail: false, admin: false, updater: 10, blog_public: '1' } );
+		const s = await site.php( "return array( 'path' => defined( 'SAFETY_NET_PATH' ), 'loaded' => did_action( 'safety_net_loaded' ), 'mail' => has_filter( 'pre_wp_mail', 'SafetyNet\\\\Admin\\\\stop_emails' ), 'admin' => function_exists( 'SafetyNet\\\\Admin\\\\stop_emails' ), 'updater' => has_filter( 'update_plugins_github.com', 'SafetyNet\\\\SelfUpdate\\\\check_for_update' ), 'blog_public' => get_option( 'blog_public' ), 'status' => function_exists( 'SafetyNet\\\\Status\\\\get_status_rows' ) );" );
+		assert.deepEqual( s, { path: true, loaded: 0, mail: false, admin: false, updater: 10, blog_public: '1', status: false } );
 	} );
 
 	test( 'P1: robots.txt keeps the WordPress defaults', async () => {

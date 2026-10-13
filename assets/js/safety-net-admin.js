@@ -83,6 +83,19 @@
 		}
 	}
 
+	// Only switching on is confirmed; switching off is always safe.
+	function confirmSwitchOn( event ) {
+		const input = event.target;
+
+		if ( ! ( input instanceof HTMLInputElement ) || 'checkbox' !== input.type || ! input.checked || ! input.dataset.safetyNetConfirm ) {
+			return;
+		}
+
+		if ( ! confirm( input.dataset.safetyNetConfirm ) ) {
+			input.checked = false;
+		}
+	}
+
 	function initEmailLogTabs( root ) {
 		for ( const tablist of root.querySelectorAll( '.safety-net-email-log-tabs' ) ) {
 			const selected = tablist.querySelector( '[role="tab"][aria-selected="true"]' ) || tablist.querySelector( '[role="tab"]' );
@@ -398,6 +411,7 @@
 
 	// Delegated, so that the forms of an entry loaded into the dialog are handled too.
 	document.addEventListener( 'submit', confirmSubmit );
+	document.addEventListener( 'change', confirmSwitchOn );
 	document.addEventListener( 'click', clickEmailLogTab );
 	document.addEventListener( 'keydown', moveEmailLogTab );
 	document.addEventListener( 'click', openEmailLogEntry );
