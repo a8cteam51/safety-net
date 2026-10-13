@@ -50,12 +50,19 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 		assert.ok( ! lines.includes( 'Disallow: /' ), lines.join( '\n' ) );
 	} );
 
-	test( 'P1: the REST route, Tools page and AJAX tools do not exist', async () => {
-		const [ rest, tools ] = await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: 403 } ] );
+	test( 'P1: the REST route, Tools page, Email Log pages and menu item, and AJAX tools do not exist', async () => {
+		const [ rest, tools, emailLog, emailLogSettings, dashboard ] = await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: 403 }, { path: '/wp-admin/admin.php?page=safety_net_email_log', jar: site.adminJar, expect: 403 }, { path: '/wp-admin/admin.php?page=safety_net_email_log_settings', jar: site.adminJar, expect: 403 }, { path: '/wp-admin/', jar: site.adminJar } ] );
 		assert.equal( JSON.parse( rest.text ).code, 'rest_no_route' );
 		assert.match( tools.text, /Sorry, you are not allowed to access this page\./ );
+		assert.match( emailLog.text, /Sorry, you are not allowed to access this page\./ );
+		assert.match( emailLogSettings.text, /Sorry, you are not allowed to access this page\./ );
+		assert.match( dashboard.text, /id="menu-tools"/, 'The dashboard has no admin menu, so this proves nothing' );
+		assert.doesNotMatch( dashboard.text, /toplevel_page_safety_net_email_log/, 'Production shows the Email Log menu item' );
+		assert.doesNotMatch( dashboard.text, /page=safety_net_email_log/, 'Production links to an Email Log page' );
 		const ajax = await site.post( '/wp-admin/admin-ajax.php', { action: 'safety_net_scrub_options', nonce: 'x' }, { jar: site.adminJar, expect: 400 } );
 		assert.equal( ajax.text, '0' );
+		const entry = await site.get( '/wp-admin/admin-ajax.php?action=safety_net_email_log_entry&entry=1&_wpnonce=x', { jar: site.adminJar, expect: 400 } );
+		assert.equal( entry.text, '0', 'Production answers the Email Log popup\'s AJAX action' );
 	} );
 
 	test( 'P2: admins see the production notice, unless it is filtered away', async () => {
@@ -94,6 +101,13 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 		const s = await site.php( FILTER_PROBE );
 		assert.deepEqual( s.jetpack, [] );
 		assert.deepEqual( s.pmpro, s.pmpro_input );
+	} );
+
+	test( 'P7: an email on production is neither blocked nor logged, and creates no email log table, option or cleanup event', async () => {
+		const s = await site.php( "$sent = sn_test_send_emails( array( array( 'to' => 'someone@example.com', 'subject' => 'Order receipt', 'message' => 'body' ) ) ); return array( 'sent' => $sent, 'state' => sn_test_email_log_state(), 'loaded' => function_exists( 'SafetyNet\\\\EmailLog\\\\log_email' ) );" );
+		assert.deepEqual( s.sent, { verdicts: [ null ], entries: null }, 'The email did not reach pre_wp_mail unblocked, or production logged it' );
+		assert.deepEqual( s.state, { table: false, options: {}, cleanup: null }, 'Production created the email log table, one of its options or its cleanup event' );
+		assert.equal( s.loaded, false, 'The email log is loaded on production' );
 	} );
 
 	test( 'U1: a newer GitHub release is offered on the plugins screen', async () => {

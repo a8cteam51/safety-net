@@ -80,6 +80,39 @@ function sn_test_count( string $table, string $where = '1=1' ) {
 	return (int) $wpdb->get_var( "SELECT COUNT(*) FROM $table WHERE $where" ); // phpcs:ignore
 }
 
+// The email log entries after the given ID, oldest first, or null while the log's table does not exist.
+function sn_test_email_log( int $after = 0 ): ?array {
+	global $wpdb;
+	$table = $wpdb->prefix . 'safety_net_email_log';
+	if ( ! sn_test_table_exists( $table ) ) {
+		return null;
+	}
+	return $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE id > %d ORDER BY id", $after ), ARRAY_A ); // phpcs:ignore
+}
+
+function sn_test_email_log_last_id(): int {
+	$ids = array_map( 'intval', array_column( (array) sn_test_email_log(), 'id' ) );
+	return $ids ? max( $ids ) : 0;
+}
+
+// The email log's table, options and cleanup event, read without Safety Net's code.
+function sn_test_email_log_state(): array {
+	global $wpdb;
+	$options = array();
+	foreach ( $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM $wpdb->options WHERE option_name LIKE %s ORDER BY option_name", $wpdb->esc_like( 'safety_net_email_log' ) . '%' ) ) as $name ) {
+		$options[ $name ] = sn_test_raw_option( $name );
+	}
+	$next = wp_next_scheduled( 'safety_net_email_log_cleanup' );
+	return array(
+		'table'   => sn_test_table_exists( $wpdb->prefix . 'safety_net_email_log' ),
+		'options' => (object) $options,
+		'cleanup' => false === $next ? null : array(
+			'due'      => $next <= time(),
+			'schedule' => wp_get_schedule( 'safety_net_email_log_cleanup' ),
+		),
+	);
+}
+
 function sn_test_flags(): array {
 	global $wpdb;
 	$flags = array();

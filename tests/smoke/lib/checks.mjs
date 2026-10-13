@@ -123,11 +123,11 @@ export async function saveToolsForm( site ) {
 }
 
 // Fetching the enqueued assets also proves SAFETY_NET_URL is right for the install location.
-export async function assertToolsAssets( site, html, expectedDir ) {
+export async function assertToolsAssets( site, html, expectedDir, page = 'the Tools page' ) {
 	const script = html.match( /<script[^>]+src=['"]([^'"]*assets\/js\/safety-net-admin\.js[^'"]*)['"]/ )?.[ 1 ];
 	const style = html.match( /<link[^>]+href=['"]([^'"]*assets\/css\/admin\.css[^'"]*)['"]/ )?.[ 1 ];
-	assert.ok( script, 'safety-net-admin.js is not enqueued on the Tools page' );
-	assert.ok( style, 'admin.css is not enqueued on the Tools page' );
+	assert.ok( script, `safety-net-admin.js is not enqueued on ${ page }` );
+	assert.ok( style, `admin.css is not enqueued on ${ page }` );
 	for ( const url of [ script, style ] ) {
 		assert.ok( url.includes( expectedDir ), `${ url } is not served from ${ expectedDir }` );
 		const asset = await site.get( url.replace( /&#038;/g, '&' ) );
@@ -205,7 +205,7 @@ export async function assertAjaxSentinelsUntouched( site, { seeded, mark } ) {
 }
 
 // Nonces are tied to the session token in the logged-in cookie, so they are built from that cookie.
-export async function noncesForSession( site, jar, login ) {
+export async function noncesForSession( site, jar, login, actions = TOOL_BUTTONS ) {
 	const cookie = [ ...jar.cookies ].find( ( [ name ] ) => name.startsWith( 'wordpress_logged_in_' ) );
 	assert.ok( cookie, `${ login } has no logged-in cookie` );
 	const value = Buffer.from( decodeURIComponent( cookie[ 1 ] ) ).toString( 'base64' );
@@ -215,11 +215,11 @@ $user = wp_validate_auth_cookie( '', 'logged_in' );
 if ( ! $user || get_userdata( $user )->user_login !== '${ login }' ) { throw new RuntimeException( 'The cookie does not log in ${ login }' ); }
 wp_set_current_user( $user );
 $nonces = array();
-foreach ( json_decode( '${ JSON.stringify( TOOL_BUTTONS ) }', true ) as $button ) { $nonces[ $button ] = wp_create_nonce( $button ); }
+foreach ( json_decode( '${ JSON.stringify( actions ) }', true ) as $action ) { $nonces[ $action ] = wp_create_nonce( $action ); }
 return $nonces;`,
 		{ label: `creating nonces for ${ login }` }
 	);
-	assert.deepEqual( Object.keys( result ).sort(), [ ...TOOL_BUTTONS ].sort() );
+	assert.deepEqual( Object.keys( result ).sort(), [ ...actions ].sort() );
 	return result;
 }
 

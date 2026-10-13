@@ -5,6 +5,11 @@ namespace SafetyNet\Admin;
 use function SafetyNet\ScrubOptions\scrub_options;
 use function SafetyNet\DeactivatePlugins\deactivate_plugins;
 use function SafetyNet\Delete\delete_users_and_orders;
+use function SafetyNet\EmailLog\expect_result;
+use function SafetyNet\EmailLog\log_email;
+use function SafetyNet\EmailLog\page_hooks;
+use function SafetyNet\EmailLog\page_url;
+use function SafetyNet\EmailLog\sending_copy;
 use function SafetyNet\Utilities\get_admin_emails;
 use function SafetyNet\Utilities\get_admin_user_ids;
 use function SafetyNet\Utilities\get_environment_type;
@@ -51,18 +56,18 @@ function add_admin_hooks() {
 }
 
 /**
- * Enqueues the JavaScript for the tools page.
+ * Enqueues the scripts and styles of the Tools page and the Email Log pages.
  *
  * @param string $hook_suffix The current admin page.
  *
  * @return void
  */
 function enqueue_scripts( string $hook_suffix ) {
-	if ( 'tools_page_safety_net_options' !== $hook_suffix ) {
+	if ( ! in_array( $hook_suffix, array_merge( array( 'tools_page_safety_net_options' ), page_hooks() ), true ) ) {
 		return;
 	}
 
-	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery' ), '1.0', true );
+	wp_enqueue_script( 'safety-net-admin', SAFETY_NET_URL . 'assets/js/safety-net-admin.js', array( 'jquery', 'wp-a11y' ), '1.2', true );
 
 	wp_localize_script(
 		'safety-net-admin',
@@ -72,7 +77,7 @@ function enqueue_scripts( string $hook_suffix ) {
 		)
 	);
 
-	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.0' );
+	wp_enqueue_style( 'safety-net-admin-style', SAFETY_NET_URL . 'assets/css/admin.css', array(), '0.2' );
 }
 
 /**
@@ -186,7 +191,7 @@ function settings_init() {
 	$pause_args = array(
 		'type'      => 'checkbox',
 		'name'      => 'safety_net_pause_renewal_actions_toggle',
-		'class'     => 'safety-net-pause-renewal-actions-toggle',
+		'class'     => 'safety-net-toggle safety-net-pause-renewal-actions-toggle',
 		'label_for' => 'safety_net_pause_renewal_actions_toggle',
 	);
 	if ( is_data_deletion_disabled() ) {
@@ -427,6 +432,17 @@ function render_options_html() {
 	<h1 id="safety-net-settings-title"><?php echo esc_html( get_admin_page_title() ); ?></h1>
 	<p>Read about Safety Net or create issues/suggestions in the
 		<a href="https://github.com/a8cteam51/safety-net">Safety Net repository</a>.</p>
+	<?php if ( ! is_production() ) : ?>
+		<p class="safety-net-email-log-link">
+			<?php
+			printf(
+				/* translators: %s: link to the Email Log page */
+				esc_html__( 'The emails Safety Net blocks or lets through are in the %s.', 'safety-net' ),
+				'<a href="' . esc_url( page_url() ) . '">' . esc_html__( 'Email Log', 'safety-net' ) . '</a>'
+			);
+			?>
+		</p>
+	<?php endif; ?>
 	<hr/>
 	<?php if ( is_production() ) : ?>
 		<p class="info">
@@ -756,7 +772,7 @@ function show_keep_notice() {
 }
 
 /**
- * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data
+ * Stop all emails except password resets, which only go to administrators while SAFETY_NET_DELETE_DATA keeps data, and record each decision in the email log
  *
  * @param boolean|null $return WP_Mail short-circuit return value.
  * @param array        $args   The wp_mail() arguments.
@@ -764,17 +780,30 @@ function show_keep_notice() {
  * @return boolean|null
  */
 function stop_emails( $return, $args ) {
+	// One-shot, so emails sent from the copy's own hooks still get the rules below.
+	if ( sending_copy() ) {
+		sending_copy( false );
+		if ( is_sent_only_to_admins( $args ) ) {
+			error_log( 'Email sent: ' . $args['subject'] . ' (copy of a logged email)' ); // phpcs:ignore -- Logging is okay here.
+			expect_result( 0, $args );
+			return null;
+		}
+	}
+
 	if ( ! strstr( $args['subject'], 'Password Reset' ) ) {
 		error_log( "Email blocked: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning false says "short-circuit the wp_mail() function and indicate we did not send the email"
 		$return = false;
+		log_email( 'blocked', $args );
 	} elseif ( is_data_deletion_disabled() && ! is_sent_only_to_admins( $args ) ) {
 		error_log( 'Email blocked: ' . $args['subject'] . ' (not every recipient is an administrator while SAFETY_NET_DELETE_DATA keeps customer data)' ); // phpcs:ignore -- Logging is okay here.
 		$return = false;
+		log_email( 'blocked_recipients', $args );
 	} else {
 		error_log( "Email sent: " . $args['subject'] ); // phpcs:ignore -- Logging is okay here.
 		// returning null says "don't short circuit the wp_mail function"
 		$return = null;
+		log_email( 'allowed', $args );
 	}
 
 	return $return;
