@@ -49,7 +49,7 @@ const KEYS_FOR_EDITORS = 'Its password reset and confirmation keys stay redacted
 
 const KEYS_NOT_STORED = 'Its password reset and confirmation keys stay redacted, so those links will not work: the keys were not stored with this entry.';
 
-const KEYS_FOR_ADMINS = 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, who got the email itself.';
+const KEYS_FOR_ADMINS = 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, since anyone can request their password reset.';
 
 const PLAIN = 'text/plain; charset=UTF-8';
 

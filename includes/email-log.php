@@ -284,7 +284,7 @@ function log_email( string $status, $args ): void {
 			'attachments'  => to_column( implode( "\n", get_attachment_names( $args['attachments'] ?? array() ) ), TEXT_BYTES ),
 		);
 
-		// Anyone can request an administrator's password reset, so a stored key would let whoever reads the database take over that account.
+		// Anyone can request a staff account's password reset, so a stored key would let whoever reads the database take over that account.
 		$secrets = $has_secrets && $keys && ! is_sent_to_staff( $args ) ? wp_json_encode( $keys ) : false;
 		// Cut to fit its column, the JSON would no longer decode, so keys that do not fit are left out.
 		if ( ! is_string( $secrets ) || strlen( $secrets ) > TEXT_BYTES ) {
@@ -1810,7 +1810,7 @@ function copy_note( object $entry ): string {
 
 	$restored = restore_keys( $entry );
 	if ( null === $restored && is_entry_to_staff( $entry ) ) {
-		return $note . ' ' . __( 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, who got the email itself.', 'safety-net' );
+		return $note . ' ' . __( 'Its password reset and confirmation keys stay redacted, so those links will not work: keys are not stored for emails to administrators or other staff accounts, since anyone can request their password reset.', 'safety-net' );
 	}
 
 	if ( ! can_restore_keys() ) {
