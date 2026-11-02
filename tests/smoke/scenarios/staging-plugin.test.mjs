@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertOptionsBlanked, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, httpProbeSince, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS } from '../lib/checks.mjs';
+import { AJAX_ACTIONS, assertAiKeysScrubbed, assertAjaxSentinelsUntouched, assertDataDeleted, assertMailBlocked, assertNoIndex, assertOptionsBlanked, assertStepFlags, assertToolsAssets, BAD_NONCE, captureMail, FILTER_PROBE, firstLoad, getToolsPage, GITHUB_RELEASE_URL, githubRelease, httpProbeSince, noncesForSession, NO_PERMISSION, postAjax, runAjaxTools, saveToolsForm, seedAjaxSentinels, TOOL_BUTTONS, unregisteredAdminPage } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite, phpAtLeast, wpAtLeast } from '../lib/site.mjs';
 
@@ -632,8 +632,9 @@ return array( 'listed' => $listed, 'after' => $after );` );
 		const { nonces } = await getToolsPage( site );
 		await site.php( "update_option( 'sn_test_hide_admin', 1 ); return true;" );
 		try {
-			const page = await site.get( '/wp-admin/tools.php?page=safety_net_options', { jar: site.adminJar, expect: 403 } );
-			assert.match( page.text, /Sorry, you are not allowed to access this page\./ );
+			const missing = unregisteredAdminPage( site );
+			const page = await site.get( '/wp-admin/tools.php?page=safety_net_options', { jar: site.adminJar, expect: missing.status } );
+			assert.match( page.text, missing.message );
 			const ajax = await site.post( '/wp-admin/admin-ajax.php', { action: 'safety_net_scrub_options', nonce: nonces[ TOOL_BUTTONS[ 0 ] ] }, { jar: site.adminJar, expect: 400 } );
 			assert.equal( ajax.text, '0' );
 			assert.match( ( await site.get( '/wp-admin/', { jar: site.adminJar } ) ).text, /Safety Net Activated/ );

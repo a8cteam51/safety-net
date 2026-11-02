@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
-import { assertToolsAssets, assertToolsPage, firstLoad, getToolsPage, noncesForSession, postAjax, saveToolsForm, toolsPagePath } from '../lib/checks.mjs';
+import { assertToolsAssets, assertToolsPage, firstLoad, getToolsPage, noncesForSession, postAjax, saveToolsForm, toolsPagePath, unregisteredAdminPage } from '../lib/checks.mjs';
 import { config } from '../lib/config.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite } from '../lib/site.mjs';
@@ -540,7 +540,13 @@ return $sent + array( 'alters' => $alters, 'version' => get_option( 'safety_net_
 		const item = emailLogMenu( dashboard.text );
 		assert.ok( item, 'The dashboard has no Email Log menu item' );
 		assert.equal( item.href, 'admin.php?page=safety_net_email_log', 'The Email Log menu item does not link to the list' );
-		assert.match( item.link, /\bdashicons-email-alt\b/, 'The Email Log menu item has the wrong icon' );
+		// WordPress 7.2 draws a Dashicon that has a replacement in its icon library as that icon's SVG.
+		const svg = await site.php( "$name = method_exists( 'WP_Icons_Registry', 'get_admin_icon_name_for_dashicon' ) ? WP_Icons_Registry::get_instance()->get_admin_icon_name_for_dashicon( 'dashicons-email-alt' ) : null; return $name ? wp_get_icon( $name ) : null;", { label: 'the icon core draws for dashicons-email-alt' } );
+		if ( svg ) {
+			assert.ok( item.link.includes( `<div class='wp-menu-image dashicons-before svg-icon' aria-hidden='true'>${ svg }</div>` ), `The Email Log menu item has the wrong icon: ${ item.link }` );
+		} else {
+			assert.match( item.link, /\bdashicons-email-alt\b/, 'The Email Log menu item has the wrong icon' );
+		}
 		assert.match( item.link, /<div class='wp-menu-name'>Email Log<\/div>/ );
 		assert.ok( item.classes.includes( 'wp-not-current-submenu' ), `The Email Log menu item is open on the dashboard: ${ item.classes.join( ' ' ) }` );
 		assert.deepEqual( item.items, menuItems(), 'The Email Log menu item does not hold exactly All Emails and Settings, linking to their pages, or one is current on the dashboard' );
@@ -601,7 +607,7 @@ return $sent + array( 'alters' => $alters, 'version' => get_option( 'safety_net_
 		try {
 			const settings = ( await site.get( SETTINGS, { jar: site.adminJar } ) ).text;
 			assert.match( emailLogMenu( settings )?.link ?? '', /<div class='wp-menu-name'>Journal des e-mails<\/div>/, 'The Email Log menu title is not translated, so this proves nothing' );
-			assert.match( settings, /\badminpage = 'journal-des-e-mails_page_safety_net_email_log_settings'/, 'The Settings page\'s hook suffix does not come from the translated menu title' );
+			assert.match( settings, /<body class="[^"]*\bjournal-des-e-mails_page_safety_net_email_log_settings\b/, 'The Settings page\'s hook suffix does not come from the translated menu title' );
 			await assertToolsAssets( site, settings, '/wp-content/plugins/safety-net/', 'the Email Log Settings page with a translated menu title' );
 		} finally {
 			await site.php( "delete_option( 'sn_test_translate' ); return true;", { label: 'removing the translation' } );
@@ -2131,8 +2137,9 @@ return array( 'ids' => $ids, 'caps' => $caps, 'rows' => $rows );`,
 		assert.ok( before.length > 0, 'The log is empty, so the AJAX endpoint is not tested' );
 		await site.php( "update_option( 'sn_test_hide_admin', 1 ); return true;" );
 		try {
+			const missing = unregisteredAdminPage( site );
 			for ( const target of [ PAGE, SETTINGS ] ) {
-				assert.match( ( await site.get( target, { jar: site.adminJar, expect: 403 } ) ).text, /Sorry, you are not allowed to access this page\./, `safety_net_hide_admin left ${ target }` );
+				assert.match( ( await site.get( target, { jar: site.adminJar, expect: missing.status } ) ).text, missing.message, `safety_net_hide_admin left ${ target }` );
 			}
 			const dashboard = await site.get( '/wp-admin/', { jar: site.adminJar } );
 			assert.ok( menuIds( dashboard.text ).includes( 'menu-tools' ), 'The dashboard has no admin menu, so this proves nothing' );
