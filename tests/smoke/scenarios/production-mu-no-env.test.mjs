@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { assertNoFlags, assertStepFlags, firstLoad, GITHUB_RELEASE_URL, githubRelease } from '../lib/checks.mjs';
+import { assertNoFlags, assertStepFlags, firstLoad, GITHUB_RELEASE_URL, githubRelease, unregisteredAdminPage } from '../lib/checks.mjs';
 import { bootSite } from '../lib/site.mjs';
 
 describe( 'production-mu-no-env: mu-plugin with WP_ENVIRONMENT_TYPE undefined stays dormant', () => {
@@ -40,7 +40,9 @@ describe( 'production-mu-no-env: mu-plugin with WP_ENVIRONMENT_TYPE undefined st
 	} );
 
 	test( 'P4: the REST route and the Tools page do not exist', async () => {
-		await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: 403 } ] );
+		const missing = unregisteredAdminPage( site );
+		const [ , tools ] = await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: missing.status } ] );
+		assert.match( tools.text, missing.message );
 	} );
 
 	test( 'U8: no update is offered for an mu-plugin', async () => {

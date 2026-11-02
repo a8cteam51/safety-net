@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { assertNoFlags, FILTER_PROBE, GITHUB_RELEASE_URL, githubRelease, releaseHeader, releaseHeaderUrl, robotsLines } from '../lib/checks.mjs';
+import { assertNoFlags, FILTER_PROBE, GITHUB_RELEASE_URL, githubRelease, releaseHeader, releaseHeaderUrl, robotsLines, unregisteredAdminPage } from '../lib/checks.mjs';
 import { CookieJar } from '../lib/http.mjs';
 import { bootSite } from '../lib/site.mjs';
 
@@ -51,11 +51,12 @@ describe( 'production: regular plugin on a production site stays dormant', () =>
 	} );
 
 	test( 'P1: the REST route, Tools page, Email Log pages and menu item, and AJAX tools do not exist', async () => {
-		const [ rest, tools, emailLog, emailLogSettings, dashboard ] = await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: 403 }, { path: '/wp-admin/admin.php?page=safety_net_email_log', jar: site.adminJar, expect: 403 }, { path: '/wp-admin/admin.php?page=safety_net_email_log_settings', jar: site.adminJar, expect: 403 }, { path: '/wp-admin/', jar: site.adminJar } ] );
+		const missing = unregisteredAdminPage( site );
+		const [ rest, tools, emailLog, emailLogSettings, dashboard ] = await site.getAll( [ { path: '/wp-json/safety-net/v1/status', expect: 404 }, { path: '/wp-admin/tools.php?page=safety_net_options', jar: site.adminJar, expect: missing.status }, { path: '/wp-admin/admin.php?page=safety_net_email_log', jar: site.adminJar, expect: missing.status }, { path: '/wp-admin/admin.php?page=safety_net_email_log_settings', jar: site.adminJar, expect: missing.status }, { path: '/wp-admin/', jar: site.adminJar } ] );
 		assert.equal( JSON.parse( rest.text ).code, 'rest_no_route' );
-		assert.match( tools.text, /Sorry, you are not allowed to access this page\./ );
-		assert.match( emailLog.text, /Sorry, you are not allowed to access this page\./ );
-		assert.match( emailLogSettings.text, /Sorry, you are not allowed to access this page\./ );
+		assert.match( tools.text, missing.message );
+		assert.match( emailLog.text, missing.message );
+		assert.match( emailLogSettings.text, missing.message );
 		assert.match( dashboard.text, /id="menu-tools"/, 'The dashboard has no admin menu, so this proves nothing' );
 		assert.doesNotMatch( dashboard.text, /toplevel_page_safety_net_email_log/, 'Production shows the Email Log menu item' );
 		assert.doesNotMatch( dashboard.text, /page=safety_net_email_log/, 'Production links to an Email Log page' );

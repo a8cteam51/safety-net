@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { scrapeNonces } from './site.mjs';
+import { scrapeNonces, wpAtLeast } from './site.mjs';
 
 export const STEP_FLAGS = [ 'options_scrubbed', 'plugins_deactivated', 'data_deleted', 'transients_deleted', 'webhooks_disabled' ];
 
@@ -16,6 +16,11 @@ export const AJAX_ACTIONS = [
 export const NO_PERMISSION = { success: false, message: 'You do not have permission to do that.' };
 
 export const BAD_NONCE = { success: false, message: 'Security check failed. Refresh the page and try again.' };
+
+// WordPress 7.2 answers 404 instead of 403 for an admin page that was never registered.
+export function unregisteredAdminPage( site ) {
+	return wpAtLeast( site, '7.2' ) ? { status: 404, message: /The requested page does not exist\./ } : { status: 403, message: /Sorry, you are not allowed to access this page\./ };
+}
 
 export const GITHUB_RELEASE_URL = 'https://api.github.com/repos/a8cteam51/safety-net/releases/latest';
 
