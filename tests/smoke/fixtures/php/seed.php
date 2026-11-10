@@ -33,6 +33,15 @@ function sn_test_seed_base(): array {
 	update_option( 'klaviyo_api_key', 'pk_live_123' );
 	update_option( 'mc4wp', array( 'api_key' => 'k' ) );
 	update_option(
+		'gravityformsaddon_gravityformsmailchimp_settings',
+		array(
+			'access_token'              => 'sn-gf-mailchimp-token',
+			'server_prefix'             => 'us1',
+			'apiKey'                    => 'sn-gf-mailchimp-us1',
+			'group_key_1_sn-test-group' => 'mc_group_sn_test',
+		)
+	);
+	update_option(
 		'woocommerce_stripe_settings',
 		array(
 			'enabled'         => 'yes',
@@ -137,6 +146,7 @@ function sn_test_seed_base(): array {
 			'ai-services/ai-services.php',
 			'aslams-ai-provider-for-grok/ai-provider-for-grok.php',
 			'barcode-label-printer/barcode-label-printer.php',
+			'gravityformsmailchimp/mailchimp.php',
 			'mailchimp-for-wp/mailchimp-for-wp.php',
 			'my-stripe-addon/my-stripe-addon.php',
 			'woocommerce-xero/woocommerce-xero.php',
