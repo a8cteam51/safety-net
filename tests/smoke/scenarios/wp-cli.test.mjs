@@ -84,7 +84,7 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 		for ( const [ row, name ] of [
 			[ /^\W*hubspot\W+HubSpot\W+hubspot, lea\w*\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'HubSpot' ],
 			[ /^\W*klaviyo\W+Klaviyo\W+klaviyo\W+4\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Klaviyo' ],
-			[ /^\W*mailchimp\W+Mailchimp\W+mailchimp\W+3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Mailchimp' ],
+			[ /^\W*mailchimp\W+Mailchimp\W+mailchimp\W+4\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Mailchimp' ],
 			[ /^\W*mailster\W+Mailster\W+mailster\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Mailster' ],
 			[ /^\W*nelio-conten\w*\W+Nelio Conten\w*\W+nelio-conten\w*\W+3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Nelio Content' ],
 			[ /^\W*northbeam\W+Northbeam\W+2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Northbeam' ],
@@ -161,7 +161,7 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 			{
 				hubspot: { label: 'HubSpot', plugins: [ 'hubspot', 'leadin' ], options: [ 'leadin_access_token' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },
 				klaviyo: { label: 'Klaviyo', plugins: [ 'klaviyo' ], options: [ 'klaviyo_api_key', 'klaviyo_edd_license_key', 'klaviyo_settings', 'novos_klaviyo_option_name' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },
-				mailchimp: { label: 'Mailchimp', plugins: [ 'mailchimp' ], options: [ 'mailchimp-woocommerce', 'mailchimp-woocommerce-cached-api-account-name', 'mc4wp' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },
+				mailchimp: { label: 'Mailchimp', plugins: [ 'mailchimp' ], options: [ 'mailchimp-woocommerce', 'mailchimp-woocommerce-cached-api-account-name', 'mc4wp' ], partial_options: { gravityformsaddon_gravityformsmailchimp_settings: [ 'access_token', 'apiKey' ] }, option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },
 				mailster: { label: 'Mailster', plugins: [ 'mailster' ], options: [ 'mailster_options' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },
 				'nelio-content': { label: 'Nelio Content', plugins: [ 'nelio-content' ], options: [ '_transient_nelio_content_news', '_transient_timeout_nelio_content_news', 'nelio-content_settings' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },
 				northbeam: { label: 'Northbeam', plugins: [], options: [ 'northbeam_api_key', 'northbeam_client_id' ], partial_options: [], option_values: [], delete_options: [], phases: [ false, false, false, false, false ] },

@@ -41,6 +41,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 					'klaviyo'         => sn_test_raw_option( 'klaviyo_api_key_sn_backup' ),
 					'mc4wp'           => sn_test_raw_option( 'mc4wp_sn_backup' ),
 					'stripe'          => sn_test_raw_option( 'woocommerce_stripe_settings_sn_backup' ),
+					'gf_mailchimp'    => sn_test_raw_option( 'gravityformsaddon_gravityformsmailchimp_settings_sn_backup' ),
 					'pingback'        => sn_test_raw_option( 'default_pingback_flag_sn_backup' ),
 					'klaviyo_settings' => sn_test_raw_option( 'klaviyo_settings_sn_backup' ),
 					'pmpro_secret'    => sn_test_raw_option( 'pmpro_stripe_secretkey_sn_backup' ),
@@ -51,6 +52,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 				'pmpro_secret'     => sn_test_raw_option( 'pmpro_stripe_secretkey' ),
 				'afterpay'         => sn_test_raw_option( 'woocommerce_afterpay_settings' ),
 				'woopayments'      => sn_test_raw_option( 'woocommerce_woocommerce_payments_settings' ),
+				'gf_mailchimp'     => sn_test_raw_option( 'gravityformsaddon_gravityformsmailchimp_settings' ),
 				'blanked'          => sn_test_blanked_options(),
 			);`
 		);
@@ -67,6 +69,8 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.deepEqual( s.backups.woopayments, { enabled: 'yes', test_mode: 'no' }, 'A4 WooPayments settings backup' );
 		assert.deepEqual( o.woocommerce_stripe_settings, { enabled: '', publishable_key: '', secret_key: '', webhook_secret: '', title: 'Card', testmode: 'no' }, 'A5' );
 		assert.equal( s.backups.stripe.secret_key, 'sk_x', 'A5 backup' );
+		assert.deepEqual( s.gf_mailchimp, { access_token: '', server_prefix: 'us1', apiKey: '', 'group_key_1_sn-test-group': 'mc_group_sn_test' }, 'A5 Gravity Forms Mailchimp Add-On' );
+		assert.equal( s.backups.gf_mailchimp.access_token, 'sn-gf-mailchimp-token', 'A5 Gravity Forms Mailchimp Add-On backup' );
 		assert.deepEqual( Object.values( o.jetpack_active_modules ), [ 'stats', 'sso' ], 'A6' );
 		assert.deepEqual( o[ 'woocommerce-ppcp-settings' ], { client_id: '', client_secret: '', merchant_id: '', merchant_email: '', sandbox_on: '1' }, 'A7' );
 		assert.equal( o.pmpro_gateway, '', 'A8' );
@@ -89,7 +93,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 
 	test( 'A14/A16: denylisted plugins are deactivated and the rest stay active', async () => {
 		const active = await site.php( "return get_option( 'active_plugins' );" );
-		for ( const plugin of [ 'mailchimp-for-wp/mailchimp-for-wp.php', 'wp-mail-smtp/wp_mail_smtp.php', 'my-stripe-addon/my-stripe-addon.php', 'zz-extra-denied/zz-extra-denied.php', 'woocommerce-xero/woocommerce-xero.php' ] ) {
+		for ( const plugin of [ 'gravityformsmailchimp/mailchimp.php', 'mailchimp-for-wp/mailchimp-for-wp.php', 'wp-mail-smtp/wp_mail_smtp.php', 'my-stripe-addon/my-stripe-addon.php', 'zz-extra-denied/zz-extra-denied.php', 'woocommerce-xero/woocommerce-xero.php' ] ) {
 			assert.ok( ! active.includes( plugin ), `${ plugin } is still active` );
 		}
 		// Without WooCommerce no gateway is registered, so gateway plugins stay until the pass can run.

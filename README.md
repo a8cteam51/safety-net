@@ -293,6 +293,7 @@ Safety Net removes the keys a staging site would use to call paid AI services as
 
 * Deactivates plugins matching `mailchimp`.
 * Scrubs the settings of Mailchimp for WordPress (`mc4wp`) and Mailchimp for WooCommerce (`mailchimp-woocommerce`, `mailchimp-woocommerce-cached-api-account-name`).
+* Blanks the Gravity Forms Mailchimp Add-On's OAuth token and legacy API key (`access_token` and `apiKey` in `gravityformsaddon_gravityformsmailchimp_settings`) and keeps the rest of its settings, since the add-on fails when the whole array is blank. Its feeds in `gf_addon_feed` stay: they hold audience IDs and field mappings, not credentials.
 
 ### MailPoet
 
