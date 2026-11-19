@@ -11,6 +11,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 	let ai;
 	let xeroBackup;
 	let xeroLogs;
+	let nmiBackups;
 
 	before( async () => {
 		site = await bootSite( { name: 'staging-plugin', env: 'staging', mode: 'plugin' } );
@@ -19,6 +20,7 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		ai = await site.php( "return array( 'plugins' => sn_test_seed_ai_provider_plugins(), 'backups' => sn_test_seed_ai_backups(), 'rest' => sn_test_write_ai_keys_through_rest(), 'core' => sn_test_ai_core_view() );", { label: 'seeding AI provider plugins, stale AI backups and AI keys through the settings endpoint' } );
 		xeroBackup = await site.php( "update_option( 'xero_oauth_options_sn_backup', array( 'refresh_token' => 'sn-xero-refresh-old' ), false ); return sn_test_xero_state()['backup'];", { label: 'seeding a stale backup of the Xero tokens' } );
 		xeroLogs = await site.php( 'return sn_test_seed_xero_logs();', { label: 'seeding a WooCommerce Xero log file and another log file' } );
+		nmiBackups = await site.php( "update_option( 'woocommerce_nmi_settings_sn_backup', array( 'private_key' => 'sn-nmi-private-old' ) ); update_option( 'woocommerce_nmi-echeck_settings_sn_backup', array( 'password' => 'sn-nmi-echeck-password-old' ) ); return array_map( static fn( $option ) => $option['backup'], sn_test_nmi_state() );", { label: 'seeding stale backups of the NMI gateway settings' } );
 		await site.enableSafetyNet();
 	} );
 
@@ -108,6 +110,17 @@ describe( 'staging-plugin: regular plugin on a staging site without WooCommerce'
 		assert.deepEqual( xeroLogs, { xero: true, other: true }, 'Seeding the log files failed, so this proves nothing' );
 		const logs = await site.php( 'return sn_test_xero_logs();' );
 		assert.deepEqual( logs, { xero: false, other: true }, 'WooCommerce Xero\'s log file, which can hold its tokens, was kept, or another log file was deleted' );
+	} );
+
+	test( 'A47: the NMI gateways lose their API keys and passwords without a backup, stale backups of their settings go too, and their other settings stay', async () => {
+		assert.deepEqual( nmiBackups, { woocommerce_nmi_settings: { private_key: 'sn-nmi-private-old' }, 'woocommerce_nmi-echeck_settings': { password: 'sn-nmi-echeck-password-old' } }, 'Seeding the stale NMI backups failed, so this proves nothing' );
+		const seeded = Object.fromEntries( Object.entries( seed.nmi ).map( ( [ name, { value } ] ) => [ name, value ] ) );
+		assert.ok( seeded.woocommerce_nmi_settings?.private_key && seeded[ 'woocommerce_nmi-echeck_settings' ]?.password, 'Seeding the NMI gateway settings failed, so this proves nothing' );
+		const blank = ( value, keys ) => ( { ...value, ...Object.fromEntries( keys.map( ( key ) => [ key, '' ] ) ) } );
+		assert.deepEqual( await site.php( 'return sn_test_nmi_state();' ), {
+			woocommerce_nmi_settings: { value: blank( seeded.woocommerce_nmi_settings, [ 'private_key', 'public_key', 'checkout_key', 'password' ] ), backup: null },
+			'woocommerce_nmi-echeck_settings': { value: blank( seeded[ 'woocommerce_nmi-echeck_settings' ], [ 'private_key', 'public_key', 'password' ] ), backup: null },
+		}, 'The NMI gateways kept a key or password, lost other settings, or have a backup of their settings' );
 	} );
 
 	test( 'A33: AI provider credentials are deleted without a backup, stale AI backups go too, and look-alike options and other backups stay', async () => {

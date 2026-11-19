@@ -323,6 +323,12 @@ MailPoet sends email itself, not through `wp_mail()`, so Safety Net's email bloc
 * Deactivates plugins matching `newsletter`.
 * Deletes the subscribers (the `newsletter` table).
 
+### NMI (Pledged Plugins)
+
+* Blanks the API keys and passwords inside the settings of the NMI credit card and eCheck gateways (`woocommerce_nmi_settings`: `private_key`, `public_key`, `checkout_key`, `password`; `woocommerce_nmi-echeck_settings`: `private_key`, `public_key`, `password`) and keeps their other settings. These keys can charge real cards and bank accounts, so they are never backed up, and backups an earlier version of Safety Net left of these settings are deleted.
+* Like every plugin that registers a WooCommerce payment gateway, the NMI gateway plugin is deactivated by the gateway pass once WooCommerce has loaded.
+* Staging sites that an earlier version of Safety Net already processed keep their NMI keys until Scrub Options is run again, from Tools > Safety Net or with `wp safety-net scrub-options`.
+
 ### Northbeam
 
 * Scrubs the API key and client ID (`northbeam_api_key`, `northbeam_client_id`).
