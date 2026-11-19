@@ -181,6 +181,41 @@ const SN_TEST_XERO_TOKENS = array( 'token' => 'sn-xero-access', 'expires' => 189
 // Kept, since nothing can reach Xero once the tokens are gone.
 const SN_TEST_XERO_SETTINGS = array( 'wc_xero_sales_account' => '200', 'wc_xero_send_invoices' => 'payment_completion', 'xero_oauth_success' => '1' );
 
+// Shaped as the Pledged Plugins NMI gateway stores them; the eCheck settings get API keys too, since its form has those fields.
+const SN_TEST_NMI_SETTINGS = array(
+	'woocommerce_nmi_settings'        => array(
+		'enabled'      => 'yes',
+		'testmode'     => 'no',
+		'api_keys'     => 'yes',
+		'private_key'  => 'sn-nmi-private',
+		'public_key'   => 'sn-nmi-public',
+		'enable_3ds'   => 'yes',
+		'checkout_key' => 'sn-nmi-checkout',
+		'username'     => 'sn-nmi-user',
+		'password'     => 'sn-nmi-password',
+		'capture'      => 'yes',
+	),
+	'woocommerce_nmi-echeck_settings' => array(
+		'enabled'     => 'yes',
+		'api_keys'    => 'no',
+		'private_key' => 'sn-nmi-echeck-private',
+		'public_key'  => 'sn-nmi-echeck-public',
+		'username'    => 'sn-nmi-echeck-user',
+		'password'    => 'sn-nmi-echeck-password',
+	),
+);
+
+function sn_test_nmi_state(): array {
+	$state = array();
+	foreach ( array_keys( SN_TEST_NMI_SETTINGS ) as $name ) {
+		$state[ $name ] = array(
+			'value'  => sn_test_raw_option( $name ),
+			'backup' => sn_test_raw_option( "{$name}_sn_backup" ),
+		);
+	}
+	return $state;
+}
+
 function sn_test_xero_state(): array {
 	$settings = array();
 	foreach ( array_keys( SN_TEST_XERO_SETTINGS ) as $name ) {

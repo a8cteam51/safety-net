@@ -87,6 +87,7 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 			[ /^\W*mailchimp\W+Mailchimp\W+mailchimp\W+4\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Mailchimp' ],
 			[ /^\W*mailster\W+Mailster\W+mailster\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Mailster' ],
 			[ /^\W*nelio-conten\w*\W+Nelio Conten\w*\W+nelio-conten\w*\W+3\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Nelio Content' ],
+			[ /^\W*nmi\W+NMI\b.*?\W2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'NMI' ],
 			[ /^\W*northbeam\W+Northbeam\W+2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Northbeam' ],
 			[ /^\W*passport\W+Passport\W+2\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'Passport' ],
 			[ /^\W*referralcand\w*\W+ReferralCand\w*\W+referralcand\w*\W+1\W+0\W+0\W+0\W+no\W+no\W+no\W+no\W+no\W*$/m, 'ReferralCandy' ],
@@ -102,12 +103,17 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 			assert.match( table, row, `The table does not show the ${ name } integration: ${ table }` );
 		}
 		const integrations = JSON.parse( ( await wpOk( 'safety-net', 'integrations', '--format=json' ) ).stdout.trim().split( '\n' ).pop() );
-		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'apple-news', 'automatewoo', 'buddypress', 'convertkit', 'givewp', 'hubspot', 'jetpack-crm', 'jetpack', 'klaviyo', 'mailchimp', 'mailpoet', 'mailster', 'nelio-content', 'newsletter', 'northbeam', 'offline-gateways', 'passport', 'payment-gateways', 'paypal', 'pmpro', 'referralcandy', 'shareasale', 'shipstation', 'stripe', 'tiktok', 'wayback-machine', 'woocommerce-memberships', 'woocommerce-subscriptions', 'woocommerce', 'wp-mail-logging', 'wpforms', 'wpmandrill', 'wprus', 'xero', 'yotpo', 'zoho-mail' ] );
-		const { 'ai-connectors': ai, mailpoet, 'apple-news': appleNews, convertkit, jetpack, paypal, stripe, wprus, automatewoo, 'offline-gateways': offlineGateways, 'payment-gateways': paymentGateways, woocommerce, 'woocommerce-memberships': memberships, 'woocommerce-subscriptions': subscriptions, hubspot, klaviyo, mailchimp, mailster, 'nelio-content': nelioContent, northbeam, passport, referralcandy, shareasale, shipstation, tiktok, 'wayback-machine': waybackMachine, wpmandrill, xero, yotpo, 'zoho-mail': zohoMail, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
+		assert.deepEqual( integrations.map( ( integration ) => integration.slug ), [ 'ai-connectors', 'apple-news', 'automatewoo', 'buddypress', 'convertkit', 'givewp', 'hubspot', 'jetpack-crm', 'jetpack', 'klaviyo', 'mailchimp', 'mailpoet', 'mailster', 'nelio-content', 'newsletter', 'nmi', 'northbeam', 'offline-gateways', 'passport', 'payment-gateways', 'paypal', 'pmpro', 'referralcandy', 'shareasale', 'shipstation', 'stripe', 'tiktok', 'wayback-machine', 'woocommerce-memberships', 'woocommerce-subscriptions', 'woocommerce', 'wp-mail-logging', 'wpforms', 'wpmandrill', 'wprus', 'xero', 'yotpo', 'zoho-mail' ] );
+		const { 'ai-connectors': ai, mailpoet, 'apple-news': appleNews, convertkit, jetpack, paypal, stripe, wprus, automatewoo, 'offline-gateways': offlineGateways, 'payment-gateways': paymentGateways, woocommerce, 'woocommerce-memberships': memberships, 'woocommerce-subscriptions': subscriptions, hubspot, klaviyo, mailchimp, mailster, 'nelio-content': nelioContent, nmi, northbeam, passport, referralcandy, shareasale, shipstation, tiktok, 'wayback-machine': waybackMachine, wpmandrill, xero, yotpo, 'zoho-mail': zohoMail, ...others } = Object.fromEntries( integrations.map( ( integration ) => [ integration.slug, integration ] ) );
 		assert.deepEqual(
 			{ label: ai.label, plugins: ai.plugins, options: ai.options, delete_options: ai.delete_options.length, delete_partial_options: Object.keys( ai.delete_partial_options ).length, delete_option_prefixes: ai.delete_option_prefixes, phases: [ ai.scrub, ai.delete, ai.keep, ai.hooks, ai.late ] },
 			{ label: 'AI providers', plugins: [ 'ai/ai.php', 'ai-engine', 'ai-provider-for-', 'bestony-ai-provider/', 'birbwhale/', 'duetg-ai-connector/', 'duoport-connect-for-opencode/', 'jokiruiz-local-model-connector/', 'koneek-multi-provider-ai-gateway/', 'latentkit-ai-provider/', 'mittwald-ai-provider/', 'modeltrestle-ai-connector-for-nano-gpt/', 'mw-local-ai-connector/', 'mwai', 'onmyodev-connector-for-deepseek/', 'opencode-ai-provider/', 'razhur-connector-for-avalai/', 'sync-to-gpt', 'ultimate-ai-connector-compatible-endpoints/', 'vercel-ai-gateway-provider/', 'zactonz-ai-' ], options: [ 'mwai_options', 'mwai_v2_options' ], delete_options: 8, delete_partial_options: 6, delete_option_prefixes: { connectors_ai_: [ '_api_key', '_application_password' ], '_secret_ai/': [ '_api_key' ], 0: 'koneek_api_key', 1: 'zctz_openrouter_secret_' }, phases: [ false, false, false, false, false ] },
 			'The JSON output does not describe the AI integration'
+		);
+		assert.deepEqual(
+			{ label: nmi.label, plugins: nmi.plugins, options: nmi.options, partial_options: nmi.partial_options, delete_options: nmi.delete_options, delete_partial_options: nmi.delete_partial_options, offline_gateways: nmi.offline_gateways, phases: [ nmi.scrub, nmi.delete, nmi.keep, nmi.hooks, nmi.late ] },
+			{ label: 'NMI (Pledged Plugins)', plugins: [], options: [], partial_options: [], delete_options: [], delete_partial_options: { woocommerce_nmi_settings: [ 'private_key', 'public_key', 'checkout_key', 'password' ], 'woocommerce_nmi-echeck_settings': [ 'private_key', 'public_key', 'password' ] }, offline_gateways: [], phases: [ false, false, false, false, false ] },
+			'The JSON output does not describe the NMI integration'
 		);
 		assert.deepEqual(
 			{ label: mailpoet.label, plugins: mailpoet.plugins, tables: mailpoet.tables.length, action_scheduler_hooks: mailpoet.action_scheduler_hooks, upload_globs: mailpoet.upload_globs.length, phases: [ mailpoet.scrub, mailpoet.delete, mailpoet.keep, mailpoet.hooks, mailpoet.late ] },
@@ -183,12 +189,14 @@ describe( 'wp-cli: the wp safety-net commands on a WooCommerce store', () => {
 	} );
 
 	test( 'C1/S11: each command succeeds and does its job', async () => {
-		await site.php( "sn_test_create_user( 'cli_customer', 'customer' ); set_transient( 'sn_cli', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); update_option( 'connectors_ai_openai_api_key', 'sk-test-cli' ); update_option( '_secret_ai/openai_api_key', base64_encode( 'sn-test-cli' ), false ); sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php', 'zz-checkout/zz-checkout.php' ) ); return true;", { label: 're-seeding after the automatic pass' } );
+		await site.php( "sn_test_create_user( 'cli_customer', 'customer' ); set_transient( 'sn_cli', 'x', DAY_IN_SECONDS ); update_option( 'klaviyo_api_key', 'again' ); update_option( 'connectors_ai_openai_api_key', 'sk-test-cli' ); update_option( '_secret_ai/openai_api_key', base64_encode( 'sn-test-cli' ), false ); foreach ( SN_TEST_NMI_SETTINGS as $name => $value ) { update_option( $name, $value ); update_option( $name . '_sn_backup', $value ); } sn_test_activate_plugins( array( 'mailchimp-for-wp/mailchimp-for-wp.php', 'zz-checkout/zz-checkout.php' ) ); return true;", { label: 're-seeding after the automatic pass' } );
 
 		assert.match( ( await wpOk( 'safety-net', 'scrub-options' ) ).stdout, /Success: All options have been scrubbed\./ );
 		assert.equal( await site.php( "return sn_test_raw_option( 'klaviyo_api_key' );" ), '' );
 		const ai = await site.php( 'return sn_test_ai_state();' );
 		assert.deepEqual( { openai: ai.keys.connectors_ai_openai_api_key, secret: ai.keys[ '_secret_ai/openai_api_key' ], backups: ai.backups }, { openai: null, secret: null, backups: [] }, 'wp safety-net scrub-options left an AI provider key or a backup of it' );
+		const nmi = await site.php( 'return sn_test_nmi_state();' );
+		assert.deepEqual( { card: nmi.woocommerce_nmi_settings.value.private_key, echeck: nmi[ 'woocommerce_nmi-echeck_settings' ].value.password, backups: [ nmi.woocommerce_nmi_settings.backup, nmi[ 'woocommerce_nmi-echeck_settings' ].backup ] }, { card: '', echeck: '', backups: [ null, null ] }, 'wp safety-net scrub-options left an NMI key or a backup of the NMI settings' );
 
 		assert.match( ( await wpOk( 'safety-net', 'deactivate-plugins' ) ).stdout, /Success: Problematic plugins have been deactivated\./ );
 		const active = await site.php( "return get_option( 'active_plugins' );" );

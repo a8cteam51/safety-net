@@ -136,6 +136,13 @@ function sn_test_seed_base(): array {
 	if ( array( 'tokens' => SN_TEST_XERO_TOKENS, 'backup' => null, 'settings' => SN_TEST_XERO_SETTINGS ) !== $xero ) {
 		throw new RuntimeException( 'Seeding WooCommerce Xero failed: ' . wp_json_encode( $xero ) );
 	}
+	foreach ( SN_TEST_NMI_SETTINGS as $name => $value ) {
+		update_option( $name, $value );
+	}
+	$nmi = sn_test_nmi_state();
+	if ( array_map( static fn( $value ) => array( 'value' => $value, 'backup' => null ), SN_TEST_NMI_SETTINGS ) !== $nmi ) {
+		throw new RuntimeException( 'Seeding the NMI gateway settings failed: ' . wp_json_encode( $nmi ) );
+	}
 	$ai = sn_test_seed_ai_keys( 'site' );
 
 	sn_test_install_fixture_plugins();
@@ -166,6 +173,7 @@ function sn_test_seed_base(): array {
 		'admin_email' => get_option( 'admin_email' ),
 		'ai'          => $ai,
 		'xero'        => $xero,
+		'nmi'         => $nmi,
 	);
 }
 
